@@ -1,0 +1,29 @@
+test_copies (__main__.W3.test_copies) ... ok
+test_counts (__main__.W3.test_counts) ... ok
+test_ctor_invalid (__main__.W3.test_ctor_invalid) ... ok
+test_edges (__main__.W3.test_edges) ... ok
+test_input_not_shared (__main__.W3.test_input_not_shared) ... ok
+test_names (__main__.W3.test_names) ... ok
+test_delete_customer (__main__.W4.test_delete_customer) ... ok
+test_delete_product (__main__.W4.test_delete_product) ... ok
+test_failed_add_keeps_counter (__main__.W4.test_failed_add_keeps_counter) ... ok
+test_gender_move (__main__.W4.test_gender_move) ... ok
+test_id_limit (__main__.W4.test_id_limit) ... ok
+test_ids (__main__.W4.test_ids) ... ok
+test_mixed_invalid (__main__.W4.test_mixed_invalid) ... ok
+test_move (__main__.W4.test_move) ... ok
+test_same_name (__main__.W4.test_same_name) ... ok
+test_stock (__main__.W4.test_stock) ... ok
+test_changes (__main__.W5.test_changes) ... ok
+test_faults (__main__.W5.test_faults) ... ok
+test_invalid (__main__.W5.test_invalid) ... ok
+test_query (__main__.W6W7.test_query) ... ok
+test_s4 (__main__.W6W7.test_s4) ... ok
+test_cases (__main__.W8.test_cases) ... ok
+test_gender_union (__main__.W8.test_gender_union) ... ok
+test_sold_out (__main__.W8.test_sold_out) ... ok
+
+----------------------------------------------------------------------
+Ran 24 tests in 0.021s
+
+OK

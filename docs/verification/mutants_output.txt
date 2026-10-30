@@ -1,0 +1,4 @@
+오류1 같은 성별 범위 합산 누락: 실패 ['W8.test_gender_union']
+오류2 검사 중 ID 카운터 변경: 실패 ['W5.test_faults']
+오류3 수정 중 부분 변경: 실패 ['W4.test_mixed_invalid']
+정상 구현: 실패 []

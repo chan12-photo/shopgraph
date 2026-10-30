@@ -41,7 +41,7 @@
 - W12 시연 테스트의 기대값은 docs/demo_expected.md(사람이 손계산·승인)에서만 가져온다. 실행 결과를 기대값으로 옮겨 적지 않는다
 - 추천 테스트는 상품 ID·범위·점수·구매자 수·지지자를 모두 비교한다
 - 이번 단계 테스트에서 다음 단계 기능을 부르지 않는다 (단계 배정은 docs/test_map.md)
-- 모든 단계에서 docs/defects.md, docs/test_map.md의 테스트 이름 칸, docs/verification/은 고칠 수 있다. 계획서 본문(19장 변경 이력·6.6 검증 기록 포함)은 고치지 않는다. 기록이 필요하면 문안을 G7 자료로 제출하고 사람이 반영한다
+- 모든 단계에서 docs/defects.md, docs/test_map.md의 테스트 이름 칸, docs/verification/, README.md의 "현재 상태" 섹션은 고칠 수 있다(README.md의 다른 섹션은 W0 이후 고치지 않는다). 계획서 본문(19장 변경 이력·6.6 검증 기록 포함)은 고치지 않는다. 기록이 필요하면 문안을 G7 자료로 제출하고 사람이 반영한다
 
 ## 코드 스타일
 - 함수·변수 snake_case, 클래스 PascalCase, 타입 힌트 사용

@@ -24,6 +24,6 @@ test_gender_union (__main__.W8.test_gender_union) ... ok
 test_sold_out (__main__.W8.test_sold_out) ... ok
 
 ----------------------------------------------------------------------
-Ran 24 tests in 0.021s
+Ran 24 tests in 0.005s
 
 OK

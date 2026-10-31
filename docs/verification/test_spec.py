@@ -72,6 +72,7 @@ class W5(unittest.TestCase):
     def test_changes(s):
         g=make(); g.delete_purchase("T004"); e=g.edge("C01","P01"); s.assertEqual((len(e["colors"]),e["count"],e["last_date"]),(3,3,"2026-09-15"))
         g=make(); s.assertEqual(g.add_purchase("C02","P02","블랙",1,"2026-10-05"),"T014"); e=g.edge("C02","P02"); s.assertEqual((len(e["colors"]),e["count"],e["total_qty"],e["last_date"]),(2,3,3,"2026-10-05"))
+        g.delete_purchase("T006"); e=g.edge("C02","P02"); s.assertEqual((sorted(e["colors"]),e["count"],e["total_qty"],e["last_date"]),(["베이지","블랙"],2,2,"2026-10-05"))
         g=make(); g.update_purchase("T005",qty=3); e=g.edge("C01","P02"); s.assertEqual((e["total_qty"],e["count"],len(e["colors"])),(3,1,1))
         g=make(); g.delete_purchase("T005"); s.assertIsNone(g.edge("C01","P02")); st=g.stats(); s.assertEqual((st["purchases"],st["purchase_edges"]),(12,8))
         g=make(); g.update_purchase("T002",color="블랙"); e=g.edge("C01","P01"); s.assertEqual((len(e["colors"]),e["count"],e["total_qty"],e["last_date"]),(3,4,4,"2026-10-01"))

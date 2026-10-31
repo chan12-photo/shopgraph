@@ -24,7 +24,7 @@ W0에서 이 양식을 `docs/test_map.md`로 복사하고, W2에서 테스트 �
 | 6.4 P04 재고 교체(색상 추가) / P01 색상 삭제 거절 / 겹치는 색상명 거절 | W4 | test_graph · TestW4CustomerProduct | |
 | 6.4 들어오는 쪽: add_product·update_product의 stock 복사 | W4 | test_graph · TestW4CustomerProduct | |
 | 6.4 bool 나이, 바꿀 항목 없는 수정, 섞은 수정(고객·상품) — 원본 전체 비교 | W4 | test_graph · TestW4CustomerProduct | |
-| 6.4 T004 삭제 / T005 삭제 / T014 추가 / T005 수량 수정 / T002 색상 수정 | W5 | test_graph · TestW5Purchase | |
+| 6.4 T004 삭제 / T005 삭제 / T014 추가 / T014 추가 후 T006 삭제 / T005 수량 수정 / T002 색상 수정 | W5 | test_graph · TestW5Purchase | |
 | 6.4 잘못된 구매 입력 7종 — 원본 전체 비교, 실패 뒤 T014 발급 | W5 | test_graph · TestW5Purchase | |
 | 6.4 고장 주입 4종 (위반 보고, 재호출, 상태 불변) | W5 | test_graph · TestW5Integrity | |
 | 6.4 W3·W4·W5 변경 테스트의 무결성 확인 추가 | W5 | test_graph · 전 클래스 | |

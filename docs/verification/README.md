@@ -10,7 +10,7 @@ AI 에이전트는 이 폴더의 코드를 보고 구현이나 tests/의 테스�
 - helpers.py: snapshot(g) — 내부 상태 전체 깊은 복사 (테스트 전용)
 - test_spec.py: 6.2~6.4 기대값 24개 테스트
 - mutants.py: 오류 주입 3종이 어느 테스트에서 걸리는지 확인
-- run_output.txt, mutants_output.txt: 2026-10-23 실행 출력
+- run_output.txt, mutants_output.txt: 2026-10-31 재실행 출력 (10/29 같은 색 기록 삭제 확인 추가 후)
 
 ## 실행 (Python 3.11 이상, 표준 라이브러리만)
     python test_spec.py

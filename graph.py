@@ -77,6 +77,9 @@ _ID_PATTERNS: Final[MappingProxyType[str, re.Pattern[str]]] = MappingProxyType({
     "T": re.compile(r"T[0-9]{3}"),
 })
 
+# 발급 ID의 번호 자릿수 (부록 B.1): 고객·상품 두 자리(최대 99), 구매 세 자리(최대 999)
+_ID_DIGITS: Final[MappingProxyType[str, int]] = MappingProxyType({"C": 2, "P": 2, "T": 3})
+
 # 초기 레코드의 키 (부록 B.1 내부 딕셔너리 모양)
 _CUSTOMER_KEYS: Final[frozenset[str]] = frozenset({"id", "name", "gender", "age"})
 _PRODUCT_KEYS: Final[frozenset[str]] = frozenset({"id", "name", "kind", "style", "price", "stock"})
@@ -545,9 +548,18 @@ class ShopGraph:
         예외:
             ValueError: 입력이 부록 B.3 규칙을 어기거나 ID 한도(C99)를 넘을 때.
                 실패하면 아무것도 바꾸지 않고 ID도 발급하지 않는다.
-            NotImplementedError: W4에서 구현하기 전.
         """
-        raise NotImplementedError("W4에서 구현 예정")
+        record = {
+            "name": _clean_text(name, _NAME_MAX, "이름"),
+            "gender": _check_choice(gender, _GENDER_VALUES, "성별"),
+            "age": _check_int(age, AGE_BANDS[0][2], AGE_BANDS[-1][3], "나이"),
+        }
+        customer_id = self._next_id("C")
+        # 검증을 모두 통과했다: 원본 변경 → 카운터 증가 → 그래프 재구축 (계획서 5.2 갱신 방식)
+        self._customers[customer_id] = {"id": customer_id, **record}
+        self._next_ids["C"] += 1
+        self.rebuild()
+        return customer_id
 
     def update_customer(
         self,
@@ -570,9 +582,19 @@ class ShopGraph:
         예외:
             ValueError: 없는 고객 ID, 바꿀 항목이 하나도 없음, 값이 부록 B.3 규칙을 어김.
                 하나라도 실패하면 유효한 값까지 아무것도 반영하지 않는다.
-            NotImplementedError: W4에서 구현하기 전.
         """
-        raise NotImplementedError("W4에서 구현 예정")
+        updated = dict(_lookup(self._customers, customer_id, "고객"))
+        if name is None and gender is None and age is None:
+            raise ValueError("바꿀 항목이 없습니다")
+        if name is not None:
+            updated["name"] = _clean_text(name, _NAME_MAX, "이름")
+        if gender is not None:
+            updated["gender"] = _check_choice(gender, _GENDER_VALUES, "성별")
+        if age is not None:
+            updated["age"] = _check_int(age, AGE_BANDS[0][2], AGE_BANDS[-1][3], "나이")
+        # 검증을 모두 통과했다: 원본 교체 → 재구축이 성별·나이에 맞는 그룹으로 다시 연결한다
+        self._customers[customer_id] = updated
+        self.rebuild()
 
     def delete_customer(self, customer_id: str) -> int:
         """고객과 그 고객의 구매 기록을 함께 삭제하고 노드·간선을 제거한다.
@@ -587,9 +609,9 @@ class ShopGraph:
 
         예외:
             ValueError: 없는 고객 ID.
-            NotImplementedError: W4에서 구현하기 전.
         """
-        raise NotImplementedError("W4에서 구현 예정")
+        _lookup(self._customers, customer_id, "고객")
+        return self._delete_with_purchases(self._customers, customer_id, "customer_id")
 
     def add_product(
         self,
@@ -616,9 +638,20 @@ class ShopGraph:
         예외:
             ValueError: 입력이 부록 B.3 규칙을 어기거나 ID 한도(P99)를 넘을 때.
                 실패하면 아무것도 바꾸지 않고 ID도 발급하지 않는다.
-            NotImplementedError: W4에서 구현하기 전.
         """
-        raise NotImplementedError("W4에서 구현 예정")
+        record = {
+            "name": _clean_text(name, _NAME_MAX, "상품명"),
+            "kind": _check_choice(kind, KINDS, "종류"),
+            "style": _check_choice(style, STYLES, "스타일"),
+            "price": _check_int(price, 0, None, "가격"),
+            "stock": _clean_stock(stock),
+        }
+        product_id = self._next_id("P")
+        # 검증을 모두 통과했다: 원본 변경 → 카운터 증가 → 그래프 재구축
+        self._products[product_id] = {"id": product_id, **record}
+        self._next_ids["P"] += 1
+        self.rebuild()
+        return product_id
 
     def update_product(
         self,
@@ -649,9 +682,24 @@ class ShopGraph:
         예외:
             ValueError: 없는 상품 ID, 바꿀 항목이 하나도 없음, 값이 부록 B.3 규칙을 어김,
                 구매 기록이 있는 색상 삭제. 하나라도 실패하면 아무것도 반영하지 않는다.
-            NotImplementedError: W4에서 구현하기 전.
         """
-        raise NotImplementedError("W4에서 구현 예정")
+        updated = dict(_lookup(self._products, product_id, "상품"))
+        if all(value is None for value in (name, kind, style, price, stock)):
+            raise ValueError("바꿀 항목이 없습니다")
+        if name is not None:
+            updated["name"] = _clean_text(name, _NAME_MAX, "상품명")
+        if kind is not None:
+            updated["kind"] = _check_choice(kind, KINDS, "종류")
+        if style is not None:
+            updated["style"] = _check_choice(style, STYLES, "스타일")
+        if price is not None:
+            updated["price"] = _check_int(price, 0, None, "가격")
+        if stock is not None:
+            updated["stock"] = _clean_stock(stock)
+            self._check_color_removal(product_id, updated["stock"])
+        # 검증을 모두 통과했다: 원본 교체 → 그래프 재구축
+        self._products[product_id] = updated
+        self.rebuild()
 
     def delete_product(self, product_id: str) -> int:
         """상품과 그 상품의 구매 기록을 함께 삭제하고 노드·간선을 제거한다.
@@ -666,9 +714,9 @@ class ShopGraph:
 
         예외:
             ValueError: 없는 상품 ID.
-            NotImplementedError: W4에서 구현하기 전.
         """
-        raise NotImplementedError("W4에서 구현 예정")
+        _lookup(self._products, product_id, "상품")
+        return self._delete_with_purchases(self._products, product_id, "product_id")
 
     def add_purchase(
         self,
@@ -947,9 +995,9 @@ class ShopGraph:
 
         예외:
             ValueError: 없는 상품 ID.
-            NotImplementedError: W4에서 구현하기 전.
         """
-        raise NotImplementedError("W4에서 구현 예정")
+        stock = _lookup(self._products, product_id, "상품")["stock"]
+        return all(count == 0 for count in stock.values())
 
     def available_colors(self, product_id: str) -> list[str]:
         """상품에서 구매 가능한(재고가 1 이상인) 색상을 돌려준다.
@@ -962,9 +1010,9 @@ class ShopGraph:
 
         예외:
             ValueError: 없는 상품 ID.
-            NotImplementedError: W4에서 구현하기 전.
         """
-        raise NotImplementedError("W4에서 구현 예정")
+        stock = _lookup(self._products, product_id, "상품")["stock"]
+        return sorted(color for color, count in stock.items() if count > 0)
 
     def rebuild(self) -> None:
         """원본 데이터에서 그래프(그룹 소속·인접 리스트·간선 집계)를 다시 만든다.
@@ -1034,3 +1082,72 @@ class ShopGraph:
             "purchase_edges": len(self._edges),
             "purchases": len(self._purchases),
         }
+
+    def _next_id(self, prefix: str) -> str:
+        """다음에 발급할 ID를 만든다. 카운터는 바꾸지 않는다 (올리는 것은 원본을 바꾸는 쪽이 한다).
+
+        검증 단계에서 불러 한도를 먼저 확인하고, 모든 검증을 통과한 뒤에만 카운터를 올리게 하려고
+        "미리 보기"와 "올리기"를 나눴다 (부록 B.1 ID 발급).
+
+        인자:
+            prefix: 종류 글자 "C" | "P" | "T".
+
+        반환:
+            다음 ID (예: 처음 상태에서 "C" → "C07", "T" → "T014").
+
+        예외:
+            ValueError: 한도(C99·P99·T999)를 넘을 때 ("ID 한도 초과").
+        """
+        number = self._next_ids[prefix]
+        digits = _ID_DIGITS[prefix]
+        if number >= 10 ** digits:
+            raise ValueError(f"ID 한도 초과: {prefix} 번호는 {10 ** digits - 1}까지입니다")
+        return f"{prefix}{number:0{digits}d}"
+
+    def _check_color_removal(self, product_id: str, new_stock: dict[str, int]) -> None:
+        """재고 교체로 사라지는 색상 중 구매 기록이 있는 색상이 있는지 확인한다 (부록 B.3 색상 삭제).
+
+        구매된 색상은 원본 전체를 훑지 않고 그래프에서 읽는다: 상품 노드의 이웃 고객마다
+        (고객, 상품) 간선의 색상 집합을 합친다.
+
+        인자:
+            product_id: 존재가 확인된 상품 ID.
+            new_stock: 검증을 마친(색상명 공백을 지운) 새 재고 딕셔너리.
+
+        반환:
+            없음.
+
+        예외:
+            ValueError: 구매 기록이 있는 색상이 새 재고에 없을 때. 상태는 바꾸지 않는다.
+        """
+        purchased: set[str] = set()
+        for node in self._adj[product_id]:
+            if node in self._customers:
+                purchased |= self._edges[(node, product_id)]["colors"]
+        removed = sorted(purchased - set(new_stock))
+        if removed:
+            raise ValueError(f"구매 기록이 있는 색상은 삭제할 수 없습니다: {', '.join(removed)}")
+
+    def _delete_with_purchases(self, table: dict[str, dict], record_id: str, ref_key: str) -> int:
+        """고객 또는 상품 하나를 그 구매 기록과 함께 원본에서 지우고 그래프를 다시 만든다.
+
+        delete_customer·delete_product가 존재를 확인한 뒤 부른다. 원본(구매 기록 포함)을 먼저
+        바꾸고 rebuild()로 노드·간선을 다시 만든다 (계획서 5.2 갱신 방식).
+
+        인자:
+            table: self._customers 또는 self._products.
+            record_id: 존재가 확인된 고객 ID 또는 상품 ID.
+            ref_key: 구매 기록에서 그 ID를 담는 키 "customer_id" | "product_id".
+
+        반환:
+            함께 삭제된 구매 기록 수.
+
+        예외:
+            없음.
+        """
+        doomed = [tid for tid, rec in self._purchases.items() if rec[ref_key] == record_id]
+        for purchase_id in doomed:
+            del self._purchases[purchase_id]
+        del table[record_id]
+        self.rebuild()
+        return len(doomed)

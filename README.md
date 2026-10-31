@@ -54,10 +54,10 @@ CLAUDE.md                AI 작업 규칙
 
 이 섹션만 모든 단계에서 갱신한다.
 
-- 완료: W0 저장소 준비, W1 graph 계약 고정, W2 테스트 먼저, W3 graph 읽기 쪽
-- 다음: W4 고객·상품 변경 (아직 시작 전)
-- graph.py는 생성자·rebuild·조회 메서드까지 구현됐다. 나머지(graph.py 변경 메서드, search.py·view.py·main.py)는 골격만 있다 (NotImplementedError). `python main.py`의 실제 동작은 W8b(최소 흐름)부터다
-- 테스트 74개(test_graph·test_search·test_recommend)가 있다. 지금은 `python -m unittest -v`에서 `Ran 74 tests`, `FAILED (errors=58)`이 정상이다 (W3 테스트 16개 통과, 나머지 58개는 NotImplementedError)
+- 완료: W0 저장소 준비, W1 graph 계약 고정, W2 테스트 먼저, W3 graph 읽기 쪽, W4 고객·상품 변경
+- 다음: W5 구매 변경·무결성 검사 (아직 시작 전)
+- graph.py는 생성자·rebuild·조회 메서드, 고객·상품 등록·수정·삭제까지 구현됐다. 나머지(graph.py 구매 변경·무결성 검사, search.py·view.py·main.py)는 골격만 있다 (NotImplementedError). `python main.py`의 실제 동작은 W8b(최소 흐름)부터다
+- 테스트 76개(test_graph·test_search·test_recommend)가 있다. 지금은 `python -m unittest -v`에서 `Ran 76 tests`, `FAILED (errors=38)`이 정상이다 (W3·W4 테스트 38개 통과, 나머지 38개는 NotImplementedError)
 - 계획서 반영 대기 (W5 뒤 사람이 한 번에 반영):
     - B.3 구매일 행 ①: 정규식 표기를 `[0-9]{4}-[0-9]{2}-[0-9]{2}` 전체 일치(fullmatch)로 정정 (결함 B07)
     - 19장 행: `| 10/31 | B.3 구매일 규칙 ①의 정규식 표기를 [0-9]{4}-[0-9]{2}-[0-9]{2} 전체 일치로 정정 | \d·$ 표기가 다른 숫자 체계·끝 줄바꿈을 형식 단계에서 통과시킴(B07) | 찬일 |`

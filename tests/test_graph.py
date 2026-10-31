@@ -235,7 +235,7 @@ class TestW4CustomerProduct(unittest.TestCase):
         """6.4 ID 발급: 처음 등록은 C07, C07 삭제 → rebuild → 다음 등록은 C08."""
         g = make_graph()
         self.assertEqual(g.add_customer("고객7", "여", 22), "C07")
-        g.delete_customer("C07")
+        self.assertEqual(g.delete_customer("C07"), 0)  # [제안 기대값] 구매 기록이 없는 고객 → 함께 삭제된 기록 0건
         g.rebuild()
         self.assertEqual(g.add_customer("고객8", "여", 22), "C08")
 
@@ -303,6 +303,8 @@ class TestW4CustomerProduct(unittest.TestCase):
         """6.4: 구매 기록이 있는 색상 삭제(P01 → {블랙 5}) 거절, 공백 제거 후 겹치는 색상명 거절. 상태 불변."""
         g = make_graph()
         _assert_rejected(self, g, lambda: g.update_product("P01", stock={"블랙": 5}), "P01 색상 삭제")
+        # [제안 기대값] 6.1에서 P02 베이지는 두 번째 이웃 C02(T007)만 샀으므로 베이지 삭제도 거절.
+        _assert_rejected(self, g, lambda: g.update_product("P02", stock={"블랙": 3}), "P02 베이지 삭제")
         _assert_rejected(self, g, lambda: g.update_product("P04", stock={"카키": 1, " 카키 ": 2}),
                          "update_product 겹치는 색상명")
         _assert_rejected(self, g, lambda: g.add_product("새 상품", "상의", "캐주얼", 10000,
@@ -347,6 +349,7 @@ class TestW4CustomerProduct(unittest.TestCase):
             ("나이 100", lambda: g.add_customer("고객7", "여", 100)),
             ("나이 문자열", lambda: g.add_customer("고객7", "여", "30")),
             ("없는 고객 수정", lambda: g.update_customer("C99", age=30)),
+            ("형식이 틀린 고객 ID 수정", lambda: g.update_customer("C1", age=30)),
             ("없는 고객 삭제", lambda: g.delete_customer("C99")),
         ]
         for label, call in cases:
@@ -434,6 +437,34 @@ class TestW4CustomerProduct(unittest.TestCase):
         _assert_rejected(self, g, lambda: g.add_product("새 상품", "상의", "캐주얼", -1, {"블랙": 1}), "가격 -1")
         # [제안 기대값] 처음 상태 상품 카운터는 6(B.1 {"P": 6}), 실패한 등록은 번호를 쓰지 않음 → P06.
         self.assertEqual(g.add_product("새 상품", "상의", "캐주얼", 10000, {"블랙": 1}), "P06")
+
+    def test_update_product_fields(self) -> None:
+        """5.3.1 상품 수정: 종류·스타일·가격만 수정하면 그 값만 바뀌고 재고·구매 관계는 그대로."""
+        g = make_graph()
+        g.update_product("P01", kind="아우터", style="포멀", price=31000)
+        # [제안 기대값] 6.1 P01에서 종류·스타일·가격만 바꾼 값. 이름·재고는 6.1 그대로.
+        # 구매 관계는 바뀌지 않으므로 P01 이웃은 6.1 T001~T004(C01)·T013(C04) → [C01, C04], (C01,P01) 가중치 4(6.2).
+        self.assertEqual(g.get_product("P01"), {
+            "id": "P01", "name": "오버핏 티셔츠", "kind": "아우터", "style": "포멀", "price": 31000,
+            "stock": {"블랙": 5, "화이트": 5, "그레이": 5, "네이비": 5},
+        })
+        self.assertEqual(g.neighbors("P01"), ["C01", "C04"])
+        self.assertEqual(g.weight("C01", "P01"), 4)
+
+    def test_delete_cascade_neighbors(self) -> None:
+        """6.4 C02 삭제 연쇄: 개수뿐 아니라 이웃 목록에서도 C02가 빠지고, C02와 그 구매 기록은 조회되지 않는다."""
+        g = make_graph()
+        g.delete_customer("C02")
+        # [제안 기대값] 6.1에서 P02 구매자는 C01(T005)·C02(T006·T007), P03 구매자는 C02(T008)·C03(T009).
+        # C02를 지우면 P02 → [C01], P03 → [C03], G-F-20 → [C01, C03](6.4 members 값과 같음).
+        self.assertEqual(g.neighbors("P02"), ["C01"])
+        self.assertEqual(g.neighbors("P03"), ["C03"])
+        self.assertEqual(g.neighbors("G-F-20"), ["C01", "C03"])
+        for label, call in (("neighbors C02", lambda: g.neighbors("C02")),
+                            ("get_customer C02", lambda: g.get_customer("C02")),
+                            ("get_purchase T006", lambda: g.get_purchase("T006")),
+                            ("get_purchase T008", lambda: g.get_purchase("T008"))):
+            _assert_rejected(self, g, call, label)
 
 
 class TestW5Purchase(unittest.TestCase):

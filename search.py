@@ -10,7 +10,7 @@ W8b에서 최종 고정한다.
 - 정수 인자(가격·k)는 int만 인정하고 bool·숫자 문자열은 거부한다 (부록 B.3 정수 공통).
 """
 
-from graph import K_DEFAULT, KINDS, STYLES, ShopGraph
+from graph import K_DEFAULT, K_MAX, KINDS, STYLES, WEIGHT_CAP, ShopGraph
 
 
 def _check_int_range(value: object, low: int, high: int | None, label: str) -> int:
@@ -36,6 +36,36 @@ def _check_int_range(value: object, low: int, high: int | None, label: str) -> i
         limit = f"{low} 이상" if high is None else f"{low}~{high}"
         raise ValueError(f"{label}: {limit}이어야 합니다: {value}")
     return value
+
+
+def _collect_scores(g: ShopGraph, peer_ids: list[str]) -> dict[str, dict]:
+    """동료 고객들의 구매를 상품별 점수·지지자로 모은다 (계획서 5.3.2 S4·5.3.3 점수 규칙).
+
+    동료마다(ID 순) 고객 노드의 이웃 중 상품 노드를 따라가며(그룹 → 고객 → 상품)
+    점수에 min(가중치, WEIGHT_CAP)을 더하고 지지자에 그 동료를 넣는다. 구매 기록 전체를 훑지 않는다.
+    S4(group_popular)와 추천(recommend, W8)이 함께 쓴다.
+
+    인자:
+        g: 조회할 ShopGraph.
+        peer_ids: 점수를 낼 동료 고객 ID 리스트, ID 오름차순.
+
+    반환:
+        상품 ID → {"score": 점수 합, "supporters": [고객 ID, ID 오름차순]} 새 딕셔너리.
+        점수가 생긴 상품만 들어 있다.
+
+    예외:
+        ValueError: peer_ids에 없는 고객 ID가 있을 때 (g.neighbors·g.weight가 냄).
+    """
+    product_ids = set(g.product_ids())
+    scores: dict[str, dict] = {}
+    for customer_id in peer_ids:
+        for product_id in g.neighbors(customer_id):
+            if product_id not in product_ids:
+                continue  # 소속 그룹 노드
+            entry = scores.setdefault(product_id, {"score": 0, "supporters": []})
+            entry["score"] += min(g.weight(customer_id, product_id), WEIGHT_CAP)
+            entry["supporters"].append(customer_id)
+    return scores
 
 
 def _check_conditions(kind: object, style: object, color: object,
@@ -213,9 +243,17 @@ def group_popular(g: ShopGraph, group_id: str, k: int | None = None) -> list[dic
 
     예외:
         ValueError: 없는 그룹 ID, k가 None도 정수 1~10도 아님.
-        NotImplementedError: W7에서 구현하기 전.
     """
-    raise NotImplementedError("W7에서 구현 예정")
+    member_ids = g.members(group_id)  # 없는 그룹 ID면 ValueError
+    if k is not None:
+        _check_int_range(k, 1, K_MAX, "k")
+    items = [
+        {"product_id": product_id, "score": entry["score"], "buyers": len(entry["supporters"]),
+         "sold_out": g.is_sold_out(product_id)}
+        for product_id, entry in _collect_scores(g, member_ids).items()
+    ]
+    items.sort(key=lambda item: (-item["score"], -item["buyers"], item["product_id"]))
+    return items if k is None else items[:k]
 
 
 def recommend(g: ShopGraph, customer_id: str, k: int = K_DEFAULT) -> list[dict]:

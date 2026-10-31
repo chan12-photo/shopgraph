@@ -10,7 +10,7 @@ W8b에서 최종 고정한다.
 - 정수 인자(가격·k)는 int만 인정하고 bool·숫자 문자열은 거부한다 (부록 B.3 정수 공통).
 """
 
-from graph import K_DEFAULT, K_MAX, KINDS, STYLES, WEIGHT_CAP, ShopGraph
+from graph import GROUP_IDS, K_DEFAULT, K_MAX, KINDS, STYLES, WEIGHT_CAP, ShopGraph
 
 
 def _check_int_range(value: object, low: int, high: int | None, label: str) -> int:
@@ -42,7 +42,8 @@ def _collect_scores(g: ShopGraph, peer_ids: list[str]) -> dict[str, dict]:
     """동료 고객들의 구매를 상품별 점수·지지자로 모은다 (계획서 5.3.2 S4·5.3.3 점수 규칙).
 
     동료마다(ID 순) 고객 노드의 이웃 중 상품 노드를 따라가며(그룹 → 고객 → 상품)
-    점수에 min(가중치, WEIGHT_CAP)을 더하고 지지자에 그 동료를 넣는다. 구매 기록 전체를 훑지 않는다.
+    점수에 min(가중치, WEIGHT_CAP)을 더하고 지지자에 그 동료를 넣는다. 고객의 이웃은 소속 그룹 하나와
+    산 상품뿐이므로 GROUP_IDS에 있는 이웃만 건너뛴다. 구매 기록 전체를 훑지 않는다.
     S4(group_popular)와 추천(recommend, W8)이 함께 쓴다.
 
     인자:
@@ -56,11 +57,10 @@ def _collect_scores(g: ShopGraph, peer_ids: list[str]) -> dict[str, dict]:
     예외:
         ValueError: peer_ids에 없는 고객 ID가 있을 때 (g.neighbors·g.weight가 냄).
     """
-    product_ids = set(g.product_ids())
     scores: dict[str, dict] = {}
     for customer_id in peer_ids:
         for product_id in g.neighbors(customer_id):
-            if product_id not in product_ids:
+            if product_id in GROUP_IDS:
                 continue  # 소속 그룹 노드
             entry = scores.setdefault(product_id, {"score": 0, "supporters": []})
             entry["score"] += min(g.weight(customer_id, product_id), WEIGHT_CAP)
@@ -147,7 +147,8 @@ def find_products(
 def products_of(g: ShopGraph, customer_id: str) -> list[dict]:
     """S1: 고객이 산 상품과 구매 집계를 돌려준다 (고객 → 상품).
 
-    고객 노드의 이웃 중 상품 노드만 따라가고, 집계는 그 간선에서 읽는다 (구매 기록 전체를 훑지 않음).
+    고객 노드의 이웃 중 상품 노드만 따라가고(GROUP_IDS에 있는 소속 그룹은 건너뜀),
+    집계는 그 간선에서 읽는다 (구매 기록 전체를 훑지 않음).
 
     인자:
         g: 조회할 ShopGraph.
@@ -161,11 +162,10 @@ def products_of(g: ShopGraph, customer_id: str) -> list[dict]:
         ValueError: 없는 고객 ID.
     """
     g.get_customer(customer_id)  # 없는 고객 ID면 ValueError
-    product_ids = set(g.product_ids())
     result = []
     for product_id in g.neighbors(customer_id):
-        if product_id not in product_ids:
-            continue  # 그룹 노드
+        if product_id in GROUP_IDS:
+            continue  # 소속 그룹 노드
         edge = g.edge(customer_id, product_id)
         result.append({
             "product_id": product_id,
@@ -183,6 +183,7 @@ def customers_of(g: ShopGraph, product_id: str) -> list[dict]:
     """S2: 상품을 산 고객과 그 고객의 그룹·구매 색상을 돌려준다 (상품 → 고객).
 
     상품 노드의 이웃(구매 고객)을 따라가고, 그룹과 색상은 그 고객의 소속 간선·구매 간선에서 읽는다.
+    상품의 이웃은 모두 고객이라(간선은 그룹–고객·고객–상품뿐, 계획서 5.2) 거르지 않는다.
 
     인자:
         g: 조회할 ShopGraph.
@@ -195,11 +196,8 @@ def customers_of(g: ShopGraph, product_id: str) -> list[dict]:
         ValueError: 없는 상품 ID.
     """
     g.get_product(product_id)  # 없는 상품 ID면 ValueError
-    customer_ids = set(g.customer_ids())
     result = []
     for customer_id in g.neighbors(product_id):
-        if customer_id not in customer_ids:
-            continue  # 정상 그래프에서는 상품의 이웃이 모두 고객이다
         result.append({
             "customer_id": customer_id,
             "name": g.get_customer(customer_id)["name"],

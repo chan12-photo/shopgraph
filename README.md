@@ -56,10 +56,13 @@ CLAUDE.md                AI 작업 규칙
 
 - 완료: W0 저장소 준비, W1 graph 계약 고정, W2 테스트 먼저, W3 graph 읽기 쪽, W4 고객·상품 변경
 - 브랜치에 커밋, 찬일 승인·main 반영 대기: W5 구매 변경·무결성 검사(w5-purchase, 필수 게이트), W6 조회·S1~S3(w6-search, 자동 진행), W7 S4 그룹 인기 상품(w7-popular, 자동 진행)
+- W6·W7 독립 검토 권장 반영(w7-popular 위 커밋): 조건 조회·S1·S4 테스트 4개 추가, S1·S2·S4가 그룹 노드를 GROUP_IDS 상수로 거름(상품·고객 ID 전체 정렬 호출 제거)
 - graph.py는 모두 구현됐다(생성자·조회·rebuild, 고객·상품·구매 변경, 무결성 검사). search.py는 조회·S1~S4까지 구현됐고 추천(recommend)과 view.py·main.py는 골격만 있다 (NotImplementedError). `python main.py`의 실제 동작은 W8b(최소 흐름)부터다
-- 테스트 77개(test_graph·test_search·test_recommend)가 있다. 지금은 `python -m unittest -v`에서 `Ran 77 tests`, `FAILED (errors=10)`이 정상이다 (test_graph 55개·test_search 12개 통과, test_recommend 10개는 NotImplementedError)
+- 테스트 81개(test_graph·test_search·test_recommend)가 있다. 지금은 `python -m unittest -v`에서 `Ran 81 tests`, `FAILED (errors=10)`이 정상이다 (test_graph 55개·test_search 16개 통과, test_recommend 10개는 NotImplementedError)
 - 계획서 반영 대기 (W5 뒤 사람이 한 번에 반영):
     - B.3 구매일 행 ①: 정규식 표기를 `[0-9]{4}-[0-9]{2}-[0-9]{2}` 전체 일치(fullmatch)로 정정 (결함 B07)
     - 19장 행: `| 10/31 | B.3 구매일 규칙 ①의 정규식 표기를 [0-9]{4}-[0-9]{2}-[0-9]{2} 전체 일치로 정정 | \d·$ 표기가 다른 숫자 체계·끝 줄바꿈을 형식 단계에서 통과시킴(B07) | 찬일 |`
     - 5.3.5 "고장 주입" 문단: "이 경우에만 테스트가 내부 속성(`_adj`, `_edges`)을 직접 고칠 수 있다" → "이 경우에만 테스트가 `_adj`·`_edges`·원본 등 내부 속성을 직접 고칠 수 있다" (결함 B08)
     - 19장 행: `| 10/31 | 5.3.5 고장 주입이 직접 고칠 수 있는 내부 속성을 원본까지 넓힘, 구매 기록 참조 고장 테스트 추가 | 없는 고객·상품을 참조하는 구매 기록은 원본을 고쳐야만 만들 수 있음(B08) | 찬일 |`
+    - B.3 조건 조회 행: "색상명은 앞뒤 공백을 지운 뒤 비교하고, 공백뿐이거나 문자열이 아니면 ValueError" 추가 (W6 독립 검토 R4, 찬일 확정)
+    - 19장 행: `| 10/31 | 조건 조회의 색상 조건: 앞뒤 공백을 지운 뒤 비교, 공백뿐이거나 문자열이 아니면 ValueError(B.3 조건 조회 행 보완) | B.3에 색상 조회 규칙이 없어 이름 조회(B.2)와 같은 방식으로 정함 | 찬일 |`

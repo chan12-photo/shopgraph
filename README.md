@@ -54,7 +54,7 @@ CLAUDE.md                AI 작업 규칙
 
 이 섹션만 모든 단계에서 갱신한다.
 
-- 완료: W0 저장소 준비
-- 진행 중: W1 graph 계약 고정 (G7 승인 대기)
+- 완료: W0 저장소 준비, W1 graph 계약 고정
+- 진행 중: W2 테스트 먼저 (G7 승인 대기)
 - graph.py·search.py·view.py·main.py는 골격만 있다 (모든 함수가 NotImplementedError). `python main.py`의 실제 동작은 W8b(최소 흐름)부터다
-- 테스트는 아직 없다. `python -m unittest -v`는 `Ran 0 tests`(종료 코드 5)가 정상이다
+- 테스트 73개(test_graph·test_search·test_recommend)가 있다. 구현 전이라 `python -m unittest -v`는 `Ran 73 tests`, `FAILED (errors=73)`(모두 NotImplementedError)가 정상이다

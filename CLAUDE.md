@@ -12,7 +12,7 @@
 ## 구조
 - data.py: 초기 더미 데이터만
 - graph.py: ShopGraph 클래스. 원본 데이터, 그래프(_adj, _edges, 그룹), ID 발급 카운터, 모든 변경 메서드. 데이터를 바꾸는 유일한 통로
-- search.py: 읽기 전용 함수. 첫 인자는 g: ShopGraph. 데이터 변경 금지. ShopGraph의 공개 메서드만 사용
+- search.py: 읽기 전용 함수. 첫 인자는 g: ShopGraph. 데이터 변경 금지. ShopGraph의 공개 메서드와 graph.py의 대문자 공개 상수(읽기 전용)만 사용
 - view.py: 출력 전용
 - main.py: 유일한 진입점. 메뉴, 입력 변환, ValueError를 메시지로 표시
 - tools/: 개발용 점검 스크립트 (프로그램 실행 경로에 포함되지 않음)

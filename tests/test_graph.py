@@ -111,6 +111,13 @@ class TestW3Build(unittest.TestCase):
         with self.assertRaises(ValueError):
             ShopGraph(customers(), products(), ts)
 
+    def test_ctor_date_not_real(self) -> None:
+        """B.1 생성자 계약 3·B.3 구매일 ②: 형식은 맞지만 없는 날짜(초기 구매일 2026-02-30) → ValueError."""
+        ts = purchases()
+        ts[0]["date"] = "2026-02-30"
+        with self.assertRaises(ValueError):
+            ShopGraph(customers(), products(), ts)
+
     def test_ctor_bad_shape(self) -> None:
         """B.1 생성자 계약 1·5: 리스트도 None도 아닌 인자, 딕셔너리가 아닌 레코드, 키가 빠진 레코드 → ValueError."""
         as_dict = {c["id"]: c for c in customers()}

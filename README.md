@@ -55,10 +55,11 @@ CLAUDE.md                AI 작업 규칙
 이 섹션만 모든 단계에서 갱신한다.
 
 - 완료: W0 저장소 준비, W1 graph 계약 고정, W2 테스트 먼저, W3 graph 읽기 쪽, W4 고객·상품 변경
-- 브랜치에 커밋, 찬일 승인·main 반영 대기: W5 구매 변경·무결성 검사(w5-purchase, 필수 게이트), W6 조회·S1~S3(w6-search, 자동 진행), W7 S4 그룹 인기 상품(w7-popular, 자동 진행)
+- 브랜치에 커밋, 찬일 승인·main 반영 대기: W5 구매 변경·무결성 검사(w5-purchase, 필수 게이트), W6 조회·S1~S3(w6-search, 자동 진행), W7 S4 그룹 인기 상품(w7-popular, 자동 진행), W8 추천(w8-recommend, 필수 게이트)
 - W6·W7 독립 검토 권장 반영(w7-popular 위 커밋): 조건 조회·S1·S4 테스트 4개 추가, S1·S2·S4가 그룹 노드를 GROUP_IDS 상수로 거름(상품·고객 ID 전체 정렬 호출 제거)
-- graph.py는 모두 구현됐다(생성자·조회·rebuild, 고객·상품·구매 변경, 무결성 검사). search.py는 조회·S1~S4까지 구현됐고 추천(recommend)과 view.py·main.py는 골격만 있다 (NotImplementedError). `python main.py`의 실제 동작은 W8b(최소 흐름)부터다
-- 테스트 81개(test_graph·test_search·test_recommend)가 있다. 지금은 `python -m unittest -v`에서 `Ran 81 tests`, `FAILED (errors=10)`이 정상이다 (test_graph 55개·test_search 16개 통과, test_recommend 10개는 NotImplementedError)
+- 이해 질문: W5·W6·W7·W8 모두 찬일 미답 (찬일이 나중에 한꺼번에 답한 뒤 [승인]과 main 반영)
+- graph.py는 모두 구현됐다(생성자·조회·rebuild, 고객·상품·구매 변경, 무결성 검사). search.py는 조회·S1~S4·추천(recommend)까지 구현됐고 view.py·main.py는 골격만 있다 (NotImplementedError). `python main.py`의 실제 동작은 W8b(최소 흐름)부터다
+- 테스트 81개(test_graph·test_search·test_recommend)가 있다. 지금은 `python -m unittest -v`에서 `Ran 81 tests`, `OK`가 정상이다 (test_graph 55개·test_search 16개·test_recommend 10개 모두 통과). 화면·흐름 테스트(test_view·test_flow)는 W8b·W9에서 추가한다
 - 계획서 반영 대기 (W5 뒤 사람이 한 번에 반영):
     - B.3 구매일 행 ①: 정규식 표기를 `[0-9]{4}-[0-9]{2}-[0-9]{2}` 전체 일치(fullmatch)로 정정 (결함 B07)
     - 19장 행: `| 10/31 | B.3 구매일 규칙 ①의 정규식 표기를 [0-9]{4}-[0-9]{2}-[0-9]{2} 전체 일치로 정정 | \d·$ 표기가 다른 숫자 체계·끝 줄바꿈을 형식 단계에서 통과시킴(B07) | 찬일 |`

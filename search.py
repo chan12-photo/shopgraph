@@ -10,7 +10,67 @@ W8b에서 최종 고정한다.
 - 정수 인자(가격·k)는 int만 인정하고 bool·숫자 문자열은 거부한다 (부록 B.3 정수 공통).
 """
 
-from graph import K_DEFAULT, ShopGraph
+from graph import K_DEFAULT, KINDS, STYLES, ShopGraph
+
+
+def _check_int_range(value: object, low: int, high: int | None, label: str) -> int:
+    """정수 인자가 범위 안에 있는지 확인한다. bool과 숫자 문자열은 거부한다 (부록 B.3 정수 공통).
+
+    search.py는 graph.py의 내부 함수를 쓸 수 없으므로(5.5) 이 모듈의 가격·k 검증은 이 함수 하나로 한다.
+
+    인자:
+        value: 검사할 값.
+        low: 허용하는 최솟값.
+        high: 허용하는 최댓값. None이면 위쪽 제한이 없다.
+        label: 오류 메시지에 쓸 항목 이름 (예: "최저 가격").
+
+    반환:
+        검사를 통과한 정수.
+
+    예외:
+        ValueError: int가 아니거나(bool 포함) 범위 밖일 때.
+    """
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{label}: 정수여야 합니다: {value!r}")
+    if value < low or (high is not None and value > high):
+        limit = f"{low} 이상" if high is None else f"{low}~{high}"
+        raise ValueError(f"{label}: {limit}이어야 합니다: {value}")
+    return value
+
+
+def _check_conditions(kind: object, style: object, color: object,
+                      price_min: object, price_max: object) -> str | None:
+    """조건 조회의 조건 값을 검사한다 (부록 B.3 조건 조회).
+
+    인자:
+        kind: 종류 또는 None.
+        style: 스타일 또는 None.
+        color: 색상명 또는 None.
+        price_min: 최저 가격 또는 None.
+        price_max: 최고 가격 또는 None.
+
+    반환:
+        앞뒤 공백을 지운 색상명. 색상 조건이 없으면 None.
+
+    예외:
+        ValueError: 종류·스타일이 상수 목록 밖, 색상이 문자열이 아니거나 공백뿐,
+            가격이 정수 0 이상이 아님, price_min > price_max.
+    """
+    if kind is not None and kind not in KINDS:
+        raise ValueError(f"종류: {'/'.join(KINDS)} 중 하나여야 합니다: {kind!r}")
+    if style is not None and style not in STYLES:
+        raise ValueError(f"스타일: {'/'.join(STYLES)} 중 하나여야 합니다: {style!r}")
+    if price_min is not None:
+        _check_int_range(price_min, 0, None, "최저 가격")
+    if price_max is not None:
+        _check_int_range(price_max, 0, None, "최고 가격")
+    if price_min is not None and price_max is not None and price_min > price_max:
+        raise ValueError(f"최저 가격이 최고 가격보다 큽니다: {price_min} > {price_max}")
+    if color is None:
+        return None
+    if not isinstance(color, str) or not color.strip():
+        raise ValueError(f"색상명: 공백뿐이거나 문자열이 아닙니다: {color!r}")
+    return color.strip()
 
 
 def find_products(
@@ -23,8 +83,8 @@ def find_products(
 ) -> list[str]:
     """조건(종류·스타일·색상·가격 범위)에 맞는 상품을 찾는다.
 
-    색상 조건은 상품의 색상 목록에 있는지로 판단한다 (재고와 무관, 계획서 5.3.1).
-    None인 조건은 적용하지 않는다.
+    색상 조건은 상품의 색상 목록에 있는지로 판단한다 (재고와 무관, 계획서 5.3.1). 색상명은 앞뒤 공백을
+    지운 뒤 비교한다(이름 조회와 같은 방식). None인 조건은 적용하지 않는다. 상품 목록을 하나씩 걸러 낸다.
 
     인자:
         g: 조회할 ShopGraph.
@@ -38,15 +98,26 @@ def find_products(
         상품 ID 리스트, ID 오름차순.
 
     예외:
-        ValueError: 종류·스타일이 상수 목록 밖, 가격이 정수 0 이상이 아님,
-            price_min > price_max.
-        NotImplementedError: W6에서 구현하기 전.
+        ValueError: 종류·스타일이 상수 목록 밖, 색상이 문자열이 아니거나 공백뿐,
+            가격이 정수 0 이상이 아님, price_min > price_max.
     """
-    raise NotImplementedError("W6에서 구현 예정")
+    clean_color = _check_conditions(kind, style, color, price_min, price_max)
+    result = []
+    for product_id in g.product_ids():
+        product = g.get_product(product_id)
+        if ((kind is None or product["kind"] == kind)
+                and (style is None or product["style"] == style)
+                and (clean_color is None or clean_color in product["stock"])
+                and (price_min is None or product["price"] >= price_min)
+                and (price_max is None or product["price"] <= price_max)):
+            result.append(product_id)
+    return result
 
 
 def products_of(g: ShopGraph, customer_id: str) -> list[dict]:
     """S1: 고객이 산 상품과 구매 집계를 돌려준다 (고객 → 상품).
+
+    고객 노드의 이웃 중 상품 노드만 따라가고, 집계는 그 간선에서 읽는다 (구매 기록 전체를 훑지 않음).
 
     인자:
         g: 조회할 ShopGraph.
@@ -58,13 +129,30 @@ def products_of(g: ShopGraph, customer_id: str) -> list[dict]:
 
     예외:
         ValueError: 없는 고객 ID.
-        NotImplementedError: W6에서 구현하기 전.
     """
-    raise NotImplementedError("W6에서 구현 예정")
+    g.get_customer(customer_id)  # 없는 고객 ID면 ValueError
+    product_ids = set(g.product_ids())
+    result = []
+    for product_id in g.neighbors(customer_id):
+        if product_id not in product_ids:
+            continue  # 그룹 노드
+        edge = g.edge(customer_id, product_id)
+        result.append({
+            "product_id": product_id,
+            "name": g.get_product(product_id)["name"],
+            "colors": edge["colors"],
+            "weight": g.weight(customer_id, product_id),
+            "count": edge["count"],
+            "total_qty": edge["total_qty"],
+            "last_date": edge["last_date"],
+        })
+    return result
 
 
 def customers_of(g: ShopGraph, product_id: str) -> list[dict]:
     """S2: 상품을 산 고객과 그 고객의 그룹·구매 색상을 돌려준다 (상품 → 고객).
+
+    상품 노드의 이웃(구매 고객)을 따라가고, 그룹과 색상은 그 고객의 소속 간선·구매 간선에서 읽는다.
 
     인자:
         g: 조회할 ShopGraph.
@@ -75,9 +163,20 @@ def customers_of(g: ShopGraph, product_id: str) -> list[dict]:
 
     예외:
         ValueError: 없는 상품 ID.
-        NotImplementedError: W6에서 구현하기 전.
     """
-    raise NotImplementedError("W6에서 구현 예정")
+    g.get_product(product_id)  # 없는 상품 ID면 ValueError
+    customer_ids = set(g.customer_ids())
+    result = []
+    for customer_id in g.neighbors(product_id):
+        if customer_id not in customer_ids:
+            continue  # 정상 그래프에서는 상품의 이웃이 모두 고객이다
+        result.append({
+            "customer_id": customer_id,
+            "name": g.get_customer(customer_id)["name"],
+            "group_id": g.group_of(customer_id),
+            "colors": g.edge(customer_id, product_id)["colors"],
+        })
+    return result
 
 
 def members_of(g: ShopGraph, group_id: str) -> list[str]:
@@ -92,9 +191,8 @@ def members_of(g: ShopGraph, group_id: str) -> list[str]:
 
     예외:
         ValueError: 없는 그룹 ID.
-        NotImplementedError: W6에서 구현하기 전.
     """
-    raise NotImplementedError("W6에서 구현 예정")
+    return g.members(group_id)
 
 
 def group_popular(g: ShopGraph, group_id: str, k: int | None = None) -> list[dict]:

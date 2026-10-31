@@ -45,6 +45,31 @@ class TestW6Query(unittest.TestCase):
                 find_products(g, **kwargs)
             self.assertEqual(snapshot(g), before, msg=f"실패 후 상태가 바뀜: {label}")
 
+    def test_find_products_more_conditions(self) -> None:
+        """5.3.1·B.3 조건 조회 보강: 스타일, 조건 조합, 가격 끝값 포함, 최저 가격만, 색상 앞뒤 공백·잘못된 색상."""
+        g = make_graph()
+        # [제안 기대값] 6.1 상품표에서 계산:
+        # 스트릿 = P04(카고 팬츠), P05(후드 집업) / 하의이면서 스트릿 = P04
+        # 가격 P01 29000, P02 39000, P03 45000, P04 49000, P05 59000 →
+        #   29000~49000(끝값 포함) = P01~P04, 39000~39000 = P02, 50000 이상 = P05
+        # " 네이비 "는 공백을 지우고 비교 → 6.2 네이비 결과와 같은 P01, P03
+        self.assertEqual(find_products(g, style="스트릿"), ["P04", "P05"])
+        self.assertEqual(find_products(g, kind="하의", style="스트릿"), ["P04"])
+        self.assertEqual(find_products(g, price_min=29000, price_max=49000), ["P01", "P02", "P03", "P04"])
+        self.assertEqual(find_products(g, price_min=39000, price_max=39000), ["P02"])
+        self.assertEqual(find_products(g, price_min=50000), ["P05"])
+        self.assertEqual(find_products(g, color=" 네이비 "), ["P01", "P03"])
+        before = snapshot(g)
+        for color in ("   ", 3):
+            with self.assertRaises(ValueError, msg=repr(color)):
+                find_products(g, color=color)
+            self.assertEqual(snapshot(g), before, msg=f"실패 후 상태가 바뀜: color={color!r}")
+
+    def test_s1_no_purchases(self) -> None:
+        """B.4 구매가 없는 고객의 S1 → 빈 리스트 (C05는 6.1에서 구매 없음)."""
+        g = make_graph()
+        self.assertEqual(products_of(g, "C05"), [])
+
     def test_s1_products_of_c01(self) -> None:
         """6.2 S1(C01): P01(색상 4·가중치 4·기록 4·총수량 4·최근 10-01), P02(블랙·1·1·1·09-03)."""
         g = make_graph()
@@ -150,6 +175,35 @@ class TestW7Popular(unittest.TestCase):
         # → 점수가 생긴 상품이 없어 둘 다 []
         self.assertEqual(group_popular(g, "G-F-10"), [])
         self.assertEqual(group_popular(g, "G-F-30"), [])
+
+    def test_s4_cap_per_customer(self) -> None:
+        """5.3.3 상한은 고객마다 적용: C02가 P01 블랙을 산 뒤 S4(G-F-20)에서 P01 = 3 + 1 = 4."""
+        g = make_graph()
+        g.add_purchase("C02", "P01", "블랙", 1, "2026-10-03")
+        self.assertEqual(g.check_integrity(), [])  # 5.3.5 W5 이후 변경 뒤 확인
+        # [제안 기대값] G-F-20 소속 C01·C02·C03, 고객마다 min(가중치, 3):
+        # P01: C01 min(4,3)=3 + C02 1 = 4, 2명 (그룹 합계에 상한을 걸면 min(5,3)=3이 되어 다름)
+        # P02: C01 1 + C02 2 = 3, 2명 / P03: C02 1 + C03 1 = 2, 2명 / P05: C03 1, 1명, 품절
+        self.assertEqual(group_popular(g, "G-F-20"), [
+            {"product_id": "P01", "score": 4, "buyers": 2, "sold_out": False},
+            {"product_id": "P02", "score": 3, "buyers": 2, "sold_out": False},
+            {"product_id": "P03", "score": 2, "buyers": 2, "sold_out": False},
+            {"product_id": "P05", "score": 1, "buyers": 1, "sold_out": True},
+        ])
+
+    def test_s4_id_tiebreak(self) -> None:
+        """5.3.3 마지막 동점 규칙: 점수·구매자 수가 같으면 상품 ID 오름차순. k 경계 1·10."""
+        g = make_graph()
+        # [제안 기대값] G-M-20 소속은 C04뿐, C04의 구매 P01(T013)·P04(T011)·P05(T012) 모두 가중치 1
+        # → 셋 다 (점수 1, 구매자 1) 동점이라 ID 순. P05만 모든 색상 재고 0이라 품절 표시.
+        expected = [
+            {"product_id": "P01", "score": 1, "buyers": 1, "sold_out": False},
+            {"product_id": "P04", "score": 1, "buyers": 1, "sold_out": False},
+            {"product_id": "P05", "score": 1, "buyers": 1, "sold_out": True},
+        ]
+        self.assertEqual(group_popular(g, "G-M-20"), expected)
+        self.assertEqual(group_popular(g, "G-M-20", k=1), expected[:1])
+        self.assertEqual(group_popular(g, "G-M-20", k=10), expected)
 
 
 if __name__ == "__main__":

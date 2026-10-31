@@ -214,6 +214,7 @@ class TestW3Build(unittest.TestCase):
         before = snapshot(g)
         g.rebuild()
         self.assertEqual(snapshot(g), before)
+        self.assertEqual(g.check_integrity(), [])  # 5.3.5·B.5: W5에서 무결성 확인 추가
 
     def test_ctor_none_empty(self) -> None:
         """B.1 생성자 계약 1·6: 인자 None = 빈 리스트, 레코드가 없으면 ID 카운터는 종류별로 1."""
@@ -238,12 +239,14 @@ class TestW4CustomerProduct(unittest.TestCase):
         self.assertEqual(g.delete_customer("C07"), 0)  # [제안 기대값] 구매 기록이 없는 고객 → 함께 삭제된 기록 0건
         g.rebuild()
         self.assertEqual(g.add_customer("고객8", "여", 22), "C08")
+        self.assertEqual(g.check_integrity(), [])  # 5.3.5·B.5: W5에서 무결성 확인 추가
 
     def test_failed_add_keeps_counter(self) -> None:
         """6.4 실패한 등록은 ID를 쓰지 않는다: 나이 True 등록 실패(상태 불변) → 다음 정상 등록은 C07."""
         g = make_graph()
         _assert_rejected(self, g, lambda: g.add_customer("고객7", "여", True), "나이 True")
         self.assertEqual(g.add_customer("고객7", "여", 22), "C07")
+        self.assertEqual(g.check_integrity(), [])  # 5.3.5·B.5: W5에서 무결성 확인 추가
 
     def test_age_move(self) -> None:
         """6.4 C04 나이 24 → 34: group_of = G-M-30, g.members("G-M-20") = []."""
@@ -251,6 +254,7 @@ class TestW4CustomerProduct(unittest.TestCase):
         g.update_customer("C04", age=34)
         self.assertEqual(g.group_of("C04"), "G-M-30")
         self.assertEqual(g.members("G-M-20"), [])
+        self.assertEqual(g.check_integrity(), [])  # 5.3.5·B.5: W5에서 무결성 확인 추가
 
     def test_gender_move(self) -> None:
         """6.4 C01 성별 → 남: G-M-20 이동, G-F-20 = [C02, C03], G-M-20 = [C01, C04]."""
@@ -259,12 +263,14 @@ class TestW4CustomerProduct(unittest.TestCase):
         self.assertEqual(g.group_of("C01"), "G-M-20")
         self.assertEqual(g.members("G-F-20"), ["C02", "C03"])
         self.assertEqual(g.members("G-M-20"), ["C01", "C04"])
+        self.assertEqual(g.check_integrity(), [])  # 5.3.5·B.5: W5에서 무결성 확인 추가
 
     def test_same_name(self) -> None:
         """6.4 동명이인: add_customer("고객1", "남", 30) → C07, 이름 조회 = [C01, C07]."""
         g = make_graph()
         self.assertEqual(g.add_customer("고객1", "남", 30), "C07")
         self.assertEqual(g.find_customers_by_name("고객1"), ["C01", "C07"])
+        self.assertEqual(g.check_integrity(), [])  # 5.3.5·B.5: W5에서 무결성 확인 추가
 
     def test_id_limit(self) -> None:
         """6.4 ID 한도: 초기 고객에 C99가 있으면 add_customer → ValueError("ID 한도 초과"), 상태 불변."""
@@ -284,6 +290,7 @@ class TestW4CustomerProduct(unittest.TestCase):
         self.assertEqual((st["purchases"], st["purchase_edges"]), (10, 7))
         self.assertEqual(st["groups"] + st["customers"] + st["products"], 18)
         self.assertEqual(g.members("G-F-20"), ["C01", "C03"])
+        self.assertEqual(g.check_integrity(), [])  # 5.3.5·B.5: W5에서 무결성 확인 추가
 
     def test_delete_product_cascade(self) -> None:
         """6.4 P01 삭제: 반환 5(T001~T004, T013), 구매 기록 8, 구매 간선 7."""
@@ -291,6 +298,7 @@ class TestW4CustomerProduct(unittest.TestCase):
         self.assertEqual(g.delete_product("P01"), 5)
         st = g.stats()
         self.assertEqual((st["purchases"], st["purchase_edges"]), (8, 7))
+        self.assertEqual(g.check_integrity(), [])  # 5.3.5·B.5: W5에서 무결성 확인 추가
 
     def test_stock_replace_add_color(self) -> None:
         """6.4 P04 재고를 {카키 4, 블랙 4, 그레이 1}로 교체: 색상 추가 성공, 구매 가능 색상에 그레이."""
@@ -298,6 +306,7 @@ class TestW4CustomerProduct(unittest.TestCase):
         g.update_product("P04", stock={"카키": 4, "블랙": 4, "그레이": 1})
         self.assertIn("그레이", g.available_colors("P04"))
         self.assertEqual(g.get_product("P04")["stock"], {"카키": 4, "블랙": 4, "그레이": 1})
+        self.assertEqual(g.check_integrity(), [])  # 5.3.5·B.5: W5에서 무결성 확인 추가
 
     def test_stock_reject_delete_and_dup(self) -> None:
         """6.4: 구매 기록이 있는 색상 삭제(P01 → {블랙 5}) 거절, 공백 제거 후 겹치는 색상명 거절. 상태 불변."""
@@ -322,6 +331,7 @@ class TestW4CustomerProduct(unittest.TestCase):
         g.update_product("P04", stock=st2)
         st2["카키"] = 0
         self.assertEqual(g.get_product("P04")["stock"]["카키"], 4)
+        self.assertEqual(g.check_integrity(), [])  # 5.3.5·B.5: W5에서 무결성 확인 추가
 
     def test_invalid_customer_mixed(self) -> None:
         """6.4 고객 잘못된 입력: 나이 True 등록, 바꿀 항목 없는 수정, 섞은 수정(이름도 안 바뀜). 상태 불변."""
@@ -394,6 +404,7 @@ class TestW4CustomerProduct(unittest.TestCase):
         g.update_product("P04", name=" 카고 팬츠2 ", stock={" 카키 ": 4, "블랙": 4})
         self.assertEqual(g.get_product("P04")["name"], "카고 팬츠2")
         self.assertEqual(g.get_product("P04")["stock"], {"카키": 4, "블랙": 4})
+        self.assertEqual(g.check_integrity(), [])  # 5.3.5·B.5: W5에서 무결성 확인 추가
 
     def test_sold_out_available_colors(self) -> None:
         """B.2·B.4 품절: P05 전부 품절, P03 일부 품절(아이보리만 구매 가능), 구매 가능 색상은 정렬 리스트."""
@@ -421,6 +432,7 @@ class TestW4CustomerProduct(unittest.TestCase):
         self.assertEqual(g.group_of("C08"), "G-M-40+")
         self.assertEqual(g.add_product("무료 상품", "상의", "캐주얼", 0, {"블랙": 1}), "P06")
         self.assertEqual(g.get_product("P06")["price"], 0)
+        self.assertEqual(g.check_integrity(), [])  # 5.3.5·B.5: W5에서 무결성 확인 추가
 
     def test_delete_unpurchased_color(self) -> None:
         """B.3 색상 삭제: 구매 기록이 없는 색상(P03 네이비)은 재고 교체로 삭제된다."""
@@ -430,6 +442,7 @@ class TestW4CustomerProduct(unittest.TestCase):
         g.update_product("P03", stock={"아이보리": 2})
         self.assertEqual(g.get_product("P03")["stock"], {"아이보리": 2})
         self.assertEqual(g.available_colors("P03"), ["아이보리"])
+        self.assertEqual(g.check_integrity(), [])  # 5.3.5·B.5: W5에서 무결성 확인 추가
 
     def test_failed_add_product_keeps_counter(self) -> None:
         """6.4·B.3 실패한 등록은 ID를 쓰지 않는다: 가격 -1 상품 등록 실패(상태 불변) → 다음 정상 등록은 P06."""
@@ -437,6 +450,7 @@ class TestW4CustomerProduct(unittest.TestCase):
         _assert_rejected(self, g, lambda: g.add_product("새 상품", "상의", "캐주얼", -1, {"블랙": 1}), "가격 -1")
         # [제안 기대값] 처음 상태 상품 카운터는 6(B.1 {"P": 6}), 실패한 등록은 번호를 쓰지 않음 → P06.
         self.assertEqual(g.add_product("새 상품", "상의", "캐주얼", 10000, {"블랙": 1}), "P06")
+        self.assertEqual(g.check_integrity(), [])  # 5.3.5·B.5: W5에서 무결성 확인 추가
 
     def test_update_product_fields(self) -> None:
         """5.3.1 상품 수정: 종류·스타일·가격만 수정하면 그 값만 바뀌고 재고·구매 관계는 그대로."""
@@ -450,6 +464,7 @@ class TestW4CustomerProduct(unittest.TestCase):
         })
         self.assertEqual(g.neighbors("P01"), ["C01", "C04"])
         self.assertEqual(g.weight("C01", "P01"), 4)
+        self.assertEqual(g.check_integrity(), [])  # 5.3.5·B.5: W5에서 무결성 확인 추가
 
     def test_delete_cascade_neighbors(self) -> None:
         """6.4 C02 삭제 연쇄: 개수뿐 아니라 이웃 목록에서도 C02가 빠지고, C02와 그 구매 기록은 조회되지 않는다."""
@@ -465,6 +480,7 @@ class TestW4CustomerProduct(unittest.TestCase):
                             ("get_purchase T006", lambda: g.get_purchase("T006")),
                             ("get_purchase T008", lambda: g.get_purchase("T008"))):
             _assert_rejected(self, g, call, label)
+        self.assertEqual(g.check_integrity(), [])  # 5.3.5·B.5: W5에서 무결성 확인 추가
 
 
 class TestW5Purchase(unittest.TestCase):
@@ -555,6 +571,8 @@ class TestW5Purchase(unittest.TestCase):
             ("없는 구매 수정", lambda: g.update_purchase("T999", qty=2)),
             ("수정 색상 레드", lambda: g.update_purchase("T001", color="레드")),
             ("수정 수량 0", lambda: g.update_purchase("T001", qty=0)),
+            ("섞은 수정(색상 맞음·수량 0)", lambda: g.update_purchase("T001", color="화이트", qty=0)),
+            ("섞은 수정(수량 맞음·색상 레드)", lambda: g.update_purchase("T001", color="레드", qty=2)),
             ("없는 구매 삭제", lambda: g.delete_purchase("T999")),
         ]
         for label, call in cases:
@@ -671,6 +689,16 @@ class TestW5Integrity(unittest.TestCase):
         g._adj["C05"].add("P01")
         g._adj["P01"].add("C05")
         self._assert_fault_reported(g)
+
+    def test_fault_dangling_purchase(self) -> None:
+        """5.3.5 원본 고장 주입: ① 구매 기록이 남은 C02를 원본에서만 지움 ② T001 색상을 P01에 없는 "레드"로 바꿈."""
+        g = make_graph()
+        del g._customers["C02"]
+        self._assert_fault_reported(g)
+        g2 = make_graph()
+        g2._purchases["T001"]["color"] = "레드"
+        g2.rebuild()  # 그래프를 원본에 맞춰 두어 구매 기록 참조 검사만 위반을 낼 수 있게 한다
+        self._assert_fault_reported(g2)
 
 
 if __name__ == "__main__":

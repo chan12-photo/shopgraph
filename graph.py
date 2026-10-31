@@ -314,6 +314,27 @@ def _clean_purchase(record: object) -> dict:
     }
 
 
+def _clean_purchase_color(color: object, product: dict) -> str:
+    """구매 등록·수정의 색상을 공백을 지운 값으로 만들고, 그 상품의 색상 목록에 있는지 확인한다 (부록 B.3).
+
+    재고와는 연동하지 않으므로 재고 0인 색상도 허용한다.
+
+    인자:
+        color: 구매 색상.
+        product: 구매 대상 상품의 내부 레코드 (stock 키를 색상 목록으로 쓴다).
+
+    반환:
+        공백을 지운 색상명 (저장할 값).
+
+    예외:
+        ValueError: 색상명이 1~10자가 아니거나 그 상품의 색상 목록에 없을 때.
+    """
+    name = _clean_text(color, _COLOR_MAX, "색상명")
+    if name not in product["stock"]:
+        raise ValueError(f"{product['id']}에 없는 색상입니다: {name}")
+    return name
+
+
 def _clean_records(records: object, cleaner: Callable[[object], dict], label: str) -> dict[str, dict]:
     """초기 레코드 리스트를 레코드마다 검사해 ID → 새 레코드 딕셔너리로 만든다 (생성자 계약 1·2).
 
@@ -404,7 +425,8 @@ def _group_id_for(gender: str, age: int) -> str:
 def _aggregate_edges(purchases: Iterable[dict]) -> dict[tuple[str, str], dict]:
     """구매 기록을 (고객 ID, 상품 ID) 쌍별 간선 집계로 모은다 (계획서 5.2 간선 집계값).
 
-    rebuild()가 전체 기록으로 부르고, W5에서 한 쌍의 기록만 넘겨 그 쌍을 다시 계산할 때도 쓴다.
+    _build_graph()가 전체 원본 기록으로 부른다. 그 결과를 rebuild()는 그래프로 쓰고,
+    check_integrity()는 현재 그래프와 비교할 임시 결과로만 쓴다.
 
     인자:
         purchases: 구매 딕셔너리들.
@@ -726,9 +748,9 @@ class ShopGraph:
         qty: int,
         date: str,
     ) -> str:
-        """구매 기록을 등록하고 그 (고객, 상품) 쌍의 간선 집계를 원본에서 다시 계산한다.
+        """구매 기록을 등록하고 원본에서 그래프를 다시 만든다 (그 쌍의 간선 집계가 원본에서 다시 계산된다).
 
-        간선이 없으면 새로 만든다. 재고와는 연동하지 않는다.
+        간선이 없으면 재구축이 새로 만든다. 재고와는 연동하지 않는다.
 
         인자:
             customer_id: 구매한 고객 ID.
@@ -742,11 +764,24 @@ class ShopGraph:
             새로 발급한 구매 ID (예: "T014").
 
         예외:
-            ValueError: 입력이 부록 B.3 규칙을 어기거나 ID 한도(T999)를 넘을 때.
+            ValueError: 없는 고객·상품 ID, 입력이 부록 B.3 규칙을 어기거나 ID 한도(T999)를 넘을 때.
                 실패하면 아무것도 바꾸지 않고 ID도 발급하지 않는다.
-            NotImplementedError: W5에서 구현하기 전.
         """
-        raise NotImplementedError("W5에서 구현 예정")
+        _lookup(self._customers, customer_id, "고객")
+        product = _lookup(self._products, product_id, "상품")
+        record = {
+            "customer_id": customer_id,
+            "product_id": product_id,
+            "color": _clean_purchase_color(color, product),
+            "qty": _check_int(qty, _QTY_MIN, _QTY_MAX, "수량"),
+            "date": _check_date(date),
+        }
+        purchase_id = self._next_id("T")
+        # 검증을 모두 통과했다: 원본 변경 → 카운터 증가 → 그래프 재구축
+        self._purchases[purchase_id] = {"id": purchase_id, **record}
+        self._next_ids["T"] += 1
+        self.rebuild()
+        return purchase_id
 
     def update_purchase(
         self,
@@ -754,7 +789,7 @@ class ShopGraph:
         color: str | None = None,
         qty: int | None = None,
     ) -> None:
-        """구매 기록의 색상·수량을 수정하고 그 쌍의 간선 집계를 다시 계산한다.
+        """구매 기록의 색상·수량을 수정하고 원본에서 그래프를 다시 만든다.
 
         고객·상품·날짜는 바꾸지 않는다 (바꾸려면 삭제 후 새로 등록).
 
@@ -770,12 +805,22 @@ class ShopGraph:
         예외:
             ValueError: 없는 구매 ID, 바꿀 항목이 하나도 없음, 값이 부록 B.3 규칙을 어김.
                 하나라도 실패하면 아무것도 반영하지 않는다.
-            NotImplementedError: W5에서 구현하기 전.
         """
-        raise NotImplementedError("W5에서 구현 예정")
+        updated = dict(_lookup(self._purchases, purchase_id, "구매"))
+        if color is None and qty is None:
+            raise ValueError("바꿀 항목이 없습니다")
+        if color is not None:
+            updated["color"] = _clean_purchase_color(color, self._products[updated["product_id"]])
+        if qty is not None:
+            updated["qty"] = _check_int(qty, _QTY_MIN, _QTY_MAX, "수량")
+        # 검증을 모두 통과했다: 원본 교체 → 그래프 재구축
+        self._purchases[purchase_id] = updated
+        self.rebuild()
 
     def delete_purchase(self, purchase_id: str) -> None:
-        """구매 기록을 삭제하고 그 쌍의 간선 집계를 다시 계산한다. 마지막 기록이면 간선을 지운다.
+        """구매 기록을 삭제하고 원본에서 그래프를 다시 만든다. 마지막 기록이었으면 재구축 결과에 간선이 없다.
+
+        같은 색의 다른 기록이 남아 있으면 그 색은 간선 색상 집합에 그대로 남는다 (원본에서 다시 세므로).
 
         인자:
             purchase_id: 삭제할 구매 ID.
@@ -785,9 +830,10 @@ class ShopGraph:
 
         예외:
             ValueError: 없는 구매 ID.
-            NotImplementedError: W5에서 구현하기 전.
         """
-        raise NotImplementedError("W5에서 구현 예정")
+        _lookup(self._purchases, purchase_id, "구매")
+        del self._purchases[purchase_id]
+        self.rebuild()
 
     def get_customer(self, customer_id: str) -> dict:
         """고객 정보를 복사본으로 돌려준다.
@@ -1029,23 +1075,19 @@ class ShopGraph:
         예외:
             없음.
         """
-        adj: dict[str, set[str]] = {node: set() for node in [*self._groups, *self._customers, *self._products]}
-        for cid, rec in self._customers.items():
-            group_id = _group_id_for(rec["gender"], rec["age"])
-            adj[cid].add(group_id)
-            adj[group_id].add(cid)
-        edges = _aggregate_edges(self._purchases.values())
-        for cid, pid in edges:
-            adj[cid].add(pid)
-            adj[pid].add(cid)
-        self._adj = adj
-        self._edges = edges
+        self._adj, self._edges = self._build_graph()
 
     def check_integrity(self) -> list[str]:
         """원본과 그래프의 일관성(계획서 5.3.5의 불변 조건)을 검사한다.
 
         상태를 하나도 바꾸지 않는다. 재구축 비교는 원본에서 따로 만든 임시 그래프와
         현재 그래프를 비교하는 방식으로 하며, 검사 중에 rebuild()를 부르지 않는다.
+        구매 기록이 존재하지 않는 고객·상품을 참조하면 임시 그래프를 만들 수 없으므로, 그 위반을 보고하고
+        재구축 비교만 건너뛴다(이때 "재구축 비교를 건너뜁니다" 안내 한 줄이 목록 끝에 붙는다).
+        구매 색상이 색상 목록에 없는 경우는 임시 그래프를 만들 수 있으므로 재구축 비교도 한다.
+
+        이 검사는 원본과 그래프의 일관성만 본다. rebuild()와 같은 구축 코드(_build_graph)를 쓰므로
+        집계 자체가 맞는지는 6장 손계산 기대값 테스트가 확인한다 (계획서 5.3.5 "보장하지 않는 것").
 
         인자:
             없음.
@@ -1054,9 +1096,17 @@ class ShopGraph:
             위반 설명 문자열의 리스트. 정상이면 빈 리스트.
 
         예외:
-            NotImplementedError: W5에서 구현하기 전.
+            없음. 단, 원본 레코드의 값 자체(성별·나이·수량·날짜)는 부록 B.3을 지킨다고 전제한다.
+            공개 메서드로는 만들 수 없는, 이 전제를 어기는 고장(예: 나이 5, 날짜 None)은 검사 범위 밖이며
+            ValueError·TypeError가 날 수 있다.
         """
-        raise NotImplementedError("W5에서 구현 예정")
+        ref_problems, missing_ref = self._integrity_refs()
+        problems = ref_problems + self._integrity_structure()
+        if missing_ref:
+            problems.append("존재하지 않는 고객·상품을 참조하는 구매 기록이 있어 재구축 비교를 건너뜁니다")
+        else:
+            problems += self._integrity_against_rebuild()
+        return problems
 
     def stats(self) -> dict[str, int]:
         """그래프의 개수 통계를 돌려준다.
@@ -1151,3 +1201,121 @@ class ShopGraph:
         del table[record_id]
         self.rebuild()
         return len(doomed)
+
+    def _build_graph(self) -> tuple[dict[str, set[str]], dict[tuple[str, str], dict]]:
+        """원본 데이터에서 인접 리스트와 간선 집계를 새로 만들어 돌려준다. 상태는 바꾸지 않는다.
+
+        rebuild()는 이 결과를 그래프로 쓰고, check_integrity()는 비교용 임시 결과로만 쓴다.
+        구매 기록이 모두 존재하는 고객·상품을 참조하고, 원본 값이 부록 B.3을 지킨다고 전제한다.
+
+        인자:
+            없음.
+
+        반환:
+            (노드 ID → 이웃 ID 집합, (고객 ID, 상품 ID) → 간선 집계) 새 객체 두 개.
+
+        예외:
+            KeyError: 구매 기록이 존재하지 않는 고객·상품을 참조할 때 (정상 흐름에서는 생기지 않음).
+            ValueError·TypeError: 원본 값이 B.3을 어길 때(예: 나이 5, 날짜 None. 공개 메서드로는 만들 수 없음).
+        """
+        adj: dict[str, set[str]] = {node: set() for node in [*self._groups, *self._customers, *self._products]}
+        for cid, rec in self._customers.items():
+            group_id = _group_id_for(rec["gender"], rec["age"])
+            adj[cid].add(group_id)
+            adj[group_id].add(cid)
+        edges = _aggregate_edges(self._purchases.values())
+        for cid, pid in edges:
+            adj[cid].add(pid)
+            adj[pid].add(cid)
+        return adj, edges
+
+    def _integrity_refs(self) -> tuple[list[str], bool]:
+        """원본 구매 기록의 고객·상품이 존재하고 색상이 그 상품의 색상 목록에 있는지 검사한다 (5.3.5).
+
+        인자:
+            없음.
+
+        반환:
+            (위반 설명 문자열의 리스트(구매 ID 순), 존재하지 않는 고객·상품을 참조하는 기록이 있는지).
+            두 번째 값이 True면 임시 그래프를 만들 수 없으므로 재구축 비교를 건너뛴다.
+
+        예외:
+            없음.
+        """
+        problems: list[str] = []
+        missing_ref = False
+        for tid in sorted(self._purchases):
+            rec = self._purchases[tid]
+            if rec["customer_id"] not in self._customers:
+                problems.append(f"구매 기록 {tid}: 존재하지 않는 고객 {rec['customer_id']}을(를) 참조합니다")
+                missing_ref = True
+            product = self._products.get(rec["product_id"])
+            if product is None:
+                problems.append(f"구매 기록 {tid}: 존재하지 않는 상품 {rec['product_id']}을(를) 참조합니다")
+                missing_ref = True
+            elif rec["color"] not in product["stock"]:
+                problems.append(f"구매 기록 {tid}: 색상 {rec['color']}이(가) {rec['product_id']}의 색상 목록에 없습니다")
+        return problems, missing_ref
+
+    def _integrity_structure(self) -> list[str]:
+        """그래프 모양을 검사한다: 노드 집합, 인접 리스트 대칭, 구매 간선의 양쪽 연결, 고객의 그룹 소속 (5.3.5).
+
+        인자:
+            없음.
+
+        반환:
+            위반 설명 문자열의 리스트.
+
+        예외:
+            없음.
+        """
+        problems: list[str] = []
+        expected_nodes = {*self._groups, *self._customers, *self._products}
+        if set(self._adj) != expected_nodes:
+            extra = sorted(set(self._adj) - expected_nodes)
+            missing = sorted(expected_nodes - set(self._adj))
+            problems.append(f"노드 집합이 맞지 않습니다: 남는 노드 {extra}, 빠진 노드 {missing}")
+        for node in sorted(self._adj):
+            for other in sorted(self._adj[node]):
+                if node not in self._adj.get(other, set()):
+                    problems.append(f"인접 리스트가 한쪽만 있습니다: {node} → {other}")
+        for cid, pid in sorted(self._edges):
+            if pid not in self._adj.get(cid, set()) or cid not in self._adj.get(pid, set()):
+                problems.append(f"구매 간선 ({cid},{pid})이 양쪽 인접 리스트에 다 있지 않습니다")
+        for cid in sorted(self._customers):
+            rec = self._customers[cid]
+            group_ids = sorted(n for n in self._adj.get(cid, set()) if n in self._groups)
+            expected = _group_id_for(rec["gender"], rec["age"])
+            if group_ids != [expected]:
+                problems.append(f"{cid}의 소속 그룹이 {group_ids}입니다 (성별·나이 기준 {expected} 하나여야 함)")
+        return problems
+
+    def _integrity_against_rebuild(self) -> list[str]:
+        """현재 그래프를 원본에서 임시로 새로 만든 그래프와 비교한다 (5.3.5 재구축 비교). rebuild()는 부르지 않는다.
+
+        간선 집계(색상 집합·기록 수·총수량·최근 구매일), 구매 기록이 없는 간선, 빠진 간선,
+        노드별 인접 리스트를 비교한다.
+
+        인자:
+            없음.
+
+        반환:
+            위반 설명 문자열의 리스트.
+
+        예외:
+            없음 (원본 참조가 맞는지는 호출 전에 _integrity_refs로 확인한다).
+        """
+        problems: list[str] = []
+        temp_adj, temp_edges = self._build_graph()
+        for key in sorted(set(self._edges) | set(temp_edges)):
+            pair = f"({key[0]},{key[1]})"
+            if key not in temp_edges:
+                problems.append(f"구매 기록이 없는 간선이 있습니다: {pair}")
+            elif key not in self._edges:
+                problems.append(f"구매 기록이 있는데 간선이 없습니다: {pair}")
+            elif self._edges[key] != temp_edges[key]:
+                problems.append(f"간선 {pair}의 집계가 구매 기록과 다릅니다")
+        for node in sorted(set(self._adj) | set(temp_adj)):
+            if self._adj.get(node) != temp_adj.get(node):
+                problems.append(f"{node}의 인접 리스트가 원본에서 다시 만든 결과와 다릅니다")
+        return problems

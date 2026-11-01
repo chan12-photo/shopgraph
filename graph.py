@@ -1016,9 +1016,11 @@ class ShopGraph:
     def group_of(self, customer_id: str) -> str:
         """고객이 소속된 그룹 ID를 돌려준다.
 
-        성별·나이로 다시 계산하지 않고 그래프(인접 리스트)의 소속 간선을 읽는다. 정상 상태에서는
-        소속 그룹이 정확히 하나다(무결성 검사 5.3.5가 확인). 그래프가 고장 나 소속 그룹이 둘 이상이면
-        ID가 가장 작은 그룹을 돌려준다. 고장 판정은 check_integrity()가 맡는다.
+        성별·나이로 다시 계산하지 않고 그래프(인접 리스트)의 소속 간선을 읽는다. 고객의 이웃 전체를 훑지 않고
+        그룹 ID 8개(GROUP_IDS)가 고객의 이웃 집합에 있는지만 확인하므로 비용은 고객이 산 상품 수와 관계없는
+        상수다 (S2 복잡도 O(d log d), 계획서 5.3.2). 정상 상태에서는 소속 그룹이 정확히 하나다(무결성 검사 5.3.5가
+        확인). 그래프가 고장 나 소속 그룹이 둘 이상이면 ID가 가장 작은 그룹을 돌려준다. 고장 판정은
+        check_integrity()가 맡는다.
 
         인자:
             customer_id: 고객 ID.
@@ -1030,7 +1032,8 @@ class ShopGraph:
             ValueError: 없는 고객 ID, 또는 그래프가 고장 나 소속 그룹이 하나도 없을 때.
         """
         _lookup(self._customers, customer_id, "고객")
-        group_ids = [node for node in self._adj[customer_id] if node in self._groups]
+        neighbors = self._adj[customer_id]
+        group_ids = [group_id for group_id in GROUP_IDS if group_id in neighbors]
         if not group_ids:
             raise ValueError(f"{customer_id}의 소속 그룹이 없습니다 (무결성 검사가 필요합니다)")
         return min(group_ids)

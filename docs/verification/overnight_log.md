@@ -153,3 +153,32 @@ FAILED (errors=8)
 | Q1 색상 삭제 거절 문구 | 유지 (뒤의 색상은 입력 값이 아니라 결과, 찬일 11/01 판정) | docs/verification/w10a_g7.md 판정 추가 |
 | Q2 main.py 변환 오류 형식 | "(입력: 값)"을 붙이지 않는 것이 의도 (콜론 한 번, 안내문) | docs/verification/w10a_g7.md 판정 추가 |
 | Q5 파일 위치 | docs/report_materials.md → docs/verification/report_materials.md, docs/study/ → docs/verification/study/ (git mv) | 옮긴 파일 안의 경로 참조, README 현재 상태, docs/defects.md A06의 경로를 새 위치로 고침. 1·2회차 기록(이 파일 위쪽, integrated_review.md)의 옛 경로는 당시 기록이라 그대로 둠 |
+
+## 3회차 커밋
+
+| 커밋 | 내용 | 테스트 (커밋 뒤 체크아웃에서 실행) |
+|---|---|---|
+| e64d137 [DOC] | Q1~Q4 판정 기록, Q5 파일 위치 이동 | Ran 139, FAILED (errors=8): 통과 131 / 미도래 8 |
+| ecf8021 [SPEC][W10b] | R2 재고 겹침 문구, 기존 기대값 1줄 [SPEC] 변경, P1·P2 테스트 3개, R4 assertIn 2개·docstring, A06 | Ran 142, FAILED (errors=8): 통과 134 / 미도래 8 |
+| 32f7fc5 [W10b] | R1 추천 K 라벨, R3 check_dates docstring·주석, defects A06 수정·A07 추가 | Ran 143, FAILED (errors=8): 통과 135 / 미도래 8 |
+| (이 기록) [DOC] | 3회차 절 마무리 | 아래 커밋 본문 |
+
+- 미도래는 모든 커밋에서 tests/test_demo.py 8개뿐이고 전부 `NotImplementedError: W11 기대값 승인 전 …`
+- ecf8021 뒤 저장소 안 임시 worktree에서 고장 검사 M04·M05를 다시 넣어 봄: 각각 test_digit_limit_boundary, test_delete_id_spaces가 잡음 (2회차에 못 잡던 테스트 공백 2건 해소)
+- test_recommend_k_not_number는 구현 전(ecf8021 상태)에 AssertionError로 실패하는 것을 확인한 뒤 R1을 고침
+
+## 3회차 판정과 다르게 한 것 (찬일 확인 필요)
+
+- **A06**: 지시는 "test_flow.py:607 docstring의 나이 31을 34로(기대값 변경 없음)"였다. docstring만 34로 바꾸면 바로 아래 메뉴 입력 "31"과 docstring이 어긋나 새 오류가 생겨서, 메뉴 입력도 31 → 34로 함께 바꿨다. 기대 문구 "[수정] 고객4(C04) → 남성·30대 그룹"과 G-M-30 확인은 그대로이고 34로도 통과한다 (ecf8021 본문에 기록). 입력을 31로 되돌리고 docstring만 고치길 원하면 알려 줘
+- **R3**: "지우거나 이유를 주석으로" 중 주석을 골랐다. 형식·실제 날짜 분기를 지우면 계획서 11.3.2 W11의 "날짜 형식 점검"이 check_data.py에서 사라지기 때문이다
+
+## 바뀐 오류 화면 (python main.py, data.py, 파이프 입력)
+
+```
+[오류] 색상별 재고: 같은 색상이 두 번 나옵니다 (입력: 블랙)
+[오류] 추천 개수 K: 숫자로 입력해 주세요
+[오류] 추천 개수 K: 1~10이어야 합니다 (입력: 0)
+```
+
+- 입력: 상품 등록에서 재고 "블랙=1, 블랙=2" / 추천에서 고객 C01, K "abc" / 추천에서 고객 C01, K "0". 세 경우 모두 오류에서 멈춰 추천 결과는 출력되지 않음
+- graph.py·search.py·view.py·data.py는 dd2164f 이후 바뀌지 않음 (`git diff --stat dd2164f -- graph.py search.py view.py data.py` 결과 없음)

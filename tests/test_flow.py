@@ -12,12 +12,13 @@ contextlib.redirect_stdout으로 확인한다. 실행용 data.py는 읽지 않�
 
 import contextlib
 import io
+import re
 import unittest
 from unittest import mock
 
 import main
 from graph import ShopGraph
-from search import recommend
+from search import group_popular, recommend
 from tests.fixtures import customers, make_graph, products, purchases
 from tests.helpers import snapshot
 from view import print_recommendation, print_table
@@ -669,6 +670,41 @@ class TestW10Menu(unittest.TestCase):
         self.assertIn("[추천] 고객2(C02, 여성·20대)님께 추천 (2개)\n", text)
         self.assertIn(_short_note(2, 3), text)
         self.assertIn("[추천] 고객6(C06, 남성·10대)님께 추천 (3개)\n", text)
+
+
+# W10a 검증 오류 메시지 형식 "항목: 규칙 (입력: 값)" (찬일 11/01, A04)
+_MESSAGE_FORMAT = re.compile(r"^[^:]+: .+ \(입력: .+\)$")
+
+
+class TestW10aMessages(unittest.TestCase):
+    """W10a: 메뉴 오류 화면 문구와 graph·search 검증 오류 메시지 형식 (A04 콜론 두 번 수정)."""
+
+    def test_age_error_screen(self) -> None:
+        """고객 등록에서 나이 5 → "[오류] 나이: 10~99이어야 합니다 (입력: 5)", 상태 그대로."""
+        text, g = _run_main(["1", "1", "고객7", "1", "5", "0"])
+        self.assertIn("\n[오류] 나이: 10~99이어야 합니다 (입력: 5)\n", text)
+        self.assertEqual(snapshot(g), snapshot(make_graph()))
+
+    def test_recommend_k_error_screen(self) -> None:
+        """[6] 추천에서 K=0 → 항목 이름이 입력 안내와 같은 "추천 개수 K"."""
+        text, _ = _run_main(["6", "C01", "0", "0"])
+        self.assertIn("\n[오류] 추천 개수 K: 1~10이어야 합니다 (입력: 0)\n", text)
+
+    def test_s4_count_error_screen(self) -> None:
+        """S4 그룹 인기 상품에서 개수 0 → 항목 이름이 입력 안내와 같은 "개수"."""
+        text, _ = _run_main(["2", "7", "2", "0", "0"])
+        self.assertIn("\n[오류] 개수: 1~10이어야 합니다 (입력: 0)\n", text)
+
+    def test_graph_and_search_same_format(self) -> None:
+        """graph.py 오류(나이 범위)와 search.py 오류(K 범위)의 메시지가 같은 형식 정규식에 맞는다."""
+        g = make_graph()
+        with self.assertRaises(ValueError) as graph_error:
+            g.add_customer("고객7", "여", 5)
+        with self.assertRaises(ValueError) as search_error:
+            group_popular(g, "G-F-20", 0)
+        for error in (graph_error.exception, search_error.exception):
+            self.assertRegex(str(error), _MESSAGE_FORMAT)
+        self.assertEqual(snapshot(g), snapshot(make_graph()))
 
 
 if __name__ == "__main__":

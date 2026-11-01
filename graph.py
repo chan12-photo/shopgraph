@@ -95,6 +95,26 @@ _QTY_MAX: Final[int] = 99
 _GENDER_VALUES: Final[tuple[str, ...]] = tuple(gender for gender, _ in GENDERS)
 
 
+def _value_error(label: str | None, rule: str, value: object) -> ValueError:
+    """검증 오류를 "항목: 규칙 (입력: 값)" 형식의 ValueError로 만든다 (A04, W10a).
+
+    항목이 None이면 "규칙 (입력: 값)"이다 ("존재하지 않는 … ID입니다"처럼 문장에 항목이 들어 있을 때).
+    search.py에도 같은 형식의 내부 함수가 따로 있다 (search.py는 graph.py의 내부 함수를 쓰지 않는다, 5.5).
+
+    인자:
+        label: 항목 이름 (예: "나이"). None이면 앞에 붙이지 않는다.
+        rule: 어긴 규칙 문장.
+        value: 화면에 보일 입력 값 (repr로 보일지는 부르는 쪽이 정한다).
+
+    반환:
+        만든 ValueError (raise는 부르는 쪽이 한다).
+
+    예외:
+        없음.
+    """
+    return ValueError(f"{rule} (입력: {value})" if label is None else f"{label}: {rule} (입력: {value})")
+
+
 def _check_date(value: object) -> str:
     """구매일이 부록 B.3 날짜 규칙을 지키는지 확인한다 (생성자와 W5 구매 등록·수정이 함께 쓴다).
 
@@ -111,11 +131,11 @@ def _check_date(value: object) -> str:
         ValueError: 문자열이 아니거나 형식이 다르거나 없는 날짜(예: 2026-02-30)일 때.
     """
     if not isinstance(value, str) or _DATE_PATTERN.fullmatch(value) is None:
-        raise ValueError(f"구매일은 YYYY-MM-DD 형식이어야 합니다: {value!r}")
+        raise _value_error("구매일", "YYYY-MM-DD 형식이어야 합니다", repr(value))
     try:
         datetime.date.fromisoformat(value)
     except ValueError:
-        raise ValueError(f"존재하지 않는 날짜입니다: {value}") from None
+        raise _value_error("구매일", "존재하지 않는 날짜입니다", value) from None
     return value
 
 
@@ -135,10 +155,10 @@ def _check_int(value: object, low: int, high: int | None, label: str) -> int:
         ValueError: int가 아니거나(bool 포함) 범위 밖일 때.
     """
     if isinstance(value, bool) or not isinstance(value, int):
-        raise ValueError(f"{label}: 정수여야 합니다: {value!r}")
+        raise _value_error(label, "정수여야 합니다", repr(value))
     if value < low or (high is not None and value > high):
         limit = f"{low} 이상" if high is None else f"{low}~{high}"
-        raise ValueError(f"{label}: {limit}이어야 합니다: {value}")
+        raise _value_error(label, f"{limit}이어야 합니다", value)
     return value
 
 
@@ -157,10 +177,10 @@ def _clean_text(value: object, max_len: int, label: str) -> str:
         ValueError: 문자열이 아니거나, 공백을 지운 뒤 1~max_len자가 아닐 때.
     """
     if not isinstance(value, str):
-        raise ValueError(f"{label}: 문자열이어야 합니다: {value!r}")
+        raise _value_error(label, "문자열이어야 합니다", repr(value))
     text = value.strip()
     if not 1 <= len(text) <= max_len:
-        raise ValueError(f"{label}: 앞뒤 공백을 지운 뒤 1~{max_len}자여야 합니다: {value!r}")
+        raise _value_error(label, f"앞뒤 공백을 지운 뒤 1~{max_len}자여야 합니다", repr(value))
     return text
 
 
@@ -179,7 +199,7 @@ def _check_choice(value: object, choices: tuple[str, ...], label: str) -> str:
         ValueError: 목록에 없는 값일 때.
     """
     if not isinstance(value, str) or value not in choices:
-        raise ValueError(f"{label}: {'/'.join(choices)} 중 하나여야 합니다: {value!r}")
+        raise _value_error(label, f"{'/'.join(choices)} 중 하나여야 합니다", repr(value))
     return value
 
 
@@ -202,7 +222,7 @@ def _clean_stock(stock: object) -> dict[str, int]:
     for color, count in stock.items():
         name = _clean_text(color, _COLOR_MAX, "색상명")
         if name in cleaned:
-            raise ValueError(f"색상명이 겹칩니다: {name}")
+            raise _value_error("색상명", "겹칩니다", name)
         cleaned[name] = _check_int(count, 0, None, "재고")
     return cleaned
 
@@ -222,7 +242,7 @@ def _check_record_id(value: object, prefix: str) -> str:
     """
     if (not isinstance(value, str) or _ID_PATTERNS[prefix].fullmatch(value) is None
             or int(value[1:]) == 0):
-        raise ValueError(f"ID 형식이 올바르지 않습니다: {value!r}")
+        raise _value_error("ID", "형식이 올바르지 않습니다", repr(value))
     return value
 
 
@@ -241,7 +261,7 @@ def _check_record_shape(record: object, keys: frozenset[str], label: str) -> dic
         ValueError: 딕셔너리가 아니거나 키가 다를 때.
     """
     if not isinstance(record, dict) or set(record) != keys:
-        raise ValueError(f"{label} 레코드의 모양이 올바르지 않습니다: {record!r}")
+        raise _value_error(f"{label} 레코드", "모양이 올바르지 않습니다", repr(record))
     return record
 
 
@@ -331,7 +351,7 @@ def _clean_purchase_color(color: object, product: dict) -> str:
     """
     name = _clean_text(color, _COLOR_MAX, "색상명")
     if name not in product["stock"]:
-        raise ValueError(f"{product['id']}에 없는 색상입니다: {name}")
+        raise _value_error("색상", f"{product['id']}에 없는 색상입니다", name)
     return name
 
 
@@ -357,7 +377,7 @@ def _clean_records(records: object, cleaner: Callable[[object], dict], label: st
     for record in records:
         cleaned = cleaner(record)
         if cleaned["id"] in result:
-            raise ValueError(f"{label} ID가 중복됩니다: {cleaned['id']}")
+            raise _value_error(f"{label} ID", "중복됩니다", cleaned['id'])
         result[cleaned["id"]] = cleaned
     return result
 
@@ -380,11 +400,11 @@ def _check_purchase_refs(purchases: dict[str, dict], customers: dict[str, dict],
     for rec in purchases.values():
         cid, pid = rec["customer_id"], rec["product_id"]
         if not isinstance(cid, str) or cid not in customers:
-            raise ValueError(f"{rec['id']}: 존재하지 않는 고객 ID입니다: {cid!r}")
+            raise _value_error(rec['id'], "존재하지 않는 고객 ID입니다", repr(cid))
         if not isinstance(pid, str) or pid not in products:
-            raise ValueError(f"{rec['id']}: 존재하지 않는 상품 ID입니다: {pid!r}")
+            raise _value_error(rec['id'], "존재하지 않는 상품 ID입니다", repr(pid))
         if rec["color"] not in products[pid]["stock"]:
-            raise ValueError(f"{rec['id']}: {pid}에 없는 색상입니다: {rec['color']}")
+            raise _value_error(rec['id'], f"{pid}에 없는 색상입니다", rec['color'])
 
 
 def _next_number(records: dict[str, dict]) -> int:
@@ -419,7 +439,7 @@ def _group_id_for(gender: str, age: int) -> str:
         for group_id, band in zip(GROUP_IDS_BY_GENDER[gender], AGE_BANDS):
             if band[2] <= age <= band[3]:
                 return group_id
-    raise ValueError(f"맞는 그룹이 없습니다: {gender}, {age}")
+    raise _value_error("그룹", "맞는 그룹이 없습니다", f"{gender}, {age}")
 
 
 def _aggregate_edges(purchases: Iterable[dict]) -> dict[tuple[str, str], dict]:
@@ -466,7 +486,7 @@ def _lookup(table: dict[str, dict], record_id: object, label: str) -> dict:
         ValueError: 없는 ID (문자열이 아닌 값 포함).
     """
     if not isinstance(record_id, str) or record_id not in table:
-        raise ValueError(f"존재하지 않는 {label} ID입니다: {record_id!r}")
+        raise _value_error(None, f"존재하지 않는 {label} ID입니다", repr(record_id))
     return table[record_id]
 
 
@@ -950,7 +970,7 @@ class ShopGraph:
             ValueError: 없는 노드 ID.
         """
         if not isinstance(node_id, str) or node_id not in self._adj:
-            raise ValueError(f"존재하지 않는 노드 ID입니다: {node_id!r}")
+            raise _value_error(None, "존재하지 않는 노드 ID입니다", repr(node_id))
         return sorted(self._adj[node_id])
 
     def edge(self, customer_id: str, product_id: str) -> dict | None:

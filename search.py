@@ -13,6 +13,25 @@ W8b에서 최종 고정한다.
 from graph import GROUP_IDS, GROUP_IDS_BY_GENDER, K_DEFAULT, K_MAX, KINDS, STYLES, WEIGHT_CAP, ShopGraph
 
 
+def _value_error(label: str, rule: str, value: object) -> ValueError:
+    """검증 오류를 "항목: 규칙 (입력: 값)" 형식의 ValueError로 만든다 (A04, W10a).
+
+    graph.py에도 같은 형식의 내부 함수가 따로 있다 (search.py는 graph.py의 내부 함수를 쓰지 않는다, 5.5).
+
+    인자:
+        label: 항목 이름 (예: "개수").
+        rule: 어긴 규칙 문장.
+        value: 화면에 보일 입력 값 (repr로 보일지는 부르는 쪽이 정한다).
+
+    반환:
+        만든 ValueError (raise는 부르는 쪽이 한다).
+
+    예외:
+        없음.
+    """
+    return ValueError(f"{label}: {rule} (입력: {value})")
+
+
 def _check_int_range(value: object, low: int, high: int | None, label: str) -> int:
     """정수 인자가 범위 안에 있는지 확인한다. bool과 숫자 문자열은 거부한다 (부록 B.3 정수 공통).
 
@@ -31,10 +50,10 @@ def _check_int_range(value: object, low: int, high: int | None, label: str) -> i
         ValueError: int가 아니거나(bool 포함) 범위 밖일 때.
     """
     if isinstance(value, bool) or not isinstance(value, int):
-        raise ValueError(f"{label}: 정수여야 합니다: {value!r}")
+        raise _value_error(label, "정수여야 합니다", repr(value))
     if value < low or (high is not None and value > high):
         limit = f"{low} 이상" if high is None else f"{low}~{high}"
-        raise ValueError(f"{label}: {limit}이어야 합니다: {value}")
+        raise _value_error(label, f"{limit}이어야 합니다", value)
     return value
 
 
@@ -106,19 +125,19 @@ def _check_conditions(kind: object, style: object, color: object,
             가격이 정수 0 이상이 아님, price_min > price_max.
     """
     if kind is not None and kind not in KINDS:
-        raise ValueError(f"종류: {'/'.join(KINDS)} 중 하나여야 합니다: {kind!r}")
+        raise _value_error("종류", f"{'/'.join(KINDS)} 중 하나여야 합니다", repr(kind))
     if style is not None and style not in STYLES:
-        raise ValueError(f"스타일: {'/'.join(STYLES)} 중 하나여야 합니다: {style!r}")
+        raise _value_error("스타일", f"{'/'.join(STYLES)} 중 하나여야 합니다", repr(style))
     if price_min is not None:
         _check_int_range(price_min, 0, None, "최저 가격")
     if price_max is not None:
         _check_int_range(price_max, 0, None, "최고 가격")
     if price_min is not None and price_max is not None and price_min > price_max:
-        raise ValueError(f"최저 가격이 최고 가격보다 큽니다: {price_min} > {price_max}")
+        raise _value_error("가격 범위", "최저 가격이 최고 가격보다 큽니다", f"{price_min} > {price_max}")
     if color is None:
         return None
     if not isinstance(color, str) or not color.strip():
-        raise ValueError(f"색상명: 공백뿐이거나 문자열이 아닙니다: {color!r}")
+        raise _value_error("색상명", "공백뿐이거나 문자열이 아닙니다", repr(color))
     return color.strip()
 
 
@@ -263,7 +282,7 @@ def group_popular(g: ShopGraph, group_id: str, k: int | None = None) -> list[dic
     """
     member_ids = g.members(group_id)  # 없는 그룹 ID면 ValueError
     if k is not None:
-        _check_int_range(k, 1, K_MAX, "k")
+        _check_int_range(k, 1, K_MAX, "개수")
     items = [
         {"product_id": product_id, "score": entry["score"], "buyers": len(entry["supporters"]),
          "sold_out": g.is_sold_out(product_id)}
@@ -380,7 +399,7 @@ def recommend(g: ShopGraph, customer_id: str, k: int = K_DEFAULT) -> list[dict]:
         ValueError: 없는 고객 ID, k가 정수 1~10이 아님.
     """
     g.get_customer(customer_id)  # 없는 고객 ID면 ValueError
-    _check_int_range(k, 1, K_MAX, "k")
+    _check_int_range(k, 1, K_MAX, "추천 개수 K")
     bought = {pid for pid in g.neighbors(customer_id) if pid not in GROUP_IDS}
     selected: list[dict] = []
     chosen = set(bought)  # 이미 산 상품 + 앞의 좁은 범위에서 이미 선택된 상품

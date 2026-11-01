@@ -1,0 +1,12 @@
+diff --git a/graph.py b/graph.py
+index 1779dab..d7edf87 100644
+--- a/graph.py
++++ b/graph.py
+@@ -599,7 +599,6 @@ class ShopGraph:
+         customer_id = self._next_id("C")
+         # 검증을 모두 통과했다: 원본 변경 → 카운터 증가 → 그래프 재구축 (계획서 5.2 갱신 방식)
+         self._customers[customer_id] = {"id": customer_id, **record}
+-        self._next_ids["C"] += 1
+         self.rebuild()
+         return customer_id
+ 

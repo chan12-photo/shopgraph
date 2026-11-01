@@ -1,0 +1,13 @@
+diff --git a/search.py b/search.py
+index 7ba8a5c..cefa612 100644
+--- a/search.py
++++ b/search.py
+@@ -132,7 +132,7 @@ def _check_conditions(kind: object, style: object, color: object,
+         _check_int_range(price_min, 0, None, "최저 가격")
+     if price_max is not None:
+         _check_int_range(price_max, 0, None, "최고 가격")
+-    if price_min is not None and price_max is not None and price_min > price_max:
++    if price_min is not None and price_max is not None and False:
+         raise _value_error("가격 범위", "최저 가격이 최고 가격보다 큽니다", f"{price_min} > {price_max}")
+     if color is None:
+         return None

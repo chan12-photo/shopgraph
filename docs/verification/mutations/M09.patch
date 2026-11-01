@@ -1,0 +1,13 @@
+diff --git a/main.py b/main.py
+index 22b76e9..91e8dec 100644
+--- a/main.py
++++ b/main.py
+@@ -177,7 +177,7 @@ def _to_choice(text: str, values: tuple[str, ...], label: str,
+         ValueError: 앞뒤 공백을 지운 값이 1~len(values) 번호가 아닐 때.
+     """
+     choice = text.strip()
+-    numbers = [str(number) for number in range(1, len(values) + 1)]
++    numbers = [str(number) for number in range(0, len(values) + 1)]
+     if choice not in numbers:
+         shown = [f"{number}({name})" for number, name in zip(numbers, names or values)]
+         joined = f"{', '.join(shown[:-1])} 또는 {shown[-1]}"

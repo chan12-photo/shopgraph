@@ -1,0 +1,13 @@
+diff --git a/main.py b/main.py
+index 22b76e9..956347b 100644
+--- a/main.py
++++ b/main.py
+@@ -779,7 +779,7 @@ def _print_adjacency(g: ShopGraph) -> None:
+     if node_id:
+         print_neighbors(g, node_id)
+         return
+-    for each_id in (*GROUP_IDS, *g.customer_ids(), *g.product_ids()):
++    for each_id in (*GROUP_IDS, *g.customer_ids()):
+         print_neighbors(g, each_id)
+ 
+ 

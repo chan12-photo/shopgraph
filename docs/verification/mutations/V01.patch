@@ -1,0 +1,13 @@
+diff --git a/view.py b/view.py
+index c90e7ba..12df23e 100644
+--- a/view.py
++++ b/view.py
+@@ -155,7 +155,7 @@ def print_recommendation(g: ShopGraph, customer_id: str, result: list[dict], k:
+     scope_labels = {"group": "같은 그룹", "gender": gender_label, "all": _ALL_LABEL}
+     for rank, item in enumerate(result, start=1):
+         _print_item(g, rank, item, scope_labels[item["scope"]])
+-    widest = len(_SCOPE_ORDER) - 1 if len(result) < k else _SCOPE_ORDER.index(result[-1]["scope"])
++    widest = len(_SCOPE_ORDER) - 1 if len(result) < 0 else _SCOPE_ORDER.index(result[-1]["scope"])
+     if widest > 0:
+         print(_widen_note(g, customer_id, group_label, gender_label, widest, k))
+     if len(result) < k:

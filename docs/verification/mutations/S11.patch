@@ -1,0 +1,13 @@
+diff --git a/search.py b/search.py
+index 7ba8a5c..aecf260 100644
+--- a/search.py
++++ b/search.py
+@@ -176,7 +176,7 @@ def find_products(
+         if ((kind is None or product["kind"] == kind)
+                 and (style is None or product["style"] == style)
+                 and (clean_color is None or clean_color in product["stock"])
+-                and (price_min is None or product["price"] >= price_min)
++                and (price_min is None or product["price"] > price_min)
+                 and (price_max is None or product["price"] <= price_max)):
+             result.append(product_id)
+     return result

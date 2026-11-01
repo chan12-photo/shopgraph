@@ -1,0 +1,13 @@
+diff --git a/graph.py b/graph.py
+index 1779dab..791a4c5 100644
+--- a/graph.py
++++ b/graph.py
+@@ -1011,7 +1011,7 @@ class ShopGraph:
+         _lookup(self._customers, customer_id, "고객")
+         _lookup(self._products, product_id, "상품")
+         agg = self._edges.get((customer_id, product_id))
+-        return 0 if agg is None else len(agg["colors"])
++        return 0 if agg is None else agg["count"]
+ 
+     def group_of(self, customer_id: str) -> str:
+         """고객이 소속된 그룹 ID를 돌려준다.

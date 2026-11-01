@@ -1,0 +1,13 @@
+diff --git a/graph.py b/graph.py
+index 1779dab..52b39e0 100644
+--- a/graph.py
++++ b/graph.py
+@@ -911,7 +911,7 @@ class ShopGraph:
+         예외:
+             없음.
+         """
+-        return sorted(self._customers)
++        return list(self._customers)
+ 
+     def product_ids(self) -> list[str]:
+         """모든 상품 ID를 돌려준다.

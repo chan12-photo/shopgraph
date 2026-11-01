@@ -1,0 +1,13 @@
+diff --git a/view.py b/view.py
+index c90e7ba..1b4032c 100644
+--- a/view.py
++++ b/view.py
+@@ -160,7 +160,7 @@ def print_recommendation(g: ShopGraph, customer_id: str, result: list[dict], k:
+         print(_widen_note(g, customer_id, group_label, gender_label, widest, k))
+     if len(result) < k:
+         print(f" ※ 추천할 수 있는 상품이 {len(result)}개뿐이라 {k}개를 채우지 못함")
+-    if len({item["scope"] for item in result}) > 1:
++    if len({item["scope"] for item in result}) >= 1:
+         print(_SCORE_NOTE)
+ 
+ 

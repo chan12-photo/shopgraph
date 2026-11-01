@@ -1,0 +1,13 @@
+diff --git a/main.py b/main.py
+index 22b76e9..7ad7fff 100644
+--- a/main.py
++++ b/main.py
+@@ -154,7 +154,7 @@ def _to_int(text: str, label: str) -> int:
+     digits = text.strip()
+     if not re.fullmatch(r"[0-9]+", digits):
+         raise ValueError(f"{label}: 숫자로 입력해 주세요")
+-    if len(digits) > _MAX_DIGITS:
++    if len(digits) > _MAX_DIGITS + 1:
+         # int()의 자릿수 제한(4300자리) 오류는 영어 메시지라 그 전에 거른다
+         raise ValueError(f"{label}: 숫자가 너무 깁니다 ({_MAX_DIGITS}자리 이하)")
+     return int(digits)

@@ -1,0 +1,13 @@
+diff --git a/graph.py b/graph.py
+index 1779dab..418bec8 100644
+--- a/graph.py
++++ b/graph.py
+@@ -1066,7 +1066,7 @@ class ShopGraph:
+             ValueError: 없는 상품 ID.
+         """
+         stock = _lookup(self._products, product_id, "상품")["stock"]
+-        return all(count == 0 for count in stock.values())
++        return any(count == 0 for count in stock.values())
+ 
+     def available_colors(self, product_id: str) -> list[str]:
+         """상품에서 구매 가능한(재고가 1 이상인) 색상을 돌려준다.

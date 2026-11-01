@@ -1,0 +1,13 @@
+diff --git a/graph.py b/graph.py
+index 1779dab..09a979b 100644
+--- a/graph.py
++++ b/graph.py
+@@ -419,7 +419,7 @@ def _next_number(records: dict[str, dict]) -> int:
+     예외:
+         없음.
+     """
+-    return max((int(record_id[1:]) for record_id in records), default=0) + 1
++    return max((int(record_id[1:]) for record_id in records), default=0) + 2
+ 
+ 
+ def _group_id_for(gender: str, age: int) -> str:

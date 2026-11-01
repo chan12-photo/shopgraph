@@ -1,0 +1,13 @@
+diff --git a/graph.py b/graph.py
+index 1779dab..192d1a3 100644
+--- a/graph.py
++++ b/graph.py
+@@ -179,7 +179,7 @@ def _clean_text(value: object, max_len: int, label: str) -> str:
+     if not isinstance(value, str):
+         raise _value_error(label, "문자열이어야 합니다", repr(value))
+     text = value.strip()
+-    if not 1 <= len(text) <= max_len:
++    if not 1 <= len(text) < max_len:
+         raise _value_error(label, f"앞뒤 공백을 지운 뒤 1~{max_len}자여야 합니다", repr(value))
+     return text
+ 

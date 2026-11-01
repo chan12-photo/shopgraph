@@ -1,0 +1,14 @@
+diff --git a/search.py b/search.py
+index 7ba8a5c..3f2cfc0 100644
+--- a/search.py
++++ b/search.py
+@@ -307,8 +307,8 @@ def _scopes(g: ShopGraph, customer_id: str) -> list[tuple[str, tuple[str, ...]]]
+     """
+     gender = g.get_customer(customer_id)["gender"]
+     return [
+-        ("group", (g.group_of(customer_id),)),
+         ("gender", GROUP_IDS_BY_GENDER[gender]),
++        ("group", (g.group_of(customer_id),)),
+         ("all", GROUP_IDS),
+     ]
+ 

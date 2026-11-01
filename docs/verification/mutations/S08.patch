@@ -1,0 +1,13 @@
+diff --git a/search.py b/search.py
+index 7ba8a5c..8d37536 100644
+--- a/search.py
++++ b/search.py
+@@ -402,7 +402,7 @@ def recommend(g: ShopGraph, customer_id: str, k: int = K_DEFAULT) -> list[dict]:
+     _check_int_range(k, 1, K_MAX, "추천 개수 K")
+     bought = {pid for pid in g.neighbors(customer_id) if pid not in GROUP_IDS}
+     selected: list[dict] = []
+-    chosen = set(bought)  # 이미 산 상품 + 앞의 좁은 범위에서 이미 선택된 상품
++    chosen = set()  # 이미 산 상품 + 앞의 좁은 범위에서 이미 선택된 상품
+     for scope, group_ids in _scopes(g, customer_id):
+         peer_ids = _peers(g, group_ids, customer_id)
+         for item in _scope_candidates(g, scope, peer_ids, chosen):

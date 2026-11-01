@@ -1,0 +1,13 @@
+diff --git a/graph.py b/graph.py
+index 1779dab..160df43 100644
+--- a/graph.py
++++ b/graph.py
+@@ -925,7 +925,7 @@ class ShopGraph:
+         예외:
+             없음.
+         """
+-        return sorted(self._products)
++        return list(self._products)
+ 
+     def find_customers_by_name(self, name: str) -> list[str]:
+         """이름이 완전히 일치하는 고객을 찾는다. 앞뒤 공백을 지운 뒤 비교하고 부분 일치는 하지 않는다.

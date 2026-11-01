@@ -1,0 +1,13 @@
+diff --git a/graph.py b/graph.py
+index 1779dab..72ea501 100644
+--- a/graph.py
++++ b/graph.py
+@@ -940,7 +940,7 @@ class ShopGraph:
+             ValueError: 공백뿐인 이름 (문자열이 아닌 값 포함).
+         """
+         target = _clean_query(name)
+-        return sorted(cid for cid, rec in self._customers.items() if rec["name"] == target)
++        return sorted(cid for cid, rec in self._customers.items() if target in rec["name"])
+ 
+     def find_products_by_name(self, name: str) -> list[str]:
+         """상품명이 완전히 일치하는 상품을 찾는다. 앞뒤 공백을 지운 뒤 비교하고 부분 일치는 하지 않는다.

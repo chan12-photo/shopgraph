@@ -1,7 +1,24 @@
-# 확장 고장 검사 (2026-11-02, 2회차 야간 작업 2)
+# 확장 고장 검사
+
+## 재실행 (2026-11-02 4회차, 재현 가능한 형태) — 이 절이 최신
+
+- 기준 커밋: 5538a39 (4회차 작업 1~3 반영 뒤: test_demo 보호 순서, 테스트 보강, group_of 비용)
+- 변형: docs/verification/mutations/*.patch 56개 = 아래 2회차 52종(G01~G22, S01~S15, V01~V06, M01~M09) + Codex 4종(C01~C04, docs/verification/codex_review_9784473.md 6번). 설명은 mutations/manifest.json. 패치는 37dc305에서 각 변형을 한 곳씩 적용해 `git diff`로 만들었다 (52종의 변형 내용은 2회차와 같음)
+- 실행 스크립트: docs/verification/mutations/run_mutations.py — 저장소 안 임시 worktree(.wt_mutation, 기준 커밋 detached)에서 패치 적용 → 테스트 → `git checkout -- .`로 복원, 끝나면 worktree 삭제. 작업 트리·커밋은 건드리지 않음
+- 명령: `python3 docs/verification/mutations/run_mutations.py HEAD` (테스트 명령 `python3 -B -m unittest tests.test_graph tests.test_search tests.test_recommend tests.test_view tests.test_flow`, 시연 데이터를 쓰는 tests/test_demo.py는 뺌)
+- 기준 상태: OK (실패 0)
+- 결과: **56종 중 55종 잡힘, 1종 못 잡음**. 변형마다 실패·오류 테스트 이름까지 docs/verification/mutations/result_5538a39.md
+- 2회차와 달라진 점: M04(숫자 자릿수 경계)·M05(삭제 ID 공백)는 W10b의 test_digit_limit_boundary·test_delete_id_spaces가 잡음. Codex 4종은 4회차 작업 2의 테스트(test_get_purchase_copy, test_ids_sorted_regardless_of_input_order, test_age_band_boundaries)가 잡음
+- 못 잡음: S06(search.py `_peers`에서 대상 고객을 동료에서 빼지 않음) — 동작이 같은 변형. 대상 고객이 동료에 들어가도 그 고객이 점수를 주는 상품은 이미 산 상품뿐이고 `chosen = set(bought)`로 후보에서 빠지므로 결과가 같다 (W8 6cb44e0 기록과 같음)
+- 한계: 변형 56곳은 Claude Code가 고른 52곳 + Codex가 고른 4곳이다. 모든 줄을 바꾼 것이 아니므로 "56종 중 55종"은 테스트가 완전하다는 뜻이 아니다
+
+---
+
+## 2회차 기록 (2026-11-02 새벽, 재현 자료 없음)
+
 
 - 대상: w12-prep 2ccefa7의 graph.py·search.py·view.py·main.py
-- 방법: 저장소 안 임시 worktree(.wt_mut, detached)에서 변형마다 파일 하나의 한 곳만 바꾸고 `python3 -m unittest` 전체를 돌린 뒤 원래대로 되돌렸다. 끝나고 worktree를 지웠다 (`git worktree list`에 원래 체크아웃만 남음). 실행 스크립트는 파일로 쓰지 않고 표준 입력으로 넘겼다
+- 방법 (2회차): 저장소 안 임시 worktree(.wt_mut, detached)에서 변형마다 파일 하나의 한 곳만 바꾸고 `python3 -m unittest` 전체를 돌린 뒤 원래대로 되돌렸다. 끝나고 worktree를 지웠다 (`git worktree list`에 원래 체크아웃만 남음). 실행 스크립트는 파일로 쓰지 않고 표준 입력으로 넘겼다 (그래서 이 회차 수치는 재현 자료가 없다. Codex 검토 8번 → 위 재실행 절로 보완)
 - 판정: 미도래 8개(tests/test_demo.py, NotImplementedError — 기대값을 먼저 읽고 멈추므로 코드 변형과 무관)를 뺀 실패·오류가 1개 이상이면 "잡힘"
 - tests/는 바꾸지 않았다. 못 잡은 변형 중 테스트 공백은 mutation_proposals.md에 초안만 적었다
 

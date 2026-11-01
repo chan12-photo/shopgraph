@@ -1,0 +1,13 @@
+diff --git a/graph.py b/graph.py
+index 1779dab..58b0a0d 100644
+--- a/graph.py
++++ b/graph.py
+@@ -1198,7 +1198,7 @@ class ShopGraph:
+             if node in self._customers:
+                 purchased |= self._edges[(node, product_id)]["colors"]
+         removed = sorted(purchased - set(new_stock))
+-        if removed:
++        if False:
+             raise ValueError(f"구매 기록이 있는 색상은 삭제할 수 없습니다: {', '.join(removed)}")
+ 
+     def _delete_with_purchases(self, table: dict[str, dict], record_id: str, ref_key: str) -> int:

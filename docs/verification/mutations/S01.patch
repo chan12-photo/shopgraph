@@ -1,0 +1,13 @@
+diff --git a/search.py b/search.py
+index 7ba8a5c..bcb566c 100644
+--- a/search.py
++++ b/search.py
+@@ -84,7 +84,7 @@ def _collect_scores(g: ShopGraph, peer_ids: list[str]) -> dict[str, dict]:
+             if product_id in GROUP_IDS:
+                 continue  # 소속 그룹 노드
+             entry = scores.setdefault(product_id, {"score": 0, "supporters": []})
+-            entry["score"] += min(g.weight(customer_id, product_id), WEIGHT_CAP)
++            entry["score"] += g.weight(customer_id, product_id)
+             entry["supporters"].append(customer_id)
+     return scores
+ 

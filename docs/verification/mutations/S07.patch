@@ -1,0 +1,13 @@
+diff --git a/search.py b/search.py
+index 7ba8a5c..c782638 100644
+--- a/search.py
++++ b/search.py
+@@ -355,7 +355,7 @@ def _scope_candidates(g: ShopGraph, scope: str, peer_ids: list[str], chosen: set
+     """
+     items = []
+     for product_id, entry in _collect_scores(g, peer_ids).items():
+-        if product_id in chosen or g.is_sold_out(product_id):
++        if product_id in chosen:
+             continue
+         items.append({
+             "product_id": product_id,

@@ -1,0 +1,13 @@
+diff --git a/graph.py b/graph.py
+index 1779dab..1cf30f9 100644
+--- a/graph.py
++++ b/graph.py
+@@ -882,7 +882,7 @@ class ShopGraph:
+             ValueError: 없는 상품 ID (형식이 틀린 ID 포함).
+         """
+         product = dict(_lookup(self._products, product_id, "상품"))
+-        product["stock"] = dict(product["stock"])
++        product["stock"] = product["stock"]
+         return product
+ 
+     def get_purchase(self, purchase_id: str) -> dict:

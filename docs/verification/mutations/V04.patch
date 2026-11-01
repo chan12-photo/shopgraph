@@ -1,0 +1,13 @@
+diff --git a/view.py b/view.py
+index c90e7ba..0c492cb 100644
+--- a/view.py
++++ b/view.py
+@@ -20,7 +20,7 @@ _ALL_LABEL = "전체 고객"
+ _SCORE_NOTE = " ※ 점수는 각 범위 안에서 계산한 값이라 범위가 다른 항목끼리 비교하지 않습니다"
+ 
+ # 화면에서 2칸을 차지하는 east_asian_width 분류 (전각 F, 넓은 문자 W). 그 밖(A 포함)은 1칸
+-_WIDE_CLASSES = frozenset("FW")
++_WIDE_CLASSES = frozenset("F")
+ 
+ # 표의 열 사이 공백, 트리·인접 리스트의 한 단계 들여쓰기
+ _COLUMN_GAP = "  "

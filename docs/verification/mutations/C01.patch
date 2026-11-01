@@ -1,0 +1,13 @@
+diff --git a/graph.py b/graph.py
+index 1779dab..f019b08 100644
+--- a/graph.py
++++ b/graph.py
+@@ -897,7 +897,7 @@ class ShopGraph:
+         예외:
+             ValueError: 없는 구매 ID (형식이 틀린 ID 포함).
+         """
+-        return dict(_lookup(self._purchases, purchase_id, "구매"))
++        return _lookup(self._purchases, purchase_id, "구매")
+ 
+     def customer_ids(self) -> list[str]:
+         """모든 고객 ID를 돌려준다.

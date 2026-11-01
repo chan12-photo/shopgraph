@@ -1,0 +1,12 @@
+diff --git a/graph.py b/graph.py
+index 1779dab..f404d43 100644
+--- a/graph.py
++++ b/graph.py
+@@ -1128,6 +1128,7 @@ class ShopGraph:
+         if missing_ref:
+             problems.append("존재하지 않는 고객·상품을 참조하는 구매 기록이 있어 재구축 비교를 건너뜁니다")
+         else:
++            self.rebuild()
+             problems += self._integrity_against_rebuild()
+         return problems
+ 

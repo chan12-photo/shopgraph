@@ -1,0 +1,13 @@
+diff --git a/graph.py b/graph.py
+index 1779dab..1b24256 100644
+--- a/graph.py
++++ b/graph.py
+@@ -464,7 +464,7 @@ def _aggregate_edges(purchases: Iterable[dict]) -> dict[tuple[str, str], dict]:
+         agg = edges.setdefault(key, {"colors": set(), "count": 0, "total_qty": 0, "last_date": rec["date"]})
+         agg["colors"].add(rec["color"])
+         agg["count"] += 1
+-        agg["total_qty"] += rec["qty"]
++        agg["total_qty"] += 1
+         agg["last_date"] = max(agg["last_date"], rec["date"])
+     return edges
+ 

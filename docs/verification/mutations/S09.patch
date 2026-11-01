@@ -1,0 +1,13 @@
+diff --git a/search.py b/search.py
+index 7ba8a5c..e83ec2c 100644
+--- a/search.py
++++ b/search.py
+@@ -406,7 +406,7 @@ def recommend(g: ShopGraph, customer_id: str, k: int = K_DEFAULT) -> list[dict]:
+     for scope, group_ids in _scopes(g, customer_id):
+         peer_ids = _peers(g, group_ids, customer_id)
+         for item in _scope_candidates(g, scope, peer_ids, chosen):
+-            if len(selected) == k:
++            if len(selected) == k + 1:
+                 break
+             selected.append(item)
+             chosen.add(item["product_id"])

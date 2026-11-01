@@ -1,0 +1,13 @@
+diff --git a/search.py b/search.py
+index 7ba8a5c..7dd3dd5 100644
+--- a/search.py
++++ b/search.py
+@@ -29,7 +29,7 @@ def _value_error(label: str, rule: str, value: object) -> ValueError:
+     예외:
+         없음.
+     """
+-    return ValueError(f"{label}: {rule} (입력: {value})")
++    return ValueError(f"{label}: {rule}: {value}")
+ 
+ 
+ def _check_int_range(value: object, low: int, high: int | None, label: str) -> int:

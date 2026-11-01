@@ -1,0 +1,13 @@
+diff --git a/search.py b/search.py
+index 7ba8a5c..af88222 100644
+--- a/search.py
++++ b/search.py
+@@ -330,7 +330,7 @@ def _peers(g: ShopGraph, group_ids: tuple[str, ...], customer_id: str) -> list[s
+     peer_ids: set[str] = set()
+     for group_id in group_ids:
+         peer_ids.update(g.members(group_id))
+-    peer_ids.discard(customer_id)
++    pass
+     return sorted(peer_ids)
+ 
+ 

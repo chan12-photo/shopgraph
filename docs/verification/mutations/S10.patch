@@ -1,0 +1,13 @@
+diff --git a/search.py b/search.py
+index 7ba8a5c..d9c4964 100644
+--- a/search.py
++++ b/search.py
+@@ -285,7 +285,7 @@ def group_popular(g: ShopGraph, group_id: str, k: int | None = None) -> list[dic
+         _check_int_range(k, 1, K_MAX, "개수")
+     items = [
+         {"product_id": product_id, "score": entry["score"], "buyers": len(entry["supporters"]),
+-         "sold_out": g.is_sold_out(product_id)}
++         "sold_out": not g.is_sold_out(product_id)}
+         for product_id, entry in _collect_scores(g, member_ids).items()
+     ]
+     items.sort(key=_rank_key)

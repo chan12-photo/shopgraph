@@ -1,0 +1,13 @@
+diff --git a/main.py b/main.py
+index 22b76e9..a192375 100644
+--- a/main.py
++++ b/main.py
+@@ -697,7 +697,7 @@ def _delete_customer(g: ShopGraph) -> None:
+         ValueError: 없는 고객 ID일 때 (확인을 묻기 전에 낸다).
+         EOFError, KeyboardInterrupt: 입력 도중 (run()이 받는다).
+     """
+-    customer_id = input("고객 ID: ").strip()
++    customer_id = input("고객 ID: ")
+     target = f"{g.get_customer(customer_id)['name']}({customer_id})"
+     count = sum(item["count"] for item in products_of(g, customer_id))
+     if _confirm_delete(target, count):

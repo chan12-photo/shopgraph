@@ -1,0 +1,226 @@
+{
+ "G01": {
+  "file": "graph.py",
+  "description": "날짜 형식(①) 검사 빼기"
+ },
+ "G02": {
+  "file": "graph.py",
+  "description": "정수 검사에서 bool 허용"
+ },
+ "G03": {
+  "file": "graph.py",
+  "description": "정수 상한 경계 하나 차이 (> → >=)"
+ },
+ "G04": {
+  "file": "graph.py",
+  "description": "정수 하한 경계 하나 차이 (< → <=)"
+ },
+ "G05": {
+  "file": "graph.py",
+  "description": "이름 길이 상한 경계 (<= → <)"
+ },
+ "G06": {
+  "file": "graph.py",
+  "description": "총수량에 수량 대신 1 더하기"
+ },
+ "G07": {
+  "file": "graph.py",
+  "description": "최근 구매일을 max 대신 min"
+ },
+ "G08": {
+  "file": "graph.py",
+  "description": "고객 등록 뒤 ID 카운터를 늘리지 않음"
+ },
+ "G09": {
+  "file": "graph.py",
+  "description": "고객 등록 뒤 재구축 빼기"
+ },
+ "G10": {
+  "file": "graph.py",
+  "description": "구매 수정 뒤 재구축 빼기"
+ },
+ "G11": {
+  "file": "graph.py",
+  "description": "get_customer가 복사본 대신 원본 반환"
+ },
+ "G12": {
+  "file": "graph.py",
+  "description": "get_product가 재고 딕셔너리를 공유"
+ },
+ "G13": {
+  "file": "graph.py",
+  "description": "is_sold_out을 all 대신 any"
+ },
+ "G14": {
+  "file": "graph.py",
+  "description": "구매 가능 색상에 재고 0 포함 (> → >=)"
+ },
+ "G15": {
+  "file": "graph.py",
+  "description": "ID 한도 경계 하나 차이 (>= → >)"
+ },
+ "G16": {
+  "file": "graph.py",
+  "description": "구매 기록이 있는 색상 삭제 거절 빼기"
+ },
+ "G17": {
+  "file": "graph.py",
+  "description": "검사기가 검사 중 rebuild로 상태를 고침"
+ },
+ "G18": {
+  "file": "graph.py",
+  "description": "검사기가 간선 집계 비교를 건너뜀"
+ },
+ "G19": {
+  "file": "graph.py",
+  "description": "가중치를 색상 수 대신 기록 수로"
+ },
+ "G20": {
+  "file": "graph.py",
+  "description": "오류 형식을 콜론 두 번으로 (graph)"
+ },
+ "G21": {
+  "file": "graph.py",
+  "description": "생성자 ID 카운터를 최대 + 2로"
+ },
+ "G22": {
+  "file": "graph.py",
+  "description": "이름 조회를 부분 일치로"
+ },
+ "S01": {
+  "file": "search.py",
+  "description": "점수 상한 3 빼기"
+ },
+ "S02": {
+  "file": "search.py",
+  "description": "정렬 키에서 구매자 수 빼기"
+ },
+ "S03": {
+  "file": "search.py",
+  "description": "정렬 키 구매자 수 오름차순"
+ },
+ "S04": {
+  "file": "search.py",
+  "description": "범위 넓히기 순서 바꾸기 (gender 먼저)"
+ },
+ "S05": {
+  "file": "search.py",
+  "description": "같은 성별 범위 건너뛰기"
+ },
+ "S06": {
+  "file": "search.py",
+  "description": "대상 고객을 동료에서 빼지 않음"
+ },
+ "S07": {
+  "file": "search.py",
+  "description": "추천에서 품절 제외 빼기"
+ },
+ "S08": {
+  "file": "search.py",
+  "description": "추천에서 이미 산 상품 제외 빼기"
+ },
+ "S09": {
+  "file": "search.py",
+  "description": "한 범위 안에서 K+1개까지 담기"
+ },
+ "S10": {
+  "file": "search.py",
+  "description": "S4 품절 표시 뒤집기"
+ },
+ "S11": {
+  "file": "search.py",
+  "description": "조건 조회 최저 가격 경계 (>= → >)"
+ },
+ "S12": {
+  "file": "search.py",
+  "description": "가격 범위 거꾸로 허용"
+ },
+ "S13": {
+  "file": "search.py",
+  "description": "색상 조건을 재고 있는 색으로"
+ },
+ "S14": {
+  "file": "search.py",
+  "description": "오류 형식을 콜론 두 번으로 (search)"
+ },
+ "S15": {
+  "file": "search.py",
+  "description": "S4 개수 항목 이름을 k로"
+ },
+ "V01": {
+  "file": "view.py",
+  "description": "넓힘 판정에서 결과 수 < k 무시"
+ },
+ "V02": {
+  "file": "view.py",
+  "description": "점수 비교 안내를 범위 1개여도 출력"
+ },
+ "V03": {
+  "file": "view.py",
+  "description": "조사 규칙에서 0을 받침 없음으로"
+ },
+ "V04": {
+  "file": "view.py",
+  "description": "표 폭에서 한글을 1칸으로"
+ },
+ "V05": {
+  "file": "view.py",
+  "description": "넓힘 이유를 항상 'K개가 안 돼'로"
+ },
+ "V06": {
+  "file": "view.py",
+  "description": "개수 부족 안내 빼기"
+ },
+ "M01": {
+  "file": "main.py",
+  "description": "삭제 확인 무시 (항상 삭제)"
+ },
+ "M02": {
+  "file": "main.py",
+  "description": "ValueError를 메시지로 바꾸지 않음"
+ },
+ "M03": {
+  "file": "main.py",
+  "description": "추천 K 기본값을 K_MAX로"
+ },
+ "M04": {
+  "file": "main.py",
+  "description": "숫자 자릿수 제한 경계 (9 → 10)"
+ },
+ "M05": {
+  "file": "main.py",
+  "description": "고객 삭제 ID 앞뒤 공백을 안 지움"
+ },
+ "M06": {
+  "file": "main.py",
+  "description": "삭제 확인 0건 문구 빼기"
+ },
+ "M07": {
+  "file": "main.py",
+  "description": "EOF를 받지 않음"
+ },
+ "M08": {
+  "file": "main.py",
+  "description": "전체 인접 리스트에서 상품 빠짐"
+ },
+ "M09": {
+  "file": "main.py",
+  "description": "번호 고르기에서 0 허용"
+ },
+ "C01": {
+  "file": "graph.py",
+  "description": "get_purchase가 복사본 대신 원본 반환 (Codex)"
+ },
+ "C02": {
+  "file": "graph.py",
+  "description": "customer_ids가 정렬 대신 입력 순서 (Codex)"
+ },
+ "C03": {
+  "file": "graph.py",
+  "description": "product_ids가 정렬 대신 입력 순서 (Codex)"
+ },
+ "C04": {
+  "file": "graph.py",
+  "description": "10대 그룹 상한 19 → 20 (Codex)"
+ }
+}

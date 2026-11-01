@@ -1,0 +1,13 @@
+diff --git a/search.py b/search.py
+index 7ba8a5c..5da5749 100644
+--- a/search.py
++++ b/search.py
+@@ -282,7 +282,7 @@ def group_popular(g: ShopGraph, group_id: str, k: int | None = None) -> list[dic
+     """
+     member_ids = g.members(group_id)  # 없는 그룹 ID면 ValueError
+     if k is not None:
+-        _check_int_range(k, 1, K_MAX, "개수")
++        _check_int_range(k, 1, K_MAX, "k")
+     items = [
+         {"product_id": product_id, "score": entry["score"], "buyers": len(entry["supporters"]),
+          "sold_out": g.is_sold_out(product_id)}

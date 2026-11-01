@@ -1,0 +1,13 @@
+diff --git a/main.py b/main.py
+index 22b76e9..914a084 100644
+--- a/main.py
++++ b/main.py
+@@ -70,7 +70,7 @@ def run() -> None:
+     g = ShopGraph(*initial_records())
+     try:
+         _menu_loop(g)
+-    except (EOFError, KeyboardInterrupt):
++    except KeyboardInterrupt:
+         print()
+         print("종료합니다")
+ 

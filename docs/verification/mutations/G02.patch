@@ -1,0 +1,13 @@
+diff --git a/graph.py b/graph.py
+index 1779dab..a800360 100644
+--- a/graph.py
++++ b/graph.py
+@@ -154,7 +154,7 @@ def _check_int(value: object, low: int, high: int | None, label: str) -> int:
+     예외:
+         ValueError: int가 아니거나(bool 포함) 범위 밖일 때.
+     """
+-    if isinstance(value, bool) or not isinstance(value, int):
++    if not isinstance(value, int):
+         raise _value_error(label, "정수여야 합니다", repr(value))
+     if value < low or (high is not None and value > high):
+         limit = f"{low} 이상" if high is None else f"{low}~{high}"

@@ -1,0 +1,13 @@
+diff --git a/search.py b/search.py
+index 7ba8a5c..fdfe8ad 100644
+--- a/search.py
++++ b/search.py
+@@ -103,7 +103,7 @@ def _rank_key(item: dict) -> tuple[int, int, str]:
+     예외:
+         KeyError: 항목에 위 키가 없을 때.
+     """
+-    return (-item["score"], -item["buyers"], item["product_id"])
++    return (-item["score"], item["buyers"], item["product_id"])
+ 
+ 
+ def _check_conditions(kind: object, style: object, color: object,

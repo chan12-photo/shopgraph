@@ -1,0 +1,13 @@
+diff --git a/graph.py b/graph.py
+index 1779dab..b3835aa 100644
+--- a/graph.py
++++ b/graph.py
+@@ -112,7 +112,7 @@ def _value_error(label: str | None, rule: str, value: object) -> ValueError:
+     예외:
+         없음.
+     """
+-    return ValueError(f"{rule} (입력: {value})" if label is None else f"{label}: {rule} (입력: {value})")
++    return ValueError(f"{rule} (입력: {value})" if label is None else f"{label}: {rule}: {value}")
+ 
+ 
+ def _check_date(value: object) -> str:

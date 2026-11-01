@@ -1,0 +1,13 @@
+diff --git a/view.py b/view.py
+index c90e7ba..36e37e7 100644
+--- a/view.py
++++ b/view.py
+@@ -238,7 +238,7 @@ def _widen_note(g: ShopGraph, customer_id: str, group_label: str, gender_label:
+     예외:
+         ValueError: 없는 고객 ID일 때 g의 메서드가 낸 것을 그대로 전달한다.
+     """
+-    alone = g.members(g.group_of(customer_id)) == [customer_id]
++    alone = False
+     why = "에 다른 고객이 없어" if alone else f"에서 {k}개가 안 돼"
+     note = f" ※ 같은 그룹({group_label}){why} '{gender_label}'로"
+     if widest == 2:

@@ -1,0 +1,13 @@
+diff --git a/graph.py b/graph.py
+index 1779dab..e77bbb5 100644
+--- a/graph.py
++++ b/graph.py
+@@ -867,7 +867,7 @@ class ShopGraph:
+         예외:
+             ValueError: 없는 고객 ID (형식이 틀린 ID 포함).
+         """
+-        return dict(_lookup(self._customers, customer_id, "고객"))
++        return _lookup(self._customers, customer_id, "고객")
+ 
+     def get_product(self, product_id: str) -> dict:
+         """상품 정보를 복사본으로 돌려준다. stock 딕셔너리도 복사한다.

@@ -1,0 +1,13 @@
+diff --git a/view.py b/view.py
+index c90e7ba..4a54323 100644
+--- a/view.py
++++ b/view.py
+@@ -12,7 +12,7 @@ from graph import AGE_BANDS, GENDER_LABELS, GENDERS, GROUP_IDS, GROUP_IDS_BY_GEN
+ 
+ # 숫자로 끝나는 ID 뒤 조사: 끝 숫자를 읽은 소리에 받침이 있으면 (이, 은) 아니면 (가, 는)
+ # 0 영, 1 일, 3 삼, 6 육, 7 칠, 8 팔 = 받침 있음 / 2 이, 4 사, 5 오, 9 구 = 받침 없음
+-_DIGITS_WITH_FINAL = frozenset("013678")
++_DIGITS_WITH_FINAL = frozenset("13678")
+ 
+ # 범위 순서와 넓힐 때 안내에 쓰는 이름. "gender"는 성별에 따라 "여성 전체"·"남성 전체"가 된다
+ _SCOPE_ORDER = ("group", "gender", "all")

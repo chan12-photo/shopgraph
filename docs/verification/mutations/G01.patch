@@ -1,0 +1,13 @@
+diff --git a/graph.py b/graph.py
+index 1779dab..e3a0757 100644
+--- a/graph.py
++++ b/graph.py
+@@ -130,7 +130,7 @@ def _check_date(value: object) -> str:
+     예외:
+         ValueError: 문자열이 아니거나 형식이 다르거나 없는 날짜(예: 2026-02-30)일 때.
+     """
+-    if not isinstance(value, str) or _DATE_PATTERN.fullmatch(value) is None:
++    if not isinstance(value, str):
+         raise _value_error("구매일", "YYYY-MM-DD 형식이어야 합니다", repr(value))
+     try:
+         datetime.date.fromisoformat(value)

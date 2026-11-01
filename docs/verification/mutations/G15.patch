@@ -1,0 +1,13 @@
+diff --git a/graph.py b/graph.py
+index 1779dab..74482a1 100644
+--- a/graph.py
++++ b/graph.py
+@@ -1173,7 +1173,7 @@ class ShopGraph:
+         """
+         number = self._next_ids[prefix]
+         digits = _ID_DIGITS[prefix]
+-        if number >= 10 ** digits:
++        if number > 10 ** digits:
+             raise ValueError(f"ID 한도 초과: {prefix} 번호는 {10 ** digits - 1}까지입니다")
+         return f"{prefix}{number:0{digits}d}"
+ 

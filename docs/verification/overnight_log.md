@@ -17,7 +17,7 @@
 | 4 plan_pending.md | 완료 (판단 필요 2건 포함) | 14df318 | 판단 필요: W11 19장 행의 날짜·결정자는 기대값 승인 때 확정 / 5.4 아래 입력 규칙 문단을 넣을지 |
 | 5 PR #1·#2 본문 | 완료 | (저장소 커밋 없음) | "🤖 Generated with [Claude Code](…)" 줄만 지움. 두 PR 모두 OPEN, draft 그대로 |
 | 6 report_materials.md | 완료 (판단 필요 1건 포함) | 112e4f0 | 판단 필요: "3판 확장 문서 9장"을 저장소 전 브랜치에서 찾지 못함 |
-| 7 README 실행 방법 | **판단 필요** (README 안 고침) | 이 기록과 같은 커밋 | 아래 참고 |
+| 7 README 실행 방법 | 판정 받음: W14에서 반영(찬일 허락 후), README 안 고침 | 8a220c6 | 아래 "판정" 참고 |
 
 ## 판단 필요 (찬일)
 
@@ -25,6 +25,15 @@
 2. **작업 6 "3판 확장 문서 9장"**: `git grep "3판\|확장 문서"`를 모든 로컬 브랜치에서 돌렸으나 없음. 저장소 밖 문서라면 위치를 알려 주면 보충한다. Downloads·Desktop의 shopgraph_starter 사본은 찬일 지시로 열지 않았다
 3. **작업 4 plan_pending.md 끝의 2건**: W11 19장 행 확정 시점, 5.4 입력 규칙 문단 추가 여부
 4. **작업 1 장면 1 칸**: 지시에 없던 장면 1 "그룹별 인원" 칸을 넣었다. 빼려면 test_demo의 test_scene1_group_tree도 같이 정해야 한다
+
+## 판정 (찬일 11/02 아침)
+
+| 번호 | 판정 | 반영한 곳 |
+|---|---|---|
+| 1 README 실행 방법 | README는 고치지 않는다. readme_run_draft.md는 그대로 두고 "W14에서 반영(찬일 허락 후)" | readme_run_draft.md 맨 위 상태 줄 |
+| 2 3판 확장 문서 | report_materials의 해당 절은 "확장 단계 실제 수행 후 보충". 지금은 찾지 않음 | report_materials.md 3절 |
+| 3 plan_pending | W11 19장 행의 날짜·결정자는 "demo_expected.md 승인일, 찬일". 5.4 입력 규칙 문단은 넣는 것으로 확정 | plan_pending.md 8절 표·끝의 판정 절 |
+| 4 장면 1 칸 | demo_expected.md 장면 1 "그룹별 인원" 칸 유지 | 바꾼 파일 없음 (이 기록만) |
 
 ## 멈춤 (11.3.4)
 

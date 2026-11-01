@@ -44,6 +44,24 @@ _NOTES = (("넓힘 안내", " ※ 같은 그룹("), ("개수 부족 안내", "�
 _STAT_KEYS = {"그룹 노드": "groups", "고객 노드": "customers", "상품 노드": "products",
               "소속 간선": "membership_edges", "구매 간선": "purchase_edges", "구매 기록": "purchases"}
 
+# 장면마다 반드시 있어야 하는 표와, 두 칸 표에서 반드시 있어야 하는 행 이름 (None = 행 이름을 정하지 않는 표)
+_NOTE_NAMES = tuple(name for name, _ in _NOTES)
+_REQUIRED_TABLES = {
+    1: {"그룹별 인원": None},
+    2: {"연결 그룹": ("C_new 연결 그룹 ID",), "추천 (C_new, K=3)": None, "안내 줄": _NOTE_NAMES},
+    3: {"구매 등록 줄 가중치": None, "S1 (C_new)": None},
+    4: {"추천 (C_new, K=3)": None, "안내 줄": _NOTE_NAMES},
+    5: {"S4 구매 전 (G-F-20, 전체)": None, "구매 등록 줄 가중치 (C09–P07)": None, "S4 구매 후 (G-F-20, 전체)": None},
+    6: {"추천 (C_new, K=3)": None, "안내 줄": _NOTE_NAMES},
+    7: {"연결 그룹": ("C_new7 연결 그룹 ID",), "추천 (C_new7, K=3)": None, "안내 줄": _NOTE_NAMES},
+    8: {"통계 표": None, "무결성 검사": ("위반 수",)},
+}
+
+# 칸 값 형식: 숫자 칸, 정해진 값만 쓰는 칸 (docs/demo_expected.md "쓰는 법")
+_NUMBER_COLUMNS = frozenset({"순위", "점수", "구매자 수", "구매 고객 수", "가중치", "기록 수", "총수량", "인원", "개수"})
+_CHOICE_COLUMNS = {"범위": frozenset(_SCOPES), "상태": frozenset({"판매 중", "품절"}),
+                   "있음/없음": frozenset({"있음", "없음"})}
+
 # 장면마다 입력이나 확인에 쓰는 확정값 이름 (docs/demo_expected.md 확정값 표, w11_scenes.md)
 _FIXED_BY_SCENE = {2: ("C_new",), 3: ("C_new", "P_top", "장면 3 색상 1", "장면 3 색상 2"), 4: ("C_new",),
                    6: ("C_new", "P_top6"), 7: ("C_new7",)}
@@ -67,6 +85,7 @@ def _load_expected() -> dict[str, dict[str, list[dict[str, str]]]]:
 
     예외:
         OSError: 파일을 읽지 못할 때.
+        NotImplementedError: 칸 수가 머리 칸 수와 다른 행이 있을 때 (작성 중인 표).
     """
     sections: dict[str, dict[str, list[dict[str, str]]]] = {}
     section, table, header = "", "", []
@@ -83,6 +102,8 @@ def _load_expected() -> dict[str, dict[str, list[dict[str, str]]]]:
                 continue  # 머리 아래 구분 줄, 또는 모든 칸이 "-"인 행 (어느 쪽이든 쓰지 않음)
             if not header:
                 header = cells
+            elif len(cells) != len(header):
+                raise NotImplementedError(f"{_NOT_READY}: {section} / {table} 칸 수가 머리({len(header)}칸)와 다름")
             else:
                 sections[section][table].append(dict(zip(header, cells)))
     return sections
@@ -141,9 +162,10 @@ def _value(expected: dict, section: str, table: str, key: str) -> str:
 
 
 def _require_through(expected: dict, last: int) -> None:
-    """장면 1~last의 모든 기대값 표 칸과 그 장면들이 쓰는 확정값을 실행 전에 확인한다.
+    """장면 1~last에 필요한 표·행·칸·확정값이 모두 있고 형식이 맞는지 실행 전에 확인한다.
 
-    시연을 실행하기 전에 부른다. 작성 도중이라 칸이 하나라도 비어 있으면 실행하지 않고 멈춘다.
+    시연을 실행하기 전에 부른다. 작성 도중이라 장·표·필수 행이 없거나, 칸이 비었거나, 칸 값 형식이 맞지 않거나,
+    확정값끼리 어긋나면(P_top ≠ 장면 2 추천 1위, 장면 3 두 색상이 같음) 실행하지 않고 멈춘다.
 
     인자:
         expected: _load_expected()의 결과.
@@ -153,16 +175,52 @@ def _require_through(expected: dict, last: int) -> None:
         없음.
 
     예외:
-        NotImplementedError: 장(## 장면 N)이나 표가 없거나, 빈칸이 있을 때 (기대값 승인 전).
+        NotImplementedError: 위 조건 중 하나라도 맞지 않을 때 (기대값 승인 전).
     """
     for scene in range(1, last + 1):
         section = f"장면 {scene}"
         if not expected.get(section):
             raise NotImplementedError(f"{_NOT_READY}: {section} 없음")
+        for table, keys in _REQUIRED_TABLES[scene].items():
+            if not expected[section].get(table):
+                raise NotImplementedError(f"{_NOT_READY}: {section} / {table} 표 또는 행 없음")
+            for key in keys or ():
+                _value(expected, section, table, key)
         for table in expected[section]:
-            _rows(expected, section, table)
+            for row in _rows(expected, section, table):
+                _check_formats(section, table, row)
         for key in _FIXED_BY_SCENE.get(scene, ()):
             _value(expected, "확정값", "확정값", key)
+    if last >= 3:
+        fixed = lambda key: _value(expected, "확정값", "확정값", key)  # noqa: E731
+        first = _rows(expected, "장면 2", "추천 (C_new, K=3)")
+        if not first or first[0]["상품 ID"] != fixed("P_top"):
+            raise NotImplementedError(f"{_NOT_READY}: P_top이 장면 2 추천 1위 상품 ID와 다름")
+        if fixed("장면 3 색상 1") == fixed("장면 3 색상 2"):
+            raise NotImplementedError(f"{_NOT_READY}: 장면 3 색상 1·2가 같음")
+
+
+def _check_formats(section: str, table: str, row: dict[str, str]) -> None:
+    """한 행의 칸 값 형식을 확인한다: 숫자 칸은 0~9 숫자, 범위·상태·있음/없음 칸은 정해진 값, 통계 항목은 정해진 이름.
+
+    인자:
+        section: 장 이름.
+        table: 표 제목.
+        row: 머리 → 칸 딕셔너리.
+
+    반환:
+        없음.
+
+    예외:
+        NotImplementedError: 형식이 맞지 않을 때 (작성 중이거나 오타).
+    """
+    for column, value in row.items():
+        bad = ((column in _NUMBER_COLUMNS and not re.fullmatch(r"[0-9]+", value))
+               or (column in _CHOICE_COLUMNS and value not in _CHOICE_COLUMNS[column])
+               or (table == "통계 표" and column == "항목" and value not in _STAT_KEYS)
+               or (table == "무결성 검사" and column == "값" and not re.fullmatch(r"[0-9]+", value)))
+        if bad:
+            raise NotImplementedError(f"{_NOT_READY}: {section} / {table} / {column} 형식 확인 필요: {value!r}")
 
 
 def _screen_tables(screen: str, title: str) -> list[list[list[str]]]:
@@ -398,9 +456,9 @@ class TestW12Demo(unittest.TestCase):
         _require_through(expected, 1)
         rows = _rows(expected, "장면 1", "그룹별 인원")
         screen, g = _run_scenes(1, expected)
-        want = {row["그룹 ID"]: row["인원"] for row in rows}
-        self.assertEqual(dict(_TREE_GROUP.findall(screen)), want)
-        self.assertEqual({group_id: str(len(g.members(group_id))) for group_id in want}, want)
+        want = [(row["그룹 ID"], row["인원"]) for row in rows]
+        self.assertEqual(_TREE_GROUP.findall(screen), want)  # 화면 순서·개수까지
+        self.assertEqual([(group_id, str(len(g.members(group_id)))) for group_id, _ in want], want)
 
     def test_scene2_register_recommend(self) -> None:
         """장면 2: "25세 여성" 등록 → 연결 그룹, 즉시 추천과 안내 줄."""
@@ -456,6 +514,9 @@ class TestW12Demo(unittest.TestCase):
         _require_through(expected, 6)
         customer_id = _value(expected, "확정값", "확정값", "C_new")
         product_id = _value(expected, "확정값", "확정값", "P_top6")
+        _, before = _run_scenes(5, expected)
+        top = recommend(before, customer_id, 3)
+        self.assertEqual(top[0]["product_id"] if top else None, product_id, msg="P_top6 = 장면 5 상태의 C_new 추천 1위")
         screen, g = _run_scenes(6, expected)
         self.assertTrue(g.is_sold_out(product_id))
         self._check_recommend(expected, "장면 6", g, customer_id, screen)

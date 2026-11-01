@@ -39,22 +39,28 @@ def print_group_tree(g: ShopGraph) -> None:
     raise NotImplementedError("W9에서 구현 예정")
 
 
-def print_recommendation(g: ShopGraph, customer_id: str, result: list[dict]) -> None:
+def print_recommendation(g: ShopGraph, customer_id: str, result: list[dict], k: int) -> None:
     """추천 결과를 근거(지지 고객)·구매 가능 색상·범위 안내와 함께 출력한다.
 
-    결과가 비어 있으면 "추천할 상품이 없습니다"를 출력한다.
+    결과가 비어 있으면 "추천할 상품이 없습니다"를 출력한다. 넓혀 본 범위는 k로 판정한다:
+    결과 수 < k이면 전체 고객까지 넓힌 것이고, 결과 수 == k이면 마지막 항목의 범위까지 넓힌 것이다
+    (그 사이 범위는 거쳤지만 새 후보가 없었던 것). 결과 수 < k이면 그 사실도 한 줄로 안내한다.
+    범위가 2개 이상 섞였을 때만 점수 비교 안내를 출력한다.
+
+    전제: result는 같은 k로 부른 search.recommend()의 반환값이며 len(result) ≤ k이다.
 
     인자:
         g: 조회할 ShopGraph.
         customer_id: 추천 대상 고객 ID.
         result: search.recommend()의 반환값.
+        k: 그 recommend() 호출에 넘긴 추천 개수 K.
 
     반환:
         없음.
 
     예외:
         ValueError: 없는 고객 ID일 때 g의 메서드가 낸 ValueError를 그대로 전달한다
-            (메시지 표시는 main.py가 맡는다).
+            (메시지 표시는 main.py가 맡는다). 이때는 아무것도 출력하지 않는다.
         NotImplementedError: W8b에서 구현하기 전.
     """
     raise NotImplementedError("W8b에서 구현 예정")

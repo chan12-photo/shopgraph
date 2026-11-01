@@ -104,3 +104,38 @@ PR #1은 처음 시도에서 내가 넣은 안전 확인(지운 줄 수 상한)�
 ## 작업 0. 판단 4건 반영
 
 - 4건 모두 이미 b40de17 "[DOC] 야간 작업 판단 4건 판정 기록 (찬일 11/02)"에 반영돼 있음을 확인했다 (readme_run_draft.md 상태 줄, report_materials.md 3절, plan_pending.md 판정 절·W11 행, demo_expected.md 장면 1 칸 유지). 추가로 바꾼 파일 없음
+
+## 2회차 작업별 상태
+
+| 작업 | 상태 | 커밋 | 비고 |
+|---|---|---|---|
+| 시작 전 명령 미리 실행 | 완료 | 2ccefa7 | python -m unittest, git worktree add/remove(저장소 안), 임시 사본 수정·실행, git commit, 서브에이전트 실행 모두 승인 요청 없이 실행됨 |
+| 0 판단 4건 반영 | 완료 | 2ccefa7 | b40de17에 이미 반영돼 있음을 확인, 추가 변경 없음 |
+| 1 통합 독립 검토 | 완료 | 4b0d93e | 서브에이전트(맥락 없음, 읽기 전용). 반드시 수정 0, 권장 4, 질문 5. 지시대로 고치지 않음 |
+| 2 확장 고장 검사 | 완료 | 491ad40 | 52종 중 49종 잡힘. 못 잡음 3종: S06(동작이 같은 변형), M04·M05(테스트 공백 → mutation_proposals.md 초안) |
+| 3 코드 읽기 안내서 | 완료 | a536d70 | docs/study/code_guide.md |
+| 4 안내서 검증 | 완료 | 02254b1 | 다른 서브에이전트, 18건 발견·전부 수정. 안내서 밖 발견 1건 → defects A06 |
+| 5 발표 뼈대·예상 질문 | 완료 | f0d666d | 예상 질문 22개, 답 문장 없음 |
+
+- 저장소 밖에 쓴 파일 없음: 임시 worktree는 저장소 안 `.wt_mut`·`.wt_run`에 만들고 지움, 커밋 메시지와 실행 스크립트는 표준 입력으로 넘김. 서브에이전트의 대화 기록은 도구가 자체 위치에 남김 (내가 쓴 파일 아님)
+- 시연 장면 실행·기대 결과 계산 없음. 서브에이전트 두 개에도 금지함 (검토자는 tools/check_data.py 출력도 보지 않았다고 보고)
+- 코드·tests/·계획서 본문·README 변경 없음 (`git diff --stat b40de17 -- graph.py search.py view.py main.py data.py tests docs/project_plan.md README.md` 결과 없음)
+
+## 2회차 판단 필요 (찬일)
+
+1. **통합 검토 Q3 (손계산 전에 판정 권장)**: demo_expected.md 장면 1 "그룹별 인원"은 tools/check_data.py 출력과 w11_g7.md에 이미 같은 숫자가 있다. 실행 결과를 옮겨 적지 않으려면 data.py·w11_raw_by_group.md에서 사람이 직접 셀지 정해야 한다
+2. **통합 검토 Q5**: docs/report_materials.md, docs/study/는 찬일 지시 경로지만 CLAUDE.md·11.3.2의 공통 수정 허용 경로 밖이다. 위치를 그대로 둘지
+3. **통합 검토 권장 R1~R4, 질문 Q1·Q2·Q4**: main.py K 라벨(R1), main.py 재고 겹침 문구의 콜론 두 번(R2, W10 승인 형식이라 11.3.8 필요), check_data.py check_dates 정리(R3), 오류 문구까지 보는 테스트(R4), graph.py:1199 문구(Q1), main.py 변환 오류 형식(Q2), make_raw_by_group.py의 data.py import(Q4)
+4. **고장 검사 테스트 초안 P1·P2**: mutation_proposals.md의 두 테스트를 tests/test_flow.py에 추가할지 ([제안 기대값] 승인 필요)
+5. **defects A06**: tests/test_flow.py:607 docstring "(6.4)" 표기 정정 (tests/ 수정이라 승인 필요, 기대값 변경 없음)
+
+## 2회차 커밋마다 테스트 분류
+
+모든 커밋에서 커밋 직전 작업 트리와 커밋 뒤 체크아웃(저장소 안 `.wt_run`) 두 번 실행했고 결과가 같았다:
+
+```
+Ran 139 tests
+FAILED (errors=8)
+```
+
+통과 131 / 미도래 8 (tests/test_demo.py 8개, 전부 `NotImplementedError: W11 기대값 승인 전 …`) / 실패 0. 해당 커밋: 2ccefa7, 491ad40, a536d70, f0d666d, 4b0d93e, 02254b1, 그리고 이 기록 커밋

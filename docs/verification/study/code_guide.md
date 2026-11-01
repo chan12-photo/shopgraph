@@ -1,7 +1,7 @@
 # ShopGraph 코드 읽기 안내서
 
 - 대상: 이 코드를 처음 읽는 학부생
-- 기준: w12-prep 브랜치 491ad40의 코드와 docs/project_plan.md(계획서). 별도 서브에이전트가 문장·줄 번호를 대조해 18곳을 고쳤어요 (docs/verification/study/code_guide_check.md)
+- 기준: w12-prep 브랜치 491ad40의 코드와 docs/project_plan.md(계획서). 별도 서브에이전트가 문장·줄 번호를 대조해 18곳을 고쳤어요 (docs/verification/study/code_guide_check.md). tests/test_flow.py 줄 번호와 TestW10bInputs 행은 W10b(11/02) 뒤 기준으로 고쳤어요
 - 줄 번호는 위 커밋 기준이에요. 코드가 바뀌면 줄 번호도 달라질 수 있어요.
 - 예시는 계획서 6장 고정 데이터(tests/fixtures.py와 같은 데이터)와 6장 기대값만 써요. 시연 데이터(data.py)로 계산한 결과는 없어요.
 
@@ -93,7 +93,7 @@ view.py   ──> graph.py (공개 메서드와 대문자 상수만)
 | 6 | 재구축이 성별·나이로 그룹을 다시 찾아 연결해요. 그래서 그룹 이동 코드를 따로 두지 않아요 | graph.py:1243-1245, graph.py:425 _group_id_for |
 | 7 | main.py가 수정 뒤 그룹을 "[수정] 이름(ID) → 그룹 표시 이름 그룹"으로 보여 줘요 | main.py:632-633 |
 
-- 6장 예: C04 나이를 24에서 34로 바꾸면 G-M-20에서 G-M-30으로 옮기고 G-M-20은 비어요 (계획서 6.4 593줄, tests/test_graph.py TestW4CustomerProduct.test_age_move). 메뉴 경로는 tests/test_flow.py TestW10Menu.test_update_customer_moves_group이 나이 31로 확인해요.
+- 6장 예: C04 나이를 24에서 34로 바꾸면 G-M-20에서 G-M-30으로 옮기고 G-M-20은 비어요 (계획서 6.4 593줄, tests/test_graph.py TestW4CustomerProduct.test_age_move). 메뉴 경로는 tests/test_flow.py TestW10Menu.test_update_customer_moves_group이 같은 나이 34로 확인해요.
 
 ### 3.4 추천 1번 ([6] RECOMMEND)
 
@@ -165,7 +165,8 @@ view.py   ──> graph.py (공개 메서드와 대문자 상수만)
 | tests/test_recommend.py | TestW8Recommend | W8 추천 (6.3 전체) | tests/test_recommend.py:89 |
 | tests/test_flow.py | TestW8bFlow | W8b 추천 화면 | tests/test_flow.py:149 |
 | | TestW10Menu | W10 전체 메뉴, 잘못된 입력, EOF·Ctrl+C | tests/test_flow.py:435 |
-| | TestW10aMessages | W10a 오류 메시지 형식 | tests/test_flow.py:679 |
+| | TestW10aMessages | W10a 오류 메시지 형식 | tests/test_flow.py:688 |
+| | TestW10bInputs | W10b 고장 검사에서 찾은 입력 처리 공백(자릿수 경계, 삭제 ID 공백), 추천 K 라벨 | tests/test_flow.py:719 |
 | tests/test_view.py | TestW9Table, TestW9GroupTree, TestW9Neighbors | W9 표·그룹 트리·인접 리스트 | tests/test_view.py:59, 120, 190 |
 | tests/test_demo.py | TestW12Demo | W12 시연 장면 1~8 (기대값 승인 전이라 지금은 NotImplementedError) | tests/test_demo.py:206 |
 

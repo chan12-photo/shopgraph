@@ -30,20 +30,25 @@ _DATE_LAST = "2026-10-31"
 def check_dates(purchases: list[dict]) -> None:
     """구매일이 YYYY-MM-DD 10자(0~9 숫자)이고 실제 날짜이며 9~10월 안인지 점검하고 월별 건수를 출력한다.
 
-    ShopGraph 생성자도 형식을 검증하지만, 이 함수는 원본 레코드를 따로 다시 확인한다.
+    main()은 ShopGraph 생성자 검증(부록 B.3 구매일 규칙)을 통과한 뒤에 이 함수를 부르므로, main() 경로에서
+    실제로 문제를 찾을 수 있는 것은 9~10월 범위 검사뿐이다. 형식·실제 날짜 검사는 계획서 11.3.2 W11의
+    "날짜 형식 점검"을 생성자와 따로 보여 주려고 둔 것이다 (아래 주석).
 
     인자:
-        purchases: data.py의 구매 기록 리스트.
+        purchases: 구매 기록 리스트 (1건 이상, 각 date는 문자열).
 
     반환:
         없음.
 
     예외:
-        없음.
+        ValueError: purchases가 비어 있을 때 (가장 이른 날·늦은 날을 구하는 min·max).
+        TypeError: date가 문자열이 아닐 때 (re.fullmatch).
     """
     bad = []
     for record in purchases:
         day = record["date"]
+        # 아래 두 검사는 main() 경로에서는 걸리지 않는다: 생성자가 같은 규칙으로 먼저 거절하고, 그러면 main()은
+        # 이 함수까지 오지 않는다. 생성자를 거치지 않은 레코드에 이 함수를 쓸 때를 위해 남긴다
         if not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", day):
             bad.append(f"{record['id']} 형식 {day!r}")
             continue

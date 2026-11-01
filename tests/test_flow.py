@@ -747,6 +747,12 @@ class TestW10bInputs(unittest.TestCase):
         self.assertEqual(g.edge("C01", "P01")["last_date"], "2026-09-15")
         self.assertEqual(g.check_integrity(), [])
 
+    def test_recommend_k_not_number(self) -> None:
+        """[6] 추천에서 숫자가 아닌 K도 범위 밖 K와 같은 항목 이름 "추천 개수 K"로 안내한다 (통합 검토 R1)."""
+        text, _ = _run_main(["6", "C01", "abc", "0"])
+        # [승인 기대값] (찬일 11/02)
+        self.assertIn("\n[오류] 추천 개수 K: 숫자로 입력해 주세요\n", text)
+
 
 if __name__ == "__main__":
     unittest.main()

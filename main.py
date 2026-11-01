@@ -821,7 +821,7 @@ def _recommend(g: ShopGraph) -> None:
         EOFError, KeyboardInterrupt: 입력 도중 (run()이 받는다).
     """
     customer_id = input("고객 ID: ").strip()
-    k = _optional(input(f"추천 개수 K (1~{K_MAX}, Enter: {K_DEFAULT}): "), lambda text: _to_int(text, "K"))
+    k = _optional(input(f"추천 개수 K (1~{K_MAX}, Enter: {K_DEFAULT}): "), lambda text: _to_int(text, "추천 개수 K"))
     k = K_DEFAULT if k is None else k
     print_recommendation(g, customer_id, recommend(g, customer_id, k), k)
 

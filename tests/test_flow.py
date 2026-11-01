@@ -13,12 +13,14 @@ contextlib.redirect_stdout으로 확인한다. 실행용 data.py는 읽지 않�
 import contextlib
 import io
 import unittest
+from unittest import mock
 
+import main
 from graph import ShopGraph
 from search import recommend
-from tests.fixtures import make_graph
+from tests.fixtures import customers, make_graph, products, purchases
 from tests.helpers import snapshot
-from view import print_recommendation
+from view import print_recommendation, print_table
 
 # 5.3.3 출력 예시 끝의 두 번째 안내 줄 (예시 글자 그대로). 범위가 2개 이상 섞였을 때만 나온다 (찬일 11/01)
 _SCORE_NOTE = " ※ 점수는 각 범위 안에서 계산한 값이라 범위가 다른 항목끼리 비교하지 않습니다"
@@ -366,6 +368,307 @@ class TestW8bFlow(unittest.TestCase):
                 print_recommendation(g, "C99", [], 3)
         self.assertEqual(buffer.getvalue(), "")
         self.assertEqual(snapshot(g), before)
+
+
+def _run_main(inputs: list[object]) -> tuple[str, ShopGraph]:
+    """main.run()을 고정 데이터와 정해 둔 입력으로 실행하고 화면과 그래프를 돌려준다.
+
+    main.initial_records를 tests/fixtures.py의 6.1 데이터로 바꿔 실행용 data.py를 읽지 않는다.
+    입력은 터미널처럼 안내 문구 뒤에 입력값과 줄바꿈을 화면에 남긴다. 입력이 다 떨어지면
+    EOFError, 예외 클래스(KeyboardInterrupt 등)를 넣어 두면 그 자리에서 그 예외를 낸다.
+
+    인자:
+        inputs: 차례로 돌려줄 입력 문자열 또는 낼 예외 클래스.
+
+    반환:
+        (화면 문자열 전체, run()이 만든 ShopGraph).
+
+    예외:
+        run()이 밖으로 내보낸 예외를 그대로 전달한다 (정상이라면 없음).
+    """
+    feed = iter(inputs)
+    created: list[ShopGraph] = []
+
+    def fake_input(prompt: str = "") -> str:
+        print(prompt, end="")
+        value = next(feed, EOFError)
+        if isinstance(value, type) and issubclass(value, BaseException):
+            raise value
+        print(value)
+        return value
+
+    def build(*records: list[dict]) -> ShopGraph:
+        g = ShopGraph(*records)
+        created.append(g)
+        return g
+
+    buffer = io.StringIO()
+    with mock.patch("main.initial_records", lambda: (customers(), products(), purchases())), \
+            mock.patch("main.ShopGraph", build), mock.patch("builtins.input", fake_input), \
+            contextlib.redirect_stdout(buffer):
+        returned = main.run()
+    if returned is not None:
+        raise AssertionError(f"run()이 None이 아닌 값을 돌려줌: {returned!r}")
+    return buffer.getvalue(), created[0]
+
+
+def _table(headers: list[str], rows: list[list[object]]) -> str:
+    """print_table(W9에서 형식 확인)이 그 행으로 찍을 표 문자열을 돌려준다.
+
+    인자:
+        headers: 표 머리.
+        rows: 기대하는 행 (값은 6장 기대값에서 옮김).
+
+    반환:
+        표 문자열.
+
+    예외:
+        print_table이 내는 예외를 그대로 전달한다.
+    """
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer):
+        print_table(headers, rows)
+    return buffer.getvalue()
+
+
+class TestW10Menu(unittest.TestCase):
+    """W10: 전체 메뉴(5.4), 입력 변환, ValueError → 메시지, 삭제 확인, 등록 직후 추천, EOF·Ctrl+C."""
+
+    def _assert_errors_keep_state(self, inputs: list[object], errors: int) -> str:
+        """잘못된 입력들을 넣어도 프로그램이 끝까지 돌고, 오류 줄 수가 맞고, 상태가 처음과 같은지 확인한다.
+
+        인자:
+            inputs: 메뉴 입력 순서 (마지막에 "0"으로 종료).
+            errors: 기대하는 "[오류]" 줄 수 (입력 하나에 오류 하나).
+
+        반환:
+            화면 문자열.
+
+        예외:
+            AssertionError: 오류 줄 수가 다르거나, 종료하지 않았거나, 상태가 바뀌었을 때.
+        """
+        text, g = _run_main(inputs)
+        self.assertEqual(text.count("\n[오류] "), errors, msg=text)
+        self.assertTrue(text.endswith("메뉴 선택: 0\n종료합니다\n"), msg=text[-200:])
+        self.assertEqual(snapshot(g), snapshot(make_graph()))  # 원본·그래프·ID 카운터 모두 처음 그대로
+        return text
+
+    def test_full_menu_and_exit(self) -> None:
+        """5.4 메인 메뉴가 그대로 나오고 [0]으로 종료한다."""
+        text, _ = _run_main(["0"])
+        self.assertEqual(text, "\n".join([
+            "",
+            "[1] CREATE      고객 / 상품 / 구매",
+            "[2] READ        조회(ID·이름·조건) / 검색 S1~S4",
+            "[3] UPDATE      고객 / 상품 / 구매",
+            "[4] DELETE      고객 / 상품 / 구매",
+            "[5] PRINT       그룹별 고객 / 상품 목록 / 인접 리스트 / 통계·무결성 검사",
+            "[6] RECOMMEND   고객별 추천",
+            "[0] Exit",
+            "메뉴 선택: 0",
+            "종료합니다",
+        ]) + "\n")
+
+    def test_register_then_recommend(self) -> None:
+        """5.3.1 고객 등록 직후 추천: C07(여, 22) 등록 → 6.3-1 화면 (W8b 승인 형식)."""
+        text, g = _run_main(["1", "1", "고객7", "2", "22", "0"])
+        # [제안 형식] 등록 직후 줄 "[등록] 이름(ID) → 그룹 표시 이름 그룹에 연결" (W8b 임시 형식 교체)
+        expected = ["[등록] 고객7(C07) → 여성·20대 그룹에 연결",
+                    "[추천] 고객7(C07, 여성·20대)님께 추천 (3개)"] + _c07_k3_lines()
+        self.assertIn("나이: 22\n" + "\n".join(expected) + "\n", text)
+        self.assertEqual(g.group_of("C07"), "G-F-20")
+        self.assertEqual(g.check_integrity(), [])
+
+    def test_submenu_screen_and_back(self) -> None:
+        """하위 메뉴 화면과 [0] 이전 메뉴: 아무것도 실행하지 않고 메인 메뉴로 돌아간다."""
+        text, g = _run_main(["1", "0", "0"])
+        # [제안 형식] 하위 메뉴는 "[제목]" 줄, "[번호] 기능", "[0] 이전 메뉴", "번호 선택: "
+        self.assertIn("\n".join([
+            "메뉴 선택: 1", "", "[CREATE]", "[1] 고객 등록 (등록 직후 추천)", "[2] 상품 등록", "[3] 구매 등록",
+            "[0] 이전 메뉴", "번호 선택: 0", "",
+        ]), text)
+        self.assertNotIn("[오류]", text)
+        self.assertEqual(snapshot(g), snapshot(make_graph()))
+
+    def test_invalid_menu_numbers(self) -> None:
+        """없는 메뉴·하위 메뉴 번호, 빈 입력, 문자: 오류 안내 후 메인 메뉴로."""
+        # 메인 9·빈 입력·abc, CREATE 하위 9·빈 입력, READ 하위 8(7개뿐), 메인 -1 = 오류 7줄
+        self._assert_errors_keep_state(["9", "", "abc", "1", "9", "1", "", "2", "8", "-1", "0"], 7)
+
+    def test_input_error_messages(self) -> None:
+        """main.py가 만드는 입력 변환 오류 문구 ("항목: …" 형식, W8b 승인). A03 회귀(긴 숫자) 포함."""
+        text, _ = _run_main([
+            "1", "1", "고객7", "3",
+            "1", "1", "고객7", "1", "스물",
+            "1", "1", "고객7", "1", "1" * 4301,
+            "1", "2", "새 상품", "4",
+            "1", "2", "새 상품", "1", "1", "1000", "블랙",
+            "1", "2", "새 상품", "1", "1", "1000", "블랙=1, 블랙=2",
+            "0",
+        ])
+        for line in (
+            "[오류] 성별: 1(남) 또는 2(여)로 입력해 주세요",
+            "[오류] 나이: 숫자로 입력해 주세요",
+            "[오류] 나이: 숫자가 너무 깁니다 (9자리 이하)",
+            # [제안 형식] 번호 고르기 오류, 재고 입력 형식 오류 문구
+            "[오류] 종류: 1(상의), 2(하의) 또는 3(아우터)로 입력해 주세요",
+            "[오류] 색상별 재고: 색상=수량을 쉼표로 이어 입력해 주세요 (예: 블랙=5, 화이트=3)",
+            "[오류] 색상별 재고: 같은 색상이 두 번 나옵니다: 블랙",
+        ):
+            self.assertIn("\n" + line + "\n", text)
+
+    def test_invalid_create_inputs(self) -> None:
+        """B.4 잘못된 입력(CREATE): 없는 ID, 형식이 틀린 값, 범위 밖 숫자, 빈 문자열, 숫자가 아닌 값, 날짜 함정 4종."""
+        cases = [
+            ["1", "1", "고객7", "3"], ["1", "1", "고객7", "1", "abc"], ["1", "1", "고객7", "1", "5"],
+            ["1", "1", "   ", "1", "20"], ["1", "1", "고객7", "2", ""], ["1", "1", "고객7", "2", "-3"],
+            ["1", "1", "고객7", "2", "1234567890"], ["1", "1", "고객7", "2", "２０"],
+            ["1", "2", "새 상품", "4"], ["1", "2", "새 상품", "1", "5"], ["1", "2", "새 상품", "1", "1", "1만"],
+            ["1", "2", "새 상품", "1", "1", "1000", "블랙"], ["1", "2", "새 상품", "1", "1", "1000", "블랙=1, 블랙=2"],
+            ["1", "2", "새 상품", "1", "1", "1000", "카키=1, 카키 =2"], ["1", "2", "새 상품", "1", "1", "1000", "블랙=-1"],
+            ["1", "2", "", "1", "1", "1000", "블랙=1"], ["1", "2", "새 상품", "1", "1", "1000", ""],
+            ["1", "3", "C99", "P01", "블랙", "1", "2026-10-01"], ["1", "3", "C01", "P99", "블랙", "1", "2026-10-01"],
+            ["1", "3", "C01", "P01", "레드", "1", "2026-10-01"], ["1", "3", "C01", "P01", "블랙", "0", "2026-10-01"],
+            ["1", "3", "C01", "P01", "블랙", "100", "2026-10-01"], ["1", "3", "", "P01", "블랙", "1", "2026-10-01"],
+            ["1", "3", "C01", "P01", "블랙", "1", "20261023"], ["1", "3", "C01", "P01", "블랙", "1", "2026-W43-5"],
+            ["1", "3", "C01", "P01", "블랙", "1", "2026-02-30"], ["1", "3", "C01", "P01", "블랙", "1", "2026-1-5"],
+        ]
+        self._assert_errors_keep_state([value for case in cases for value in case] + ["0"], len(cases))
+
+    def test_invalid_read_inputs(self) -> None:
+        """B.4 잘못된 입력(READ·PRINT·RECOMMEND): 없는 ID, 소문자 ID, 공백 이름, 가격 범위 거꾸로, 범위 밖 K·k, bool 글자."""
+        cases = [
+            ["2", "1", "4"], ["2", "1", "1", "C99"], ["2", "1", "2", "p01"], ["2", "1", "3", "T999"],
+            ["2", "2", "1", "   "], ["2", "3", "", "", "", "50000", "1000"], ["2", "3", "9"],
+            ["2", "3", "", "", "", "abc"], ["2", "4", "C99"], ["2", "5", "X"], ["2", "6", "0"], ["2", "7", "9"],
+            ["2", "7", "2", "11"], ["2", "7", "2", "0"], ["6", "C99", ""], ["6", "C01", "0"], ["6", "C01", "11"],
+            ["6", "C01", "True"], ["5", "3", "C99"],
+        ]
+        self._assert_errors_keep_state([value for case in cases for value in case] + ["0"], len(cases))
+
+    def test_invalid_update_delete_inputs(self) -> None:
+        """B.4 잘못된 입력(UPDATE·DELETE): 바꿀 항목 없음, 유효한 값과 틀린 값 섞기, 구매 기록이 있는 색상 삭제, 없는 ID."""
+        cases = [
+            ["3", "1", "C99"], ["3", "1", "C01", "", "", ""], ["3", "1", "C01", "", "3"],
+            ["3", "1", "C01", "", "", "120"], ["3", "1", "C01", "새이름", "1", "5"],
+            ["3", "2", "P01", "", "", "", "", "블랙=1"], ["3", "2", "P01", "", "", "", "-5"],
+            ["3", "2", "P04", "", "", "", "", "카키=1, 카키 =2"], ["3", "3", "T001", "", ""],
+            ["3", "3", "T001", "레드", ""], ["3", "3", "T001", "", "0"],
+            ["4", "1", "C99"], ["4", "2", "P99"], ["4", "3", "T999"],
+        ]
+        self._assert_errors_keep_state([value for case in cases for value in case] + ["0"], len(cases))
+
+    def test_eof_and_ctrl_c(self) -> None:
+        """입력 끝(EOF)·Ctrl+C: 입력 도중이든 메뉴에서든 "종료합니다"로 끝나고 반쯤 받은 등록은 하지 않는다."""
+        for inputs in (["1", "1", "고객7"], ["1", "1", "고객7", "2", KeyboardInterrupt], [KeyboardInterrupt],
+                       ["2", KeyboardInterrupt], []):
+            text, g = _run_main(inputs)
+            # [제안 형식] EOF·Ctrl+C 뒤에는 빈 줄 하나와 "종료합니다"
+            self.assertTrue(text.endswith("\n종료합니다\n"), msg=repr(inputs))
+            self.assertEqual(snapshot(g), snapshot(make_graph()), msg=repr(inputs))
+
+    def test_delete_customer_confirm(self) -> None:
+        """5.3.1 고객 삭제 확인: C02의 구매 기록 3건(T006·T007·T008) 안내 → y → 연쇄 삭제 (6.4 C02 삭제)."""
+        text, g = _run_main(["4", "1", "C02", "y", "0"])
+        # [제안 형식] 확인 줄 "이름(ID) 삭제: 구매 기록 N건도 함께 삭제됩니다. 계속할까요? (y/n): ", 결과 줄 "[삭제] …"
+        self.assertIn("고객2(C02) 삭제: 구매 기록 3건도 함께 삭제됩니다. 계속할까요? (y/n): y\n"
+                      "[삭제] 고객2(C02), 구매 기록 3건 함께 삭제\n", text)
+        self.assertNotIn("C02", g.customer_ids())
+        self.assertEqual(g.members("G-F-20"), ["C01", "C03"])
+        self.assertEqual(g.stats()["purchases"], 10)
+        self.assertEqual(g.check_integrity(), [])
+
+    def test_delete_product_confirm(self) -> None:
+        """5.3.1 상품 삭제 확인: P01의 구매 기록 5건(T001~T004, T013) 안내 → Y(대문자) → 연쇄 삭제."""
+        text, g = _run_main(["4", "2", "P01", "Y", "0"])
+        self.assertIn("오버핏 티셔츠(P01) 삭제: 구매 기록 5건도 함께 삭제됩니다. 계속할까요? (y/n): Y\n"
+                      "[삭제] 오버핏 티셔츠(P01), 구매 기록 5건 함께 삭제\n", text)
+        self.assertNotIn("P01", g.product_ids())
+        self.assertEqual(g.stats()["purchases"], 8)
+        self.assertEqual(g.check_integrity(), [])
+
+    def test_delete_cancel(self) -> None:
+        """삭제 확인에서 y가 아니면 취소: 상태 그대로. 구매 기록이 없는 고객(C06)의 확인 문구."""
+        text, g = _run_main(["4", "1", "C02", "n", "4", "2", "P01", "", "4", "1", "C06", "예", "0"])
+        # [제안 형식] y(대소문자 무관)만 삭제, 그 밖은 "[취소] 삭제하지 않았습니다". 구매 기록 0건이면 다른 문구
+        self.assertEqual(text.count("[취소] 삭제하지 않았습니다"), 3)
+        self.assertIn("고객6(C06) 삭제: 함께 삭제되는 구매 기록은 없습니다. 계속할까요? (y/n): 예\n", text)
+        self.assertEqual(snapshot(g), snapshot(make_graph()))
+
+    def test_delete_purchase(self) -> None:
+        """구매 삭제(확인 없음, 5.3.1): T004 삭제 → (C01,P01) 간선 유지, 가중치 3 (6.4 T004 삭제)."""
+        text, g = _run_main(["4", "3", "T004", "0"])
+        self.assertIn("[삭제] T004: C01 → P01, 네이비 (남은 가중치 3)\n", text)
+        self.assertEqual(g.edge("C01", "P01")["last_date"], "2026-09-15")
+        self.assertEqual(g.check_integrity(), [])
+
+    def test_update_customer_moves_group(self) -> None:
+        """고객 수정(빈 입력은 그대로): C04 나이 31 → G-M-30 이동 (6.4)."""
+        text, g = _run_main(["3", "1", "C04", "", "", "31", "0"])
+        # [제안 형식] 수정 결과 줄 "[수정] 이름(ID) → 그룹 표시 이름 그룹"
+        self.assertIn("[수정] 고객4(C04) → 남성·30대 그룹\n", text)
+        self.assertEqual(g.group_of("C04"), "G-M-30")
+        self.assertEqual(g.get_customer("C04")["name"], "고객4")
+        self.assertEqual(g.check_integrity(), [])
+
+    def test_update_product_stock(self) -> None:
+        """상품 수정: P04 재고를 통째로 교체해 색상 추가 (6.4 P04 재고 교체), 나머지 항목 그대로."""
+        _, g = _run_main(["3", "2", "P04", "", "", "", "", "카키=4, 블랙=4, 베이지=2", "0"])
+        product = g.get_product("P04")
+        self.assertEqual(product["stock"], {"카키": 4, "블랙": 4, "베이지": 2})
+        self.assertEqual((product["name"], product["price"]), ("카고 팬츠", 49000))
+        self.assertEqual(g.check_integrity(), [])
+
+    def test_purchase_register_weight(self) -> None:
+        """구매 등록 화면에 가중치: 신규 C07이 P02를 블랙·베이지로 사면 가중치 1 → 2 (7장 장면 3의 흐름)."""
+        text, g = _run_main(["1", "1", "고객7", "2", "25",
+                             "1", "3", "C07", "P02", "블랙", "1", "2026-10-05",
+                             "1", "3", " C07 ", "P02", " 베이지 ", "2", " 2026-10-06 ", "0"])
+        # [제안 형식] "[등록] 구매 ID: 고객 → 상품, 색상, 수량개, 구매일 (가중치 W)". ID·날짜 입력의 앞뒤 공백은 main이 지움
+        self.assertIn("[등록] T014: C07 → P02, 블랙, 1개, 2026-10-05 (가중치 1)\n", text)
+        self.assertIn("[등록] T015: C07 → P02, 베이지, 2개, 2026-10-06 (가중치 2)\n", text)
+        self.assertEqual(g.weight("C07", "P02"), 2)
+        self.assertEqual(g.check_integrity(), [])
+
+    def test_read_screens(self) -> None:
+        """조회·검색 화면: 이름 조회(공백 제거, 완전 일치), 조건 조회, S1(C01), S4(G-F-20) — 값은 6.2."""
+        text, _ = _run_main(["2", "2", "1", " 고객1 ", "2", "2", "1", "고객", "2", "3", "", "", "네이비", "", "",
+                             "2", "4", "C01", "2", "7", "2", "", "0"])
+        # [제안 형식] 목록 화면은 "[제목] N개(명)" 줄 + 표, 결과가 없으면 "[제목] 결과가 없습니다"
+        self.assertIn("[고객 이름 조회] 1명\n" + _table(
+            ["ID", "이름", "성별", "나이", "그룹"], [["C01", "고객1", "여", 23, "여성·20대"]]), text)
+        self.assertIn("[고객 이름 조회] 결과가 없습니다\n", text)
+        self.assertIn("[조건 조회] 2개\n" + _table(
+            ["ID", "상품명", "종류", "스타일", "가격", "색상별 재고", "상태"],
+            [["P01", "오버핏 티셔츠", "상의", "캐주얼", 29000, "그레이 5, 네이비 5, 블랙 5, 화이트 5", "판매 중"],
+             ["P03", "크롭 가디건", "상의", "미니멀", 45000, "네이비 0, 아이보리 2", "판매 중"]]), text)
+        self.assertIn("[S1 고객이 산 상품] 고객1(C01) 2개\n" + _table(
+            ["상품 ID", "상품명", "구매 색상", "가중치", "기록 수", "총수량", "최근 구매일"],
+            [["P01", "오버핏 티셔츠", "그레이, 네이비, 블랙, 화이트", 4, 4, 4, "2026-10-01"],
+             ["P02", "와이드 슬랙스", "블랙", 1, 1, 1, "2026-09-03"]]), text)
+        self.assertIn("[S4 그룹 인기 상품] 여성·20대(G-F-20) 4개\n" + _table(
+            ["순위", "상품 ID", "상품명", "점수", "구매 고객 수", "상태"],
+            [[1, "P02", "와이드 슬랙스", 3, 2, "판매 중"], [2, "P01", "오버핏 티셔츠", 3, 1, "판매 중"],
+             [3, "P03", "크롭 가디건", 2, 2, "판매 중"], [4, "P05", "후드 집업", 1, 1, "품절"]]), text)
+
+    def test_print_screens(self) -> None:
+        """PRINT 메뉴: 그룹 트리, 상품 목록, 전체 인접 리스트(노드 19개, 6.2), 통계(6.2)와 무결성 검사."""
+        text, g = _run_main(["5", "1", "5", "2", "5", "3", "", "5", "4", "0"])
+        self.assertIn("[그룹별 고객] 전체 6명\n", text)
+        self.assertIn("[상품 목록] 5개\n", text)
+        self.assertEqual(text.count("[인접 리스트] "), 19)
+        # [제안 형식] 통계 표의 항목 이름, 무결성 검사 결과 줄 (5.3.5 "정확성 증명"이라 쓰지 않음)
+        self.assertIn("[그래프 통계]\n" + _table(["항목", "개수"], [
+            ["그룹 노드", 8], ["고객 노드", 6], ["상품 노드", 5], ["소속 간선", 6], ["구매 간선", 9], ["구매 기록", 13],
+        ]) + "[무결성 검사] 위반 없음 (원본과 그래프가 정한 불변 조건대로 일치)\n", text)
+        self.assertEqual(snapshot(g), snapshot(make_graph()))
+
+    def test_recommend_menu(self) -> None:
+        """[6] 고객별 추천: K 빈 입력은 3, 숫자를 넣으면 그 K (6.3-3 C02, 6.3-4 C06)."""
+        text, _ = _run_main(["6", "C02", "", "6", " C06 ", "3", "0"])
+        self.assertIn("[추천] 고객2(C02, 여성·20대)님께 추천 (2개)\n", text)
+        self.assertIn(_short_note(2, 3), text)
+        self.assertIn("[추천] 고객6(C06, 남성·10대)님께 추천 (3개)\n", text)
 
 
 if __name__ == "__main__":

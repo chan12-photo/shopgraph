@@ -109,14 +109,16 @@ class TestW6Query(unittest.TestCase):
         self.assertEqual(members_of(g, "G-M-20"), [])
 
     def test_missing_ids_search(self) -> None:
-        """B.2·B.3: 없는 고객·상품·그룹 ID로 S1·S2·S3 → ValueError."""
+        """B.2·B.3: 없는 고객·상품·그룹 ID로 S1·S2·S3 → ValueError, 상태 전체 그대로."""
         g = make_graph()
+        before = snapshot(g)  # CLAUDE.md 테스트: 실패 입력 테스트는 snapshot 전체를 전후 비교 (Codex 5번)
         with self.assertRaises(ValueError):
             products_of(g, "C99")
         with self.assertRaises(ValueError):
             customers_of(g, "P99")
         with self.assertRaises(ValueError):
             members_of(g, "G-X-10")
+        self.assertEqual(snapshot(g), before)
 
 
 class TestW7Popular(unittest.TestCase):

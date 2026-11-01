@@ -76,6 +76,7 @@ class TestW3Build(unittest.TestCase):
     def test_find_by_name(self) -> None:
         """6.2 이름 조회: 앞뒤 공백 제거 후 완전 일치, 부분 일치 아님, 공백뿐인 이름은 ValueError (B.2)."""
         g = make_graph()
+        before = snapshot(g)  # CLAUDE.md 테스트: 실패 입력 테스트는 snapshot 전체를 전후 비교 (Codex 5번)
         self.assertEqual(g.find_customers_by_name(" 고객1 "), ["C01"])
         self.assertEqual(g.find_customers_by_name("고객"), [])
         with self.assertRaises(ValueError):
@@ -87,6 +88,7 @@ class TestW3Build(unittest.TestCase):
         self.assertEqual(g.find_products_by_name("카고"), [])
         with self.assertRaises(ValueError):
             g.find_products_by_name("   ")
+        self.assertEqual(snapshot(g), before)
 
     def test_neighbors_sorted(self) -> None:
         """B.2 neighbors: 이웃 ID를 ID 오름차순으로 돌려준다."""
@@ -206,6 +208,26 @@ class TestW3Build(unittest.TestCase):
         p["stock"]["블랙"] = 0
         self.assertEqual(g.get_product("P01")["stock"]["블랙"], 5)
 
+    def test_get_purchase_copy(self) -> None:
+        """B.2 get_purchase: 반환값을 고쳐도 직접 다시 조회하면 그대로이고 상태 전체가 같다 (Codex 검토 6번)."""
+        g = make_graph()
+        before = snapshot(g)
+        record = g.get_purchase("T001")
+        record["color"] = "화이트"
+        record["qty"] = 9
+        # [승인 기대값] (찬일 11/02, B.2 조회는 복사본 반환 · 6.1 T001 = C01·P01·블랙·수량 1·2026-09-01)
+        self.assertEqual(g.get_purchase("T001"), {"id": "T001", "customer_id": "C01", "product_id": "P01",
+                                                   "color": "블랙", "qty": 1, "date": "2026-09-01"})
+        self.assertEqual(snapshot(g), before)
+
+    def test_ids_sorted_regardless_of_input_order(self) -> None:
+        """B.2 customer_ids·product_ids: 생성자에 고객·상품·구매 기록을 거꾸로 넣어도 ID 오름차순 (Codex 검토 6번)."""
+        g = ShopGraph(customers()[::-1], products()[::-1], purchases()[::-1])
+        # [승인 기대값] (찬일 11/02, B.2 "ID 순" · 6.1 고객 C01~C06, 상품 P01~P05)
+        self.assertEqual(g.customer_ids(), ["C01", "C02", "C03", "C04", "C05", "C06"])
+        self.assertEqual(g.product_ids(), ["P01", "P02", "P03", "P04", "P05"])
+        self.assertEqual(g.check_integrity(), [])
+
     def test_rebuild_idempotent(self) -> None:
         """B.1·5.5 rebuild: 원본에서 다시 지어도 상태 전체(ID 카운터 포함)가 같다."""
         g = make_graph()
@@ -247,6 +269,17 @@ class TestW4CustomerProduct(unittest.TestCase):
         _assert_rejected(self, g, lambda: g.add_customer("고객7", "여", True), "나이 True")
         self.assertEqual(g.add_customer("고객7", "여", 22), "C07")
         self.assertEqual(g.check_integrity(), [])  # 5.3.5·B.5: W5에서 무결성 확인 추가
+
+    def test_age_band_boundaries(self) -> None:
+        """계획서 5.2 연령대: 19/20, 29/30, 39/40 경계에서 그룹이 바뀐다 (여·남 모두, Codex 검토 6번)."""
+        g = make_graph()
+        # [승인 기대값] (찬일 11/02, 계획서 5.2 연령대 계산 "10~19 → 10대, 20~29 → 20대, 30~39 → 30대, 40 이상 → 40대 이상")
+        cases = [(19, "10"), (20, "20"), (29, "20"), (30, "30"), (39, "30"), (40, "40+")]
+        for gender, code in (("여", "F"), ("남", "M")):
+            for age, band in cases:
+                customer_id = g.add_customer(f"경계{age}", gender, age)
+                self.assertEqual(g.group_of(customer_id), f"G-{code}-{band}", msg=(gender, age))
+        self.assertEqual(g.check_integrity(), [])
 
     def test_age_move(self) -> None:
         """6.4 C04 나이 24 → 34: group_of = G-M-30, g.members("G-M-20") = []."""

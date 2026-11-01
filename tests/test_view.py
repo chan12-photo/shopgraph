@@ -230,6 +230,7 @@ class TestW9Neighbors(unittest.TestCase):
         """구매 이력이 없는 신규 고객(B.4): 소속 그룹만."""
         g = make_graph()
         g.add_customer("고객7", "남", 45)
+        self.assertEqual(g.check_integrity(), [])  # 계획서 5.3.5: W5 이후 변경 뒤 무결성 확인 (Codex 5번)
         self.assertEqual(_capture(print_neighbors, g, "C07"), _lines(
             "[인접 리스트] C07 고객7 (이웃 1개)",
             "  G-M-40+ 남성·40대 이상 (소속)",

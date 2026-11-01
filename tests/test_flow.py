@@ -514,12 +514,14 @@ class TestW10Menu(unittest.TestCase):
             # [승인 형식] 번호 고르기 오류, 재고 입력 형식 오류 문구
             "[오류] 종류: 1(상의), 2(하의) 또는 3(아우터)로 입력해 주세요",
             "[오류] 색상별 재고: 색상=수량을 쉼표로 이어 입력해 주세요 (예: 블랙=5, 화이트=3)",
-            "[오류] 색상별 재고: 같은 색상이 두 번 나옵니다: 블랙",
+            # [SPEC][W10b] 찬일 11/02: W10 승인 형식 7번의 재고 겹침 문구를 W10a 형식 "(입력: 값)"으로 변경
+            "[오류] 색상별 재고: 같은 색상이 두 번 나옵니다 (입력: 블랙)",
         ):
             self.assertIn("\n" + line + "\n", text)
 
     def test_invalid_create_inputs(self) -> None:
-        """B.4 잘못된 입력(CREATE): 없는 ID, 형식이 틀린 값, 범위 밖 숫자, 빈 문자열, 숫자가 아닌 값, 날짜 함정 4종."""
+        """B.4 잘못된 입력(CREATE): 없는 ID, 형식이 틀린 값, 범위 밖 숫자(나이 5·수량 0·100 → graph.py 범위 검사),
+        음수(나이 -3 → main.py 숫자 변환에서 거절), 빈 문자열, 숫자가 아닌 값, 날짜 함정 4종."""
         cases = [
             ["1", "1", "고객7", "3"], ["1", "1", "고객7", "1", "abc"], ["1", "1", "고객7", "1", "5"],
             ["1", "1", "   ", "1", "20"], ["1", "1", "고객7", "2", ""], ["1", "1", "고객7", "2", "-3"],
@@ -534,7 +536,9 @@ class TestW10Menu(unittest.TestCase):
             ["1", "3", "C01", "P01", "블랙", "1", "20261023"], ["1", "3", "C01", "P01", "블랙", "1", "2026-W43-5"],
             ["1", "3", "C01", "P01", "블랙", "1", "2026-02-30"], ["1", "3", "C01", "P01", "블랙", "1", "2026-1-5"],
         ]
-        self._assert_errors_keep_state([value for case in cases for value in case] + ["0"], len(cases))
+        text = self._assert_errors_keep_state([value for case in cases for value in case] + ["0"], len(cases))
+        # 음수 나이 "-3"은 graph.py 범위 검사까지 가지 않고 main.py 숫자 변환에서 거절된다 (통합 검토 R4)
+        self.assertIn("나이: -3\n[오류] 나이: 숫자로 입력해 주세요\n", text)
 
     def test_invalid_read_inputs(self) -> None:
         """B.4 잘못된 입력(READ·PRINT·RECOMMEND): 없는 ID, 소문자 ID, 공백 이름, 가격 범위 거꾸로, 범위 밖 K·k, bool 글자."""
@@ -548,7 +552,10 @@ class TestW10Menu(unittest.TestCase):
         self._assert_errors_keep_state([value for case in cases for value in case] + ["0"], len(cases))
 
     def test_invalid_update_delete_inputs(self) -> None:
-        """B.4 잘못된 입력(UPDATE·DELETE): 바꿀 항목 없음, 유효한 값과 틀린 값 섞기, 구매 기록이 있는 색상 삭제, 없는 ID."""
+        """B.4 잘못된 입력(UPDATE·DELETE): 바꿀 항목 없음, 유효한 값과 틀린 값 섞기, 구매 기록이 있는 색상 삭제, 없는 ID.
+
+        음수 가격 "-5"는 graph.py 범위 검사까지 가지 않고 main.py 숫자 변환에서 거절된다.
+        """
         cases = [
             ["3", "1", "C99"], ["3", "1", "C01", "", "", ""], ["3", "1", "C01", "", "3"],
             ["3", "1", "C01", "", "", "120"], ["3", "1", "C01", "새이름", "1", "5"],
@@ -557,7 +564,9 @@ class TestW10Menu(unittest.TestCase):
             ["3", "3", "T001", "레드", ""], ["3", "3", "T001", "", "0"],
             ["4", "1", "C99"], ["4", "2", "P99"], ["4", "3", "T999"],
         ]
-        self._assert_errors_keep_state([value for case in cases for value in case] + ["0"], len(cases))
+        text = self._assert_errors_keep_state([value for case in cases for value in case] + ["0"], len(cases))
+        # 음수 가격 "-5"는 main.py 숫자 변환에서 거절된다 (통합 검토 R4)
+        self.assertIn("): -5\n[오류] 가격: 숫자로 입력해 주세요\n", text)
 
     def test_eof_and_ctrl_c(self) -> None:
         """입력 끝(EOF)·Ctrl+C: 입력 도중이든 메뉴에서든 "종료합니다"로 끝나고 반쯤 받은 등록은 하지 않는다."""
@@ -604,8 +613,8 @@ class TestW10Menu(unittest.TestCase):
         self.assertEqual(g.check_integrity(), [])
 
     def test_update_customer_moves_group(self) -> None:
-        """고객 수정(빈 입력은 그대로): C04 나이 31 → G-M-30 이동 (6.4)."""
-        text, g = _run_main(["3", "1", "C04", "", "", "31", "0"])
+        """고객 수정(빈 입력은 그대로): C04 나이 34 → G-M-30 이동 (6.4: 24 → 34)."""
+        text, g = _run_main(["3", "1", "C04", "", "", "34", "0"])
         # [승인 형식] 수정 결과 줄 "[수정] 이름(ID) → 그룹 표시 이름 그룹"
         self.assertIn("[수정] 고객4(C04) → 남성·30대 그룹\n", text)
         self.assertEqual(g.group_of("C04"), "G-M-30")
@@ -705,6 +714,38 @@ class TestW10aMessages(unittest.TestCase):
         for error in (graph_error.exception, search_error.exception):
             self.assertRegex(str(error), _MESSAGE_FORMAT)
         self.assertEqual(snapshot(g), snapshot(make_graph()))
+
+
+class TestW10bInputs(unittest.TestCase):
+    """W10b: 고장 검사에서 찾은 입력 처리 테스트 공백 (docs/verification/mutation_proposals.md P1·P2)."""
+
+    def test_digit_limit_boundary(self) -> None:
+        """나이 입력 9자리는 graph.py 범위 검사로, 10자리는 main.py 자릿수 제한으로 거절된다 (고장 검사 M04)."""
+        text, g = _run_main(["1", "1", "고객7", "2", "123456789",
+                             "1", "1", "고객7", "2", "1234567890", "0"])
+        # [승인 기대값] (찬일 11/02) 9자리: W10a 형식의 graph.py 범위 오류
+        self.assertIn("\n[오류] 나이: 10~99이어야 합니다 (입력: 123456789)\n", text)
+        # [승인 기대값] (찬일 11/02) 10자리: main.py 자릿수 오류 (A03 수정 문구)
+        self.assertIn("\n[오류] 나이: 숫자가 너무 깁니다 (9자리 이하)\n", text)
+        self.assertEqual(snapshot(g), snapshot(make_graph()))
+
+    def test_delete_id_spaces(self) -> None:
+        """삭제 메뉴에서 앞뒤 공백이 있는 고객·상품 ID도 같은 대상을 찾는다 (취소해서 상태 그대로, 고장 검사 M05)."""
+        text, g = _run_main(["4", "1", " C02 ", "n", "4", "2", " P01 ", "n", "0"])
+        # [승인 기대값] (찬일 11/02) 확인 문장 (W10 승인 형식 5번, 6.1에서 C02 구매 기록 3건·P01 5건)
+        self.assertIn("고객2(C02) 삭제: 구매 기록 3건도 함께 삭제됩니다. 계속할까요? (y/n): n\n", text)
+        self.assertIn("오버핏 티셔츠(P01) 삭제: 구매 기록 5건도 함께 삭제됩니다. 계속할까요? (y/n): n\n", text)
+        self.assertNotIn("[오류]", text)
+        self.assertEqual(snapshot(g), snapshot(make_graph()))
+
+    def test_delete_purchase_id_spaces(self) -> None:
+        """구매 삭제에서 앞뒤 공백이 있는 구매 ID도 같은 기록을 지운다 (6.4 T004 삭제)."""
+        text, g = _run_main(["4", "3", " T004 ", "0"])
+        # [승인 기대값] (찬일 11/02) 결과 줄은 test_delete_purchase(W10 승인 형식)와 같다
+        self.assertIn("[삭제] T004: C01 → P01, 네이비 (남은 가중치 3)\n", text)
+        self.assertNotIn("[오류]", text)
+        self.assertEqual(g.edge("C01", "P01")["last_date"], "2026-09-15")
+        self.assertEqual(g.check_integrity(), [])
 
 
 if __name__ == "__main__":

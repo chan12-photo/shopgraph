@@ -1,7 +1,8 @@
 # 고장 검사에서 찾은 테스트 공백 — 추가 테스트 초안 (tests/에 넣지 않음)
 
 - 출처: docs/verification/mutation_sweep.md의 못 잡은 변형 M04·M05
-- 이 초안은 tests/에 넣지 않았다. 넣으려면 찬일 승인 뒤 tests/test_flow.py에 **추가만** 한다 (기존 테스트 변경 없음)
+- 상태(11/02): 찬일 승인, [SPEC][W10b]에서 tests/test_flow.py TestW10bInputs로 추가함 (P2는 구매 삭제를 별도 테스트 test_delete_purchase_id_spaces로 나눔). 아래는 당시 초안 원문이다
+- 이 초안은 (당시) tests/에 넣지 않았다. 넣으려면 찬일 승인 뒤 tests/test_flow.py에 **추가만** 한다 (기존 테스트 변경 없음)
 - 기대 문구는 W8b·W10·W10a 승인 형식에서 옮겼지만, 이 입력 조합 자체는 문서에 없으므로 모두 **[제안 기대값]**(사람 승인 필요)이다
 - 고정 데이터는 tests/fixtures.py(6.1)를 쓰고, 실행용 data.py는 읽지 않는다 (기존 _run_main 도우미 사용)
 

@@ -224,7 +224,7 @@ def _to_stock(text: str) -> dict[str, int]:
         if not sep or not color or "=" in qty:
             raise ValueError("색상별 재고: 색상=수량을 쉼표로 이어 입력해 주세요 (예: 블랙=5, 화이트=3)")
         if color in stock:
-            raise ValueError(f"색상별 재고: 같은 색상이 두 번 나옵니다: {color}")
+            raise ValueError(f"색상별 재고: 같은 색상이 두 번 나옵니다 (입력: {color})")
         stock[color] = _to_int(qty, f"재고({color})")
     return stock
 

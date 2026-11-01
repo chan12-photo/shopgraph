@@ -94,3 +94,9 @@ doc-pending 브랜치(99cac86, draft PR #2)에 문안이 이미 들어가 있다
 
 - W11 19장 행의 날짜·결정자는 "demo_expected.md 승인일, 찬일"로 한다. 위 W11 행의 `11/01`과 `찬일` 칸은 반영할 때 demo_expected.md 승인일과 찬일로 적는다
 - 6번(5.4 아래 입력 규칙 문단)은 넣는 것으로 확정
+
+## 해석 기록 (찬일 11/02, 통합 검토 Q4)
+
+- 계획서 11.3.2 W11 행의 "계산 보조 스크립트를 쓰려면 프로그램 코드를 import하지 않는 독립 스크립트로" 중 "프로그램 코드"는 graph.py·search.py·view.py·main.py의 계산 로직으로 해석한다. data.py(데이터) import는 허용한다
+- 근거 사례: docs/verification/make_raw_by_group.py는 data.py만 import하고 graph·search는 import하지 않는다
+- 계획서 본문에 넣을지는 찬일 판단 (지금은 해석 기록만)

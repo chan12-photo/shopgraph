@@ -1,7 +1,7 @@
 # ShopGraph 코드 읽기 안내서
 
 - 대상: 이 코드를 처음 읽는 학부생
-- 기준: w12-prep 브랜치 491ad40의 코드와 docs/project_plan.md(계획서). 별도 서브에이전트가 문장·줄 번호를 대조해 18곳을 고쳤어요 (docs/study/code_guide_check.md)
+- 기준: w12-prep 브랜치 491ad40의 코드와 docs/project_plan.md(계획서). 별도 서브에이전트가 문장·줄 번호를 대조해 18곳을 고쳤어요 (docs/verification/study/code_guide_check.md)
 - 줄 번호는 위 커밋 기준이에요. 코드가 바뀌면 줄 번호도 달라질 수 있어요.
 - 예시는 계획서 6장 고정 데이터(tests/fixtures.py와 같은 데이터)와 6장 기대값만 써요. 시연 데이터(data.py)로 계산한 결과는 없어요.
 

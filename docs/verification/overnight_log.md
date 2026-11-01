@@ -139,3 +139,17 @@ FAILED (errors=8)
 ```
 
 통과 131 / 미도래 8 (tests/test_demo.py 8개, 전부 `NotImplementedError: W11 기대값 승인 전 …`) / 실패 0. 해당 커밋: 2ccefa7, 491ad40, a536d70, f0d666d, 4b0d93e, 02254b1, 그리고 이 기록 커밋
+
+---
+
+# 3회차 (2026-11-02): 판단 필요 5건과 통합 검토 권장 판정 반영
+
+## 기록만 한 판정 (찬일 11/02)
+
+| 항목 | 판정 | 반영한 곳 |
+|---|---|---|
+| Q3 장면 1 그룹별 인원 | 찬일이 data.py에서 직접 센다. 칸 옆에 "check_data 출력은 찬일이 이미 본 상태에서 직접 셈" 메모 | docs/demo_expected.md 장면 1 표 메모 칸 |
+| Q4 보조 스크립트 import | "프로그램 코드" = graph·search·view·main의 계산 로직. data.py import 허용 | 이 기록, docs/verification/plan_pending.md 해석 기록 |
+| Q1 색상 삭제 거절 문구 | 유지 (뒤의 색상은 입력 값이 아니라 결과, 찬일 11/01 판정) | docs/verification/w10a_g7.md 판정 추가 |
+| Q2 main.py 변환 오류 형식 | "(입력: 값)"을 붙이지 않는 것이 의도 (콜론 한 번, 안내문) | docs/verification/w10a_g7.md 판정 추가 |
+| Q5 파일 위치 | docs/report_materials.md → docs/verification/report_materials.md, docs/study/ → docs/verification/study/ (git mv) | 옮긴 파일 안의 경로 참조, README 현재 상태, docs/defects.md A06의 경로를 새 위치로 고침. 1·2회차 기록(이 파일 위쪽, integrated_review.md)의 옛 경로는 당시 기록이라 그대로 둠 |

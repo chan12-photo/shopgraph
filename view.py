@@ -1,7 +1,7 @@
 """화면 출력 전용 함수.
 
-모든 함수는 print만 하고 None을 돌려준다. ShopGraph의 공개 메서드와 graph.py의 대문자
-공개 상수(읽기 전용)만 쓴다. 출력 형식은 W1에서 가고정, W8b에서 최종 고정한다 (부록 B.2).
+공개 함수는 print만 하고 None을 돌려준다, 보조 함수(_)는 값을 돌려준다. ShopGraph의 공개 메서드와
+graph.py의 대문자 공개 상수(읽기 전용)만 쓴다. 출력 형식은 W1 가고정, W8b 최종 고정 (부록 B.2).
 print_table·print_group_tree·print_neighbors의 글자 형식은 W9에서 정한다.
 "[남성 전체]" 같은 범위 표시 꾸밈은 이 모듈이 GENDER_LABELS·GROUP_LABELS로 만든다.
 """

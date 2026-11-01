@@ -1,7 +1,7 @@
 # ShopGraph 코드 읽기 안내서
 
 - 대상: 이 코드를 처음 읽는 학부생
-- 기준: w12-prep 브랜치 491ad40의 코드와 docs/project_plan.md(계획서). 별도 서브에이전트가 문장·줄 번호를 대조해 18곳을 고쳤어요 (docs/verification/study/code_guide_check.md). tests/test_flow.py 줄 번호와 TestW10bInputs 행은 W10b(11/02) 뒤 기준으로 고쳤어요
+- 기준: w12-prep 브랜치 491ad40의 코드와 docs/project_plan.md(계획서). 별도 서브에이전트가 문장·줄 번호를 대조해 18곳을 고쳤어요 (docs/verification/study/code_guide_check.md). tests/test_flow.py 줄 번호와 TestW10bInputs 행은 W10b(11/02) 뒤 기준으로, graph.py·테스트 클래스 줄 번호와 3.4 빈 결과 분기는 Codex 검토(9784473) 반영 뒤 기준으로 고쳤어요
 - 줄 번호는 위 커밋 기준이에요. 코드가 바뀌면 줄 번호도 달라질 수 있어요.
 - 예시는 계획서 6장 고정 데이터(tests/fixtures.py와 같은 데이터)와 6장 기대값만 써요. 시연 데이터(data.py)로 계산한 결과는 없어요.
 
@@ -41,18 +41,18 @@ view.py   ──> graph.py (공개 메서드와 대문자 상수만)
 | `_products` | 상품 ID → 상품 딕셔너리 (재고는 색상 → 수량 딕셔너리) | `"P05" → {…, "stock": {"그레이": 0, "블랙": 0}}` (전부 품절) | graph.py:563, 계획서 522줄 |
 | `_purchases` | 구매 ID → 구매 기록 딕셔너리 | `"T001" → {"id": "T001", "customer_id": "C01", "product_id": "P01", "color": "블랙", "qty": 1, "date": "2026-09-01"}` | graph.py:564, 계획서 528줄 |
 | `_groups` | 그룹 ID → 그룹 정보 (8개, 시작할 때 전부 만듦) | `"G-F-20" → {"id": "G-F-20", "gender": "여", "band": "20대"}` | graph.py:565-569, 계획서 1329줄 |
-| `_adj` | 노드 ID → 이웃 ID 집합 (그룹·고객·상품 모두) | C01의 이웃은 G-F-20, P01, P02 | graph.py:570, 572(rebuild로 채움), graph.py:1225 _build_graph, tests/test_view.py TestW9Neighbors.test_customer_node |
+| `_adj` | 노드 ID → 이웃 ID 집합 (그룹·고객·상품 모두) | C01의 이웃은 G-F-20, P01, P02 | graph.py:570, 572(rebuild로 채움), graph.py:1228 _build_graph, tests/test_view.py TestW9Neighbors.test_customer_node |
 | `_edges` | (고객 ID, 상품 ID) → 간선 집계 {색상 집합, 기록 수, 총수량, 최근 구매일} | (C01, P01) → 색상 4가지, 기록 4건, 총수량 4, 최근 2026-10-01 | graph.py:571, graph.py:445 _aggregate_edges, 계획서 545줄 |
 | `_next_ids` | 다음에 발급할 번호 | `{"C": 7, "P": 6, "T": 14}` | graph.py:573-577, graph.py:410 _next_number, 계획서 1333줄 |
 
 알아 두면 좋은 점
 
-- 그래프(`_adj`·`_edges`)는 원본 세 개에서 매번 다시 만들어요. `rebuild()`가 `_build_graph()` 결과를 그대로 넣어요 (graph.py:1098).
-- `_build_graph()`는 고객마다 성별·나이로 그룹을 찾아 연결하고(graph.py:1243-1245), 구매 기록을 쌍별로 묶어 간선 집계를 만든 뒤 양쪽 인접 리스트에 서로를 넣어요(graph.py:1246-1249).
+- 그래프(`_adj`·`_edges`)는 원본 세 개에서 매번 다시 만들어요. `rebuild()`가 `_build_graph()` 결과를 그대로 넣어요 (graph.py:1101).
+- `_build_graph()`는 고객마다 성별·나이로 그룹을 찾아 연결하고(graph.py:1246-1248), 구매 기록을 쌍별로 묶어 간선 집계를 만든 뒤 양쪽 인접 리스트에 서로를 넣어요(graph.py:1249-1252).
 - 간선 집계는 `_edges` 한 곳에만 있어요. 고객 쪽과 상품 쪽에 따로 두지 않아요 (계획서 5.2 "저장 방식", 236줄).
 - 가중치는 색상 집합의 크기예요. `weight()`는 `len(agg["colors"])`를 돌려줘요 (graph.py:1014). 그래서 같은 색을 또 사면 기록 수는 늘어도 가중치는 그대로예요 (graph.py:465-466).
 - 조회 메서드는 복사본을 돌려줘요. 예: `get_product`는 딕셔너리와 재고 딕셔너리를 둘 다 복사해요 (graph.py:884-885).
-- `rebuild()`는 `_next_ids`를 건드리지 않아요. 그래서 지운 ID를 다시 쓰지 않아요 (graph.py:1098, 계획서 B.1 ID 발급).
+- `rebuild()`는 `_next_ids`를 건드리지 않아요. 그래서 지운 ID를 다시 쓰지 않아요 (graph.py:1101, 계획서 B.1 ID 발급).
 
 ## 3. 따라가기
 
@@ -75,7 +75,7 @@ view.py   ──> graph.py (공개 메서드와 대문자 상수만)
 | 1 | 구매 ID를 받아 앞뒤 공백을 지워요 | main.py:742 |
 | 2 | 지우기 전에 그 기록을 표 행으로 읽어 둬요 (고객·상품·색상을 나중에 출력하려고). 없는 ID면 여기서 ValueError | main.py:743, main.py:343 _purchase_row |
 | 3 | `g.delete_purchase(purchase_id)`: 원본에서 지우고 그래프를 다시 만들어요 | main.py:744, graph.py:854-856 |
-| 4 | 재구축 때 그 쌍의 남은 기록으로 간선 집계를 새로 만들어요. 남은 기록이 없으면 그 쌍의 간선 자체가 생기지 않아요 | graph.py:1246-1249, graph.py:445 _aggregate_edges |
+| 4 | 재구축 때 그 쌍의 남은 기록으로 간선 집계를 새로 만들어요. 남은 기록이 없으면 그 쌍의 간선 자체가 생기지 않아요 | graph.py:1249-1252, graph.py:445 _aggregate_edges |
 | 5 | "[삭제] …" 줄에 남은 가중치를 보여 줘요 | main.py:745 |
 
 - 구매 삭제는 확인을 묻지 않아요. 고객·상품 삭제만 확인을 물어요 (계획서 5.3.1, 263~265줄; main.py:283 _confirm_delete).
@@ -90,7 +90,7 @@ view.py   ──> graph.py (공개 메서드와 대문자 상수만)
 | 3 | `g.update_customer(customer_id, name=…, gender=…, age=…)` | main.py:631 |
 | 4 | graph.py는 원본의 복사본(`updated`)에 바꿀 값을 하나씩 검사하며 넣어요. 바꿀 항목이 하나도 없으면 "바꿀 항목이 없습니다" | graph.py:628-636 |
 | 5 | 모든 검사를 통과한 뒤에만 원본을 `updated`로 바꾸고 재구축해요 | graph.py:637-639 |
-| 6 | 재구축이 성별·나이로 그룹을 다시 찾아 연결해요. 그래서 그룹 이동 코드를 따로 두지 않아요 | graph.py:1243-1245, graph.py:425 _group_id_for |
+| 6 | 재구축이 성별·나이로 그룹을 다시 찾아 연결해요. 그래서 그룹 이동 코드를 따로 두지 않아요 | graph.py:1246-1248, graph.py:425 _group_id_for |
 | 7 | main.py가 수정 뒤 그룹을 "[수정] 이름(ID) → 그룹 표시 이름 그룹"으로 보여 줘요 | main.py:632-633 |
 
 - 6장 예: C04 나이를 24에서 34로 바꾸면 G-M-20에서 G-M-30으로 옮기고 G-M-20은 비어요 (계획서 6.4 593줄, tests/test_graph.py TestW4CustomerProduct.test_age_move). 메뉴 경로는 tests/test_flow.py TestW10Menu.test_update_customer_moves_group이 같은 나이 34로 확인해요.
@@ -108,9 +108,10 @@ view.py   ──> graph.py (공개 메서드와 대문자 상수만)
 | 7 | 동료 → 동료의 이웃 상품을 따라가며 점수(min(가중치, 3))와 지지자를 모아요 | search.py:81-89 _collect_scores |
 | 8 | 이미 고른 상품·이미 산 상품·전부 품절인 상품을 빼고, 점수↓ → 구매자 수↓ → 상품 ID↑로 정렬해요 | search.py:357-368, search.py:92 _rank_key |
 | 9 | K개가 찰 때까지 앞에서부터 담고, 찼으면 더 넓히지 않아요 | search.py:408-414 |
-| 10 | view.py `print_recommendation`: 머리 줄 → 항목마다 3줄(상품·근거·구매 가능 색상) → 안내 줄 | view.py:147-165, view.py:184 _print_item |
-| 11 | 넓힘 안내는 k로 판정해요: 결과 수 < k면 전체 고객까지, 결과 수 == k면 마지막 항목의 범위까지 넓힌 것으로 봐요 | view.py:158-160, view.py:220 _widen_note |
-| 12 | 결과 수 < k면 개수 부족 안내, 범위가 2개 이상 섞였으면 점수 비교 안내를 덧붙여요 | view.py:161-165 |
+| 10 | 결과가 비어 있으면 머리 줄 대신 "[추천] 이름(ID, 그룹)님께 추천할 상품이 없습니다" 한 줄만 출력하고 바로 끝나요. 아래 11~13의 항목 줄·넓힘 안내·개수 부족 안내·점수 비교 안내는 결과가 1개 이상일 때만 적용돼요 | view.py:151-153, tests/test_flow.py TestW8bFlow.test_zero_screen |
+| 11 | 결과가 있으면 view.py `print_recommendation`: 머리 줄 → 항목마다 3줄(상품·근거·구매 가능 색상) → 안내 줄 | view.py:147-165, view.py:184 _print_item |
+| 12 | 넓힘 안내는 k로 판정해요: 결과 수 < k면 전체 고객까지, 결과 수 == k면 마지막 항목의 범위까지 넓힌 것으로 봐요 | view.py:158-160, view.py:220 _widen_note |
+| 13 | 결과 수 < k면 개수 부족 안내, 범위가 2개 이상 섞였으면 점수 비교 안내를 덧붙여요 | view.py:161-165 |
 
 - 추천은 구매 기록 전체를 훑지 않고 그룹 → 소속 고객 → 이웃 상품으로 따라가요 (계획서 5.3.2 "그래프 활용 원칙", search.py:82-83).
 
@@ -128,27 +129,27 @@ view.py   ──> graph.py (공개 메서드와 대문자 상수만)
 | 6 | P05는 전부 품절이라 빠져요 | 계획서 562줄, search.py:358 |
 | 7 | 정렬: P02(3점, 2명) → P01(3점, 1명) → P03(2점). P02와 P01은 점수가 같아 구매자 수로 갈려요 | 계획서 550~552줄, search.py:92 _rank_key |
 | 8 | 같은 그룹에서 3개가 차서 넓히지 않아요. 결과: P02, P01, P03 모두 [같은 그룹] | 계획서 561줄, search.py:409-414 |
-| 9 | 구매 가능 색상: P03은 네이비 재고가 0이라 아이보리만 보여요 | 계획서 562줄, graph.py:1081 available_colors |
+| 9 | 구매 가능 색상: P03은 네이비 재고가 0이라 아이보리만 보여요 | 계획서 562줄, graph.py:1084 available_colors |
 
 - P01은 가중치가 4지만 상한 3 때문에 3점이에요. 상한이 없으면 P01이 1위가 돼요 (계획서 551줄).
 - 같은 C07에 K=4를 주면 같은 그룹 후보가 3개뿐이라 범위를 넓혀요. 6.3-2번(계획서 563~565줄)에 결과가 있어요.
 
 ## 5. 무결성 검사가 잡는 것과 못 잡는 것
 
-`check_integrity()`(graph.py:1100)는 세 부분으로 나뉘어요 (graph.py:1123-1129).
+`check_integrity()`(graph.py:1103)는 세 부분으로 나뉘어요 (graph.py:1126-1132).
 
 | 부분 | 보는 것 | 근거 |
 |---|---|---|
-| `_integrity_refs` | 구매 기록이 존재하지 않는 고객·상품 ID를 가리키는지, 구매 색상이 상품 색상 목록에 있는지 | graph.py:1252, 1270·1274·1277줄의 위반 문구 |
-| `_integrity_structure` | 노드 집합이 그룹+고객+상품과 같은지, 인접 리스트가 양쪽에 다 있는지, 구매 간선이 양쪽에 있는지, 고객마다 맞는 그룹 하나에 소속돼 있는지 | graph.py:1280, 1297·1301·1304·1310줄 |
-| `_integrity_against_rebuild` | 원본에서 임시로 다시 만든 그래프와 지금 그래프가 같은지 (간선 집계·인접 리스트) | graph.py:1313, 1328~1341줄 |
+| `_integrity_refs` | 구매 기록이 존재하지 않는 고객·상품 ID를 가리키는지, 구매 색상이 상품 색상 목록에 있는지 | graph.py:1255, 1273·1277·1280줄의 위반 문구 |
+| `_integrity_structure` | 노드 집합이 그룹+고객+상품과 같은지, 인접 리스트가 양쪽에 다 있는지, 구매 간선이 양쪽에 있는지, 고객마다 맞는 그룹 하나에 소속돼 있는지 | graph.py:1283, 1300·1304·1307·1313줄 |
+| `_integrity_against_rebuild` | 원본에서 임시로 다시 만든 그래프와 지금 그래프가 같은지 (간선 집계·인접 리스트) | graph.py:1316, 1331~1344줄 |
 
-- 검사는 상태를 바꾸지 않아요. 재구축 비교는 임시 결과로 하고 `rebuild()`를 부르지 않아요 (graph.py:1103-1104, 계획서 5.3.5 "검사는 상태를 바꾸지 않는다").
-- 검사기가 정말 일하는지는 일부러 망가뜨려서 확인해요: 고장 주입 4종(계획서 376~379줄) + 원본 고장 2가지(없는 고객을 가리키는 구매 기록, 색상 목록에 없는 구매 색상) (tests/test_graph.py TestW5Integrity, test_fault_dangling_purchase는 693줄).
+- 검사는 상태를 바꾸지 않아요. 재구축 비교는 임시 결과로 하고 `rebuild()`를 부르지 않아요 (graph.py:1106-1107, 계획서 5.3.5 "검사는 상태를 바꾸지 않는다").
+- 검사기가 정말 일하는지는 일부러 망가뜨려서 확인해요: 고장 주입 4종(계획서 376~379줄) + 원본 고장 2가지(없는 고객을 가리키는 구매 기록, 색상 목록에 없는 구매 색상) (tests/test_graph.py TestW5Integrity, test_fault_dangling_purchase는 726줄).
 
 못 잡는 것 (계획서 385줄 "이 검사가 보장하지 않는 것")
 
-- 재구축과 검사가 같은 구축 코드(`_build_graph`)를 써요. 그래서 그 코드에 버그가 있으면 양쪽에 똑같이 들어가 "일치"로 나와요 (graph.py:1109-1110 docstring). 집계가 맞는지는 6장 손계산 기대값 테스트가 봐요.
+- 재구축과 검사가 같은 구축 코드(`_build_graph`)를 써요. 그래서 그 코드에 버그가 있으면 양쪽에 똑같이 들어가 "일치"로 나와요 (graph.py:1112-1113 docstring). 집계가 맞는지는 6장 손계산 기대값 테스트가 봐요.
 - 원본과 그래프가 맞아도 추천 정렬·범위 순서는 틀릴 수 있어요. 그건 6.3 기대값 테스트가 봐요.
 - 발표 표현은 "원본과 그래프가 일치함을 확인"이에요. "정확성 증명"이라고 하지 않아요 (계획서 7장 8번, 5.3.5).
 
@@ -157,18 +158,18 @@ view.py   ──> graph.py (공개 메서드와 대문자 상수만)
 | 파일 | 클래스 | 지키는 단계·내용 | 근거 |
 |---|---|---|---|
 | tests/test_graph.py | TestW3Build | W3 생성자 계약·rebuild·조회 | tests/test_graph.py:37 |
-| | TestW4CustomerProduct | W4 고객·상품 등록·수정·삭제, 그룹 이동 | tests/test_graph.py:232 |
-| | TestW5Purchase | W5 구매 등록·수정·삭제 | tests/test_graph.py:486 |
-| | TestW5Integrity | W5 무결성 검사와 고장 주입 | tests/test_graph.py:626 |
+| | TestW4CustomerProduct | W4 고객·상품 등록·수정·삭제, 그룹 이동 | tests/test_graph.py:254 |
+| | TestW5Purchase | W5 구매 등록·수정·삭제 | tests/test_graph.py:519 |
+| | TestW5Integrity | W5 무결성 검사와 고장 주입 | tests/test_graph.py:659 |
 | tests/test_search.py | TestW6Query | W6 조건 조회, S1~S3 | tests/test_search.py:14 |
-| | TestW7Popular | W7 S4 그룹 인기 상품 | tests/test_search.py:122 |
+| | TestW7Popular | W7 S4 그룹 인기 상품 | tests/test_search.py:124 |
 | tests/test_recommend.py | TestW8Recommend | W8 추천 (6.3 전체) | tests/test_recommend.py:89 |
 | tests/test_flow.py | TestW8bFlow | W8b 추천 화면 | tests/test_flow.py:149 |
 | | TestW10Menu | W10 전체 메뉴, 잘못된 입력, EOF·Ctrl+C | tests/test_flow.py:435 |
 | | TestW10aMessages | W10a 오류 메시지 형식 | tests/test_flow.py:688 |
 | | TestW10bInputs | W10b 고장 검사에서 찾은 입력 처리 공백(자릿수 경계, 삭제 ID 공백), 추천 K 라벨 | tests/test_flow.py:719 |
 | tests/test_view.py | TestW9Table, TestW9GroupTree, TestW9Neighbors | W9 표·그룹 트리·인접 리스트 | tests/test_view.py:59, 120, 190 |
-| tests/test_demo.py | TestW12Demo | W12 시연 장면 1~8 (기대값 승인 전이라 지금은 NotImplementedError) | tests/test_demo.py:206 |
+| tests/test_demo.py | TestW12Demo | W12 시연 장면 1~8 (기대값 승인 전이라 지금은 NotImplementedError) | tests/test_demo.py:309 |
 
 - 고정 데이터는 tests/fixtures.py가 테스트마다 새로 만들어요. 실행용 data.py를 읽는 테스트는 test_demo뿐이에요 (CLAUDE.md "테스트" 절, tests/test_demo.py 모듈 설명).
 - 실패 입력 테스트는 `snapshot(g)`로 내부 상태 전체를 전후 비교해요 (tests/helpers.py, CLAUDE.md "테스트" 절).

@@ -1,5 +1,7 @@
 # 결함 기록
 
+분류 기준 (11/02 추가, Codex 검토 7번): A 구현 결함 / B 계획·명세 문제 / C 의도적 주입 (계획서 11.3.9). **테스트 작성 실수(테스트 코드나 기대값을 잘못 쓴 것)는 T 분류로 따로 기록한다.** 분류끼리 합산하지 않는다. A02(테스트 기대값 표의 가변 객체 공유)는 이 기준 전에 A로 기록돼 그대로 둔다 (옮길지는 찬일 판단).
+
 | 번호 | 분류 | 단계 | 증상 | 원인 | 발견 방법 | 수정 | 회귀 테스트 |
 |---|---|---|---|---|---|---|---|
 | B01 | B | W0 | W0 통과 기준 "빈 테스트가 실행됨"이 Python 3.12 이상에서 `NO TESTS RAN`, 종료 코드 5로 실패처럼 보임 | 기준 문서가 0개 테스트의 종료 코드를 정하지 않음 | AI(Claude)가 실행해 확인, 사람이 판정 | Ran 0 + exit 5를 통과로 인정 (찬일 10/31) | 해당 없음 |
@@ -22,3 +24,4 @@
 | A06 | A | W10 | tests/test_flow.py:607 test_update_customer_moves_group docstring이 "C04 나이 31 → G-M-30 이동 (6.4)"인데 계획서 6.4(593줄)는 24 → 34 | 메뉴 테스트 입력값(31)에 6.4 표기를 그대로 붙임. 확인 내용(G-M-30 이동)은 맞음 | 2회차 야간 작업 4 안내서 검증 서브에이전트 (docs/verification/study/code_guide_check.md) | [SPEC][W10b](ecf8021)에서 수정: docstring을 "C04 나이 34 → G-M-30 이동 (6.4: 24 → 34)"로 고치고, docstring과 입력이 어긋나지 않게 메뉴 입력도 31 → 34 (기대값 변경 없음, 찬일 11/02 판정) | test_update_customer_moves_group |
 | A07 | A | W10 | 추천 K에 숫자가 아닌 값을 넣으면 "[오류] K: 숫자로 입력해 주세요", 범위 밖이면 "[오류] 추천 개수 K: 1~10이어야 합니다 (입력: 0)"로 항목 이름이 두 가지 | W10a에서 search.py 항목 이름만 "추천 개수 K"로 맞추고 main.py _recommend의 _to_int 라벨 "K"는 남음 | 통합 독립 검토(서브에이전트) R1 (docs/verification/integrated_review.md) | [W10b]에서 main.py _recommend의 라벨을 "추천 개수 K"로 | test_recommend_k_not_number |
 | A08 | A | W3 (W6 S2 복잡도) | 계획서 5.3.2 표는 S2를 O(d log d)(d = 상품 차수)로 적었는데, 구현은 구매 고객마다 group_of()가 그 고객의 이웃 전체를 훑어 O(dₚ log dₚ + Σ d_c)였음 (구매 고객이 산 상품 수가 늘면 비용이 늘어남) | group_of()가 소속 그룹을 찾으려고 `self._adj[customer_id]` 전체를 순회 | Codex 독립 검토 9784473 4번 (docs/verification/codex_review_9784473.md) | [W3 보완]에서 group_of()가 그룹 ID 8개(GROUP_IDS)만 고객 이웃 집합에 있는지 확인하도록 바꿈. 반환 규칙(여러 개면 가장 작은 ID, 없으면 같은 ValueError)은 그대로. S2는 neighbors 정렬 O(d log d) + 고객마다 get_customer·group_of(상수 8회 확인)·edge(색상 수는 작은 상수, 5.3.2 전제) → O(d log d)로 표와 맞음 | 기존 테스트 전부 (test_fault_wrong_group 두 그룹 고장 포함), 고장 상태 동등성은 메모리 확인만 |
+| T01 | T | W10 | test_invalid_menu_numbers의 오류 줄 기대값을 6으로 적음 (실제 7: 메인 9·빈 입력·abc, CREATE 하위 9·빈 입력, READ 하위 8, 메인 -1) | 테스트 작성 때 손계산 실수 | W10 G4 1차 실행 실패 (AssertionError 7 != 6) | 기대값을 7로 고치고 계산 근거 주석 (4889d53 이전 작업 중) | test_invalid_menu_numbers |

@@ -800,7 +800,7 @@ def _print_stats(g: ShopGraph) -> None:
     print_table(["항목", "개수"], [[label, stats[key]] for key, label in _STAT_LABELS])
     violations = g.check_integrity()
     if not violations:
-        print("[무결성 검사] 위반 없음 (원본과 그래프가 정한 불변 조건대로 일치)")
+        print("[무결성 검사] 위반 없음: 원본과 그래프가 일치함을 확인")
         return
     print(f"[무결성 검사] 위반 {len(violations)}건")
     for violation in violations:

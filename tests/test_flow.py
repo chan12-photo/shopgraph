@@ -472,7 +472,7 @@ class TestW10Menu(unittest.TestCase):
     def test_register_then_recommend(self) -> None:
         """5.3.1 고객 등록 직후 추천: C07(여, 22) 등록 → 6.3-1 화면 (W8b 승인 형식)."""
         text, g = _run_main(["1", "1", "고객7", "2", "22", "0"])
-        # [제안 형식] 등록 직후 줄 "[등록] 이름(ID) → 그룹 표시 이름 그룹에 연결" (W8b 임시 형식 교체)
+        # [승인 형식] 등록 직후 줄 "[등록] 이름(ID) → 그룹 표시 이름 그룹에 연결" (W8b 임시 형식 교체)
         expected = ["[등록] 고객7(C07) → 여성·20대 그룹에 연결",
                     "[추천] 고객7(C07, 여성·20대)님께 추천 (3개)"] + _c07_k3_lines()
         self.assertIn("나이: 22\n" + "\n".join(expected) + "\n", text)
@@ -482,7 +482,7 @@ class TestW10Menu(unittest.TestCase):
     def test_submenu_screen_and_back(self) -> None:
         """하위 메뉴 화면과 [0] 이전 메뉴: 아무것도 실행하지 않고 메인 메뉴로 돌아간다."""
         text, g = _run_main(["1", "0", "0"])
-        # [제안 형식] 하위 메뉴는 "[제목]" 줄, "[번호] 기능", "[0] 이전 메뉴", "번호 선택: "
+        # [승인 형식] 하위 메뉴는 "[제목]" 줄, "[번호] 기능", "[0] 이전 메뉴", "번호 선택: "
         self.assertIn("\n".join([
             "메뉴 선택: 1", "", "[CREATE]", "[1] 고객 등록 (등록 직후 추천)", "[2] 상품 등록", "[3] 구매 등록",
             "[0] 이전 메뉴", "번호 선택: 0", "",
@@ -510,7 +510,7 @@ class TestW10Menu(unittest.TestCase):
             "[오류] 성별: 1(남) 또는 2(여)로 입력해 주세요",
             "[오류] 나이: 숫자로 입력해 주세요",
             "[오류] 나이: 숫자가 너무 깁니다 (9자리 이하)",
-            # [제안 형식] 번호 고르기 오류, 재고 입력 형식 오류 문구
+            # [승인 형식] 번호 고르기 오류, 재고 입력 형식 오류 문구
             "[오류] 종류: 1(상의), 2(하의) 또는 3(아우터)로 입력해 주세요",
             "[오류] 색상별 재고: 색상=수량을 쉼표로 이어 입력해 주세요 (예: 블랙=5, 화이트=3)",
             "[오류] 색상별 재고: 같은 색상이 두 번 나옵니다: 블랙",
@@ -563,14 +563,14 @@ class TestW10Menu(unittest.TestCase):
         for inputs in (["1", "1", "고객7"], ["1", "1", "고객7", "2", KeyboardInterrupt], [KeyboardInterrupt],
                        ["2", KeyboardInterrupt], []):
             text, g = _run_main(inputs)
-            # [제안 형식] EOF·Ctrl+C 뒤에는 빈 줄 하나와 "종료합니다"
+            # [승인 형식] EOF·Ctrl+C 뒤에는 빈 줄 하나와 "종료합니다"
             self.assertTrue(text.endswith("\n종료합니다\n"), msg=repr(inputs))
             self.assertEqual(snapshot(g), snapshot(make_graph()), msg=repr(inputs))
 
     def test_delete_customer_confirm(self) -> None:
         """5.3.1 고객 삭제 확인: C02의 구매 기록 3건(T006·T007·T008) 안내 → y → 연쇄 삭제 (6.4 C02 삭제)."""
         text, g = _run_main(["4", "1", "C02", "y", "0"])
-        # [제안 형식] 확인 줄 "이름(ID) 삭제: 구매 기록 N건도 함께 삭제됩니다. 계속할까요? (y/n): ", 결과 줄 "[삭제] …"
+        # [승인 형식] 확인 줄 "이름(ID) 삭제: 구매 기록 N건도 함께 삭제됩니다. 계속할까요? (y/n): ", 결과 줄 "[삭제] …"
         self.assertIn("고객2(C02) 삭제: 구매 기록 3건도 함께 삭제됩니다. 계속할까요? (y/n): y\n"
                       "[삭제] 고객2(C02), 구매 기록 3건 함께 삭제\n", text)
         self.assertNotIn("C02", g.customer_ids())
@@ -590,7 +590,7 @@ class TestW10Menu(unittest.TestCase):
     def test_delete_cancel(self) -> None:
         """삭제 확인에서 y가 아니면 취소: 상태 그대로. 구매 기록이 없는 고객(C06)의 확인 문구."""
         text, g = _run_main(["4", "1", "C02", "n", "4", "2", "P01", "", "4", "1", "C06", "예", "0"])
-        # [제안 형식] y(대소문자 무관)만 삭제, 그 밖은 "[취소] 삭제하지 않았습니다". 구매 기록 0건이면 다른 문구
+        # [승인 형식] y(대소문자 무관)만 삭제, 그 밖은 "[취소] 삭제하지 않았습니다". 구매 기록 0건이면 다른 문구
         self.assertEqual(text.count("[취소] 삭제하지 않았습니다"), 3)
         self.assertIn("고객6(C06) 삭제: 함께 삭제되는 구매 기록은 없습니다. 계속할까요? (y/n): 예\n", text)
         self.assertEqual(snapshot(g), snapshot(make_graph()))
@@ -605,7 +605,7 @@ class TestW10Menu(unittest.TestCase):
     def test_update_customer_moves_group(self) -> None:
         """고객 수정(빈 입력은 그대로): C04 나이 31 → G-M-30 이동 (6.4)."""
         text, g = _run_main(["3", "1", "C04", "", "", "31", "0"])
-        # [제안 형식] 수정 결과 줄 "[수정] 이름(ID) → 그룹 표시 이름 그룹"
+        # [승인 형식] 수정 결과 줄 "[수정] 이름(ID) → 그룹 표시 이름 그룹"
         self.assertIn("[수정] 고객4(C04) → 남성·30대 그룹\n", text)
         self.assertEqual(g.group_of("C04"), "G-M-30")
         self.assertEqual(g.get_customer("C04")["name"], "고객4")
@@ -624,7 +624,7 @@ class TestW10Menu(unittest.TestCase):
         text, g = _run_main(["1", "1", "고객7", "2", "25",
                              "1", "3", "C07", "P02", "블랙", "1", "2026-10-05",
                              "1", "3", " C07 ", "P02", " 베이지 ", "2", " 2026-10-06 ", "0"])
-        # [제안 형식] "[등록] 구매 ID: 고객 → 상품, 색상, 수량개, 구매일 (가중치 W)". ID·날짜 입력의 앞뒤 공백은 main이 지움
+        # [승인 형식] "[등록] 구매 ID: 고객 → 상품, 색상, 수량개, 구매일 (가중치 W)". ID·날짜 입력의 앞뒤 공백은 main이 지움
         self.assertIn("[등록] T014: C07 → P02, 블랙, 1개, 2026-10-05 (가중치 1)\n", text)
         self.assertIn("[등록] T015: C07 → P02, 베이지, 2개, 2026-10-06 (가중치 2)\n", text)
         self.assertEqual(g.weight("C07", "P02"), 2)
@@ -634,7 +634,7 @@ class TestW10Menu(unittest.TestCase):
         """조회·검색 화면: 이름 조회(공백 제거, 완전 일치), 조건 조회, S1(C01), S4(G-F-20) — 값은 6.2."""
         text, _ = _run_main(["2", "2", "1", " 고객1 ", "2", "2", "1", "고객", "2", "3", "", "", "네이비", "", "",
                              "2", "4", "C01", "2", "7", "2", "", "0"])
-        # [제안 형식] 목록 화면은 "[제목] N개(명)" 줄 + 표, 결과가 없으면 "[제목] 결과가 없습니다"
+        # [승인 형식] 목록 화면은 "[제목] N개(명)" 줄 + 표, 결과가 없으면 "[제목] 결과가 없습니다"
         self.assertIn("[고객 이름 조회] 1명\n" + _table(
             ["ID", "이름", "성별", "나이", "그룹"], [["C01", "고객1", "여", 23, "여성·20대"]]), text)
         self.assertIn("[고객 이름 조회] 결과가 없습니다\n", text)
@@ -657,10 +657,10 @@ class TestW10Menu(unittest.TestCase):
         self.assertIn("[그룹별 고객] 전체 6명\n", text)
         self.assertIn("[상품 목록] 5개\n", text)
         self.assertEqual(text.count("[인접 리스트] "), 19)
-        # [제안 형식] 통계 표의 항목 이름, 무결성 검사 결과 줄 (5.3.5 "정확성 증명"이라 쓰지 않음)
+        # [승인 형식] 통계 표의 항목 이름, 무결성 검사 결과 줄 (7장 8번 발표 표현, 찬일 11/01 지정)
         self.assertIn("[그래프 통계]\n" + _table(["항목", "개수"], [
             ["그룹 노드", 8], ["고객 노드", 6], ["상품 노드", 5], ["소속 간선", 6], ["구매 간선", 9], ["구매 기록", 13],
-        ]) + "[무결성 검사] 위반 없음 (원본과 그래프가 정한 불변 조건대로 일치)\n", text)
+        ]) + "[무결성 검사] 위반 없음: 원본과 그래프가 일치함을 확인\n", text)
         self.assertEqual(snapshot(g), snapshot(make_graph()))
 
     def test_recommend_menu(self) -> None:

@@ -5,7 +5,7 @@ contextlib.redirect_stdout으로 확인한다. 실행용 data.py는 읽지 않�
 
 계획서가 정한 것은 "한글 2칸 폭 정렬"(print_table, unicodedata.east_asian_width),
 "전체 → 성별 → 연령대 → 고객 들여쓰기"(print_group_tree), "노드 하나의 인접 리스트"
-(print_neighbors)까지다. 그 밖의 글자 형식은 "# [제안 형식]" 주석을 달았다 (W9 G7 승인 대상).
+(print_neighbors)까지다. 그 밖의 글자 형식은 "# [승인 형식]" 주석을 달았다 (W9 [제안 형식], 찬일 11/01 승인).
 """
 
 import contextlib
@@ -61,7 +61,7 @@ class TestW9Table(unittest.TestCase):
 
     def test_korean_width_alignment(self) -> None:
         """한글(east_asian_width W)은 2칸으로 세어 열을 맞춘다. 정수 열은 오른쪽 정렬."""
-        # [제안 형식] 열 사이 공백 2칸, 머리 줄 아래 열 폭만큼 "-", 정수만 있는 열은 머리까지 오른쪽 정렬,
+        # [승인 형식] 열 사이 공백 2칸, 머리 줄 아래 열 폭만큼 "-", 정수만 있는 열은 머리까지 오른쪽 정렬,
         # 나머지는 왼쪽 정렬, 줄 끝 공백 없음
         # 열 폭: ID = max(2, 3) = 3 / 상품명 = max(6, "오버핏 티셔츠" 6×2+1 = 13) = 13 / 가격 = max(4, 5) = 5
         text = _capture(print_table, ["ID", "상품명", "가격"],
@@ -103,13 +103,13 @@ class TestW9Table(unittest.TestCase):
 
     def test_empty_rows(self) -> None:
         """행이 없으면 머리 줄과 구분 줄만 출력한다."""
-        # [제안 형식] 빈 표에 "없음" 같은 문구는 view가 붙이지 않는다 (main.py가 상황에 맞게 안내)
+        # [승인 형식] 빈 표에 "없음" 같은 문구는 view가 붙이지 않는다 (main.py가 상황에 맞게 안내)
         text = _capture(print_table, ["ID", "이름"], [])
         self.assertEqual(text, _lines("ID  이름", "--  ----"))
 
     def test_row_length_mismatch(self) -> None:
         """행의 칸 수가 머리 칸 수와 다르면 ValueError, 아무것도 출력하지 않는다."""
-        # [제안 형식] 계획서에 없는 예외: 호출 실수를 조용히 넘기지 않으려고 ValueError로 둔다
+        # [승인 형식] 계획서에 없는 예외: 호출 실수를 조용히 넘기지 않으려고 ValueError로 둔다
         buffer = io.StringIO()
         with contextlib.redirect_stdout(buffer):
             with self.assertRaises(ValueError):
@@ -125,7 +125,7 @@ class TestW9GroupTree(unittest.TestCase):
         g = make_graph()
         before = snapshot(g)
         text = _capture(print_group_tree, g)
-        # [제안 형식] 머리 줄 "[그룹별 고객] 전체 N명", 들여쓰기 2칸씩, 연령대 줄에 그룹 ID와 인원,
+        # [승인 형식] 머리 줄 "[그룹별 고객] 전체 N명", 들여쓰기 2칸씩, 연령대 줄에 그룹 ID와 인원,
         # 고객 줄 "ID 이름 (나이세)". 빈 그룹도 "0명"으로 표시 (7장 시연: 소속 고객이 없는 그룹)
         self.assertEqual(text, _lines(
             "[그룹별 고객] 전체 6명",
@@ -194,7 +194,7 @@ class TestW9Neighbors(unittest.TestCase):
         """고객 노드: 소속 그룹 1개와 구매 상품(가중치 = 색상 수, 상한 적용 전 값), ID 순."""
         g = make_graph()
         before = snapshot(g)
-        # [제안 형식] 머리 줄 "[인접 리스트] ID 표시 이름 (이웃 N개)", 이웃 줄은 2칸 들여쓰기에
+        # [승인 형식] 머리 줄 "[인접 리스트] ID 표시 이름 (이웃 N개)", 이웃 줄은 2칸 들여쓰기에
         # "ID 표시 이름 (소속)" 또는 "(구매, 가중치 W)". 가중치는 g.weight() 그대로 (C01–P01은 4, 6.2)
         self.assertEqual(_capture(print_neighbors, g, "C01"), _lines(
             "[인접 리스트] C01 고객1 (이웃 3개)",

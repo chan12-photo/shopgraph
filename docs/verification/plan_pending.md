@@ -161,3 +161,106 @@ doc-pending 브랜치(99cac86, draft PR #2)에 문안이 이미 들어가 있다
 ```
 | 11/02 | 7장 장면 7의 점수 비교 안내를 "결과에 범위가 둘 이상 섞일 때만"으로 정정 | W8b 판정(점수 비교 안내는 범위 2개 이상일 때만)과 시연 데이터 결과(3개 모두 남성 전체)에 맞춤. 발표는 5.3.3 C06 예시로 설명 | 찬일 |
 ```
+
+## 12. 웹 추가 화면 결정과 UI0 설계 문안 (11/02)
+
+근거: 찬일의 11/02 작업 지시, [UI0 설계](ui0_design.md). 콘솔 유지·웹 추가·기술 구성은 찬일 결정이다. API·화면·전송 형식·예외 보장 범위의 세부안은 **UI0 [승인] 대기**다. 아래는 사람이 본문에 반영할 문안이며, 이 문서 작성만으로 UI0 승인이나 UI1 착수를 뜻하지 않는다. 기준 줄은 6173203의 계획서다.
+
+### 12-1. 1장 기본 기능·언어 (59~60줄)
+
+- 지금: `| 기본 기능 | CRUD + Print, 콘솔 메뉴 [확정-교수] |`
+- 바꿀: `| 기본 기능 | CRUD + Print, 콘솔 메뉴(기본, 교수님 확정) + 웹 화면(추가, 찬일 11/02 결정, python main.py --web) |`
+- 지금: `| 언어 | Python 3.11 이상, 프로그램 코드는 표준 라이브러리만, 그래프 라이브러리(NetworkX 등) 사용 금지 [확정-찬일] (언어 자유는 [확정-교수]) |`
+- 바꿀: `| 언어 | Python 3.11 이상, Python 프로그램은 표준 라이브러리만(유지), 그래프 라이브러리(NetworkX 등) 금지. 웹 화면은 React·TypeScript, Node는 개발·빌드에만 사용. frontend/에 소스와 frontend/dist/ 빌드 결과를 포함해 실행에는 Node 불필요 [확정-찬일, 11/02] (언어 자유는 [확정-교수]) |`
+- 56줄 한 줄 정의 끝의 지금: `바로 상품을 추천하는 콘솔 프로그램`
+- 바꿀: `바로 상품을 추천하는 프로그램(기본 콘솔 메뉴 + 추가 웹 화면)`
+
+### 12-2. 4장 언어·화면 (150~151줄)
+
+- 지금: `| 언어 | [확정-찬일] | Python, 표준 라이브러리만 (테스트는 표준 unittest) |`
+- 바꿀: `| 언어 | [확정-찬일, 11/02 보완] | Python 프로그램은 표준 라이브러리만(테스트 unittest). 웹은 React·TypeScript·Vite, Node는 개발·빌드에만 사용하고 dist를 포함해 실행에는 불필요 |`
+- 지금: `| 화면 | [확정-교수] | 콘솔 메뉴 |`
+- 바꿀: `| 화면 | [기본: 확정-교수 / 추가: 확정-찬일 11/02] | 콘솔 메뉴(기본, python main.py) + 웹 화면(추가, python main.py --web). 콘솔 출력·기능은 유지 |`
+
+### 12-3. 5.5 모듈 구성·진입점 (402줄 이후)
+
+- 지금: 모듈 구성에 `web.py`, `frontend/`가 없음.
+- 바꿀: 기존 구성에 아래 행을 추가하고 main.py의 웹 분기를 연결한다.
+
+| 모듈·폴더 | 추가할 역할 문안 |
+|---|---|
+| web.py | Python 표준 http.server.HTTPServer로 127.0.0.1에만 바인드, 요청을 한 번에 하나씩 처리. ShopGraph 공개 메서드·graph 공개 상수·search 공개 함수와 view 순수 함수 결과를 JSON으로 전달하고 frontend/dist만 정적으로 제공. 비즈니스 계산·내부 속성 접근 없음 |
+| frontend/ | React·TypeScript 소스와 Vite 설정. 계산은 Python에 맡기고 결과·문구를 표시. SVG로 그룹/고객/상품과 가중치 간선을 직접 그림 |
+| frontend/dist/ | 저장소에 포함하는 빌드 결과. 시연·실행은 Node 없이 Python 서버로 제공 |
+
+- 지금(424줄): `- 화면은 main.py로만 들어오고, 데이터 변경은 graph.py로만 일어난다 = 교수님이 말한 "진입점 하나".`
+- 바꿀: `- 프로그램 실행 진입점은 main.py 하나다. 인자 없는 실행은 기존 콘솔 run(), --web은 추가 HTTP 서버로 분기한다. HTTP 요청은 web.py가 받고, 데이터 변경은 항상 ShopGraph 공개 메서드로만 한다. 서버를 켤 때마다 data.py initial_records()로 처음 상태를 만들고 저장하지 않는다.`
+- 지금: web.py 공개 함수 계약 없음.
+- 바꿀: `web.create_server(g: ShopGraph, port: int = 8000) -> HTTPServer. 호스트는 127.0.0.1로 고정, port=0은 임의 포트. 데이터 초기화·실제 URL 안내·브라우저 열기·서버 실행과 종료는 main.py 웹 분기가 맡는다. graph.py·search.py 동작과 main.run() 계약은 바꾸지 않는다.`
+
+### 12-4. 16장 React 채택 (1161줄)
+
+- 지금: `| Neo4j, FastAPI, React, Cytoscape, Docker, CI/CD, 클라우드 배포 (초기 딥리서치 보고서) | [폐기] | 라이브러리 없이 구현한 자료구조가 평가 대상인 수업. 비중 대비 과잉. 콘솔 메뉴가 기본 |`
+- 바꿀(두 행으로 분리):
+
+```text
+| React | [채택: 화면 전용, 의존 4+2개] | 찬일 11/02 결정. react, react-dom, typescript, vite + @types/react, @types/react-dom만 직접 선언하고 정확한 버전과 package-lock.json을 고정한다. 계산은 Python, 그래프 그림은 직접 작성한 SVG. 기본 콘솔은 유지하고 dist 포함으로 실행 시 Node 불필요 |
+| Neo4j, FastAPI, Cytoscape, Docker, CI/CD, 클라우드 배포 (초기 딥리서치 보고서) | [폐기] | 자료구조와 그래프 그림은 라이브러리 없이 구현. 웹 서버는 Python 표준 http.server, 로컬 시연만 제공 |
+```
+
+간접 의존성을 lock 파일에 포함하는 해석은 ui0_design.md D2로 판정 대기다. 이 문안을 근거로 목록 밖 직접 패키지를 설치하지 않는다. CSS 프레임워크·UI/차트/그래프/아이콘 패키지·외부 글꼴·CDN은 금지한다.
+
+### 12-5. 11.3 추가 단계·게이트 (11/02 지시 반영 문안)
+
+- 지금: W0~W13 단계 표, 웹 UI0~UI6 행 없음.
+- 바꿀: W12 완료 뒤의 추가 기능 절차로 아래 행을 덧붙인다. 각 단계는 G1~G8을 따르고 이해 질문 3개를 기록한다. 답은 찬일이 나중에 모아 확인한다. 필수 게이트는 [승인] 전에 다음 단계로 넘어가지 않는다.
+
+| 단계 | 범위 | 게이트 |
+|---|---|---|
+| UI0 | 환경·API·문구·화면·검증 설계, 계획서 반영 문안. 코드 작성 없음 | 필수 |
+| UI1 | 읽기 API·순차 HTTP 서버·main.py --web·view 순수 함수 | 필수 |
+| UI2 | 고객 등록·구매 등록·재고 전체 교체 API, 오류·상태 보호 | 일반 |
+| UI3 | React·TypeScript·Vite 구성, 빌드·dist 제공 | 일반 |
+| UI4 | 6개 웹 화면·직접 작성 SVG | 일반 |
+| UI5 | 승인된 demo_expected로 웹 장면 1~8 검증 | 필수 |
+| UI6 | 문서·검증 기록 정리 | 일반 |
+
+승인자는 찬일이다. 커밋은 `[UI0]`, `[UI1]`, `[SPEC][UI1]` 형식이며 매 커밋 직전 전체 테스트를 실행해 `통과 N / 미도래 N / 실패 N`을 기록한다. [AI]·Co-Authored-By·생성 도구 문구를 넣지 않는다. push·main 합치기·PR은 별도 [승인] 전 금지한다. UI0 커밋은 제출 자료 보관으로서 G7 승인 전 한 번 허용한다(이번 작업 지시).
+
+### 12-6. CLAUDE.md·계획서 부록 A에 함께 반영할 구조 문안
+
+- 지금: `- Python 3.11 이상, 표준 라이브러리만 사용. 외부 패키지와 pip install 금지. NetworkX 등 그래프 라이브러리 금지`
+- 바꿀: `- Python 3.11 이상, Python 프로그램은 표준 라이브러리만 사용하고 pip install·그래프 라이브러리는 금지한다. 추가 웹 화면의 개발·빌드에는 UI0에서 승인한 직접 의존 6개만 사용하며, 정확한 버전과 lock 파일을 고정한다. 실행에는 포함된 dist를 사용해 Node가 필요 없다.`
+- 지금: `- view.py: 출력 전용`
+- 바꿀: `- view.py: 출력 함수와 콘솔·웹이 공유하는 순수 문구 함수. 추천 문구·안내 조건·조사는 여기서만 만든다. 순수 함수는 출력하거나 상태를 바꾸지 않는다.`
+- 지금: `- main.py: 유일한 진입점. 메뉴, 입력 변환, ValueError를 메시지로 표시`
+- 바꿀: `- main.py: 유일한 실행 진입점. 기본은 기존 콘솔 메뉴·입력 변환·오류 표시, --web은 로컬 HTTP 서버 시작·종료. web.py는 공개 API 호출·전송 형식 변환·정적 파일 제공만 맡는다. 운영 모듈의 내부 속성 접근 금지는 web.py에도 적용한다.`
+- 커밋 규칙은 12-5 문안으로 반영한다. 기존 테스트 기대값 변경 금지는 유지한다. 실제 CLAUDE.md·계획서 본문은 이번에 수정하지 않는다.
+
+### 12-7. 19장 행
+
+```text
+| 11/02 | 콘솔 메뉴를 기본으로 유지하고 python main.py --web 추가. Python 표준 http.server(127.0.0.1, 단일 요청 처리) + React·TypeScript·Vite 화면, 직접 작성 SVG. frontend/dist를 포함하고 실행에는 Node 불필요. UI0~UI6로 나누어 UI0·UI1·UI5에서 필수 승인 | 발표의 중심인 "구매 → 그래프·추천 변화"를 눈으로 보여주기. 업계에서 널리 쓰는 화면/계산 분리 구조를 사용하되 Python 실행은 여전히 표준 라이브러리만 | 찬일 |
+```
+
+## 13. UI1 view 순수 함수 계약 추가 문안 — UI0 승인 전 제안
+
+근거: 찬일 11/02 절대 원칙 3, ui0_design.md 4절. 함수 시그니처를 승인받으면 **[SPEC][UI1] 계약 커밋을 구현 커밋과 분리**한다. 이번 [UI0]에는 제안 문안만 넣는다. 기존 1번·3번 문안의 k 인자와 승인 출력 규칙을 유지하면서 아래 내용을 합친다.
+
+### 13-1. 5.5 view.py 함수 목록 (468~470줄)
+
+- 지금: `view.py — 출력 전용`, `print_table`, `print_group_tree`, `print_recommendation(g, customer_id, result, k)`(대기 문안 1번), `print_neighbors`.
+- 바꿀: `view.py — 출력 함수와 순수 문구 함수. 기존 print 함수의 인자·None 반환·출력은 유지한다. recommendation_lines(g: ShopGraph, customer_id: str, result: list[dict], k: int) -> list[str]와 recommendation_scope_label(g: ShopGraph, customer_id: str, scope: str) -> str를 추가한다. 전자는 추천 전체를 줄바꿈 없는 새 줄 리스트로, 후자는 범위 표시 이름으로 반환한다. 두 함수는 출력·상태 변경을 하지 않고 ShopGraph 공개 조회만 쓴다. print_recommendation은 recommendation_lines의 줄을 순서대로 출력한다.`
+
+### 13-2. B.2 view.py 반환 계약 (1394줄)
+
+- 지금: `**view.py** — 가고정(W1), W8b에서 최종 고정. 모두 print만 하고 None을 반환한다. 테스트는 contextlib.redirect_stdout으로 출력 문자열을 확인한다.` (본문의 인라인 코드 표기는 유지)
+- 바꿀: `**view.py** — 기존 print 함수는 print만 하고 None을 반환한다. UI1에서 추가한 recommendation_lines는 새 list[str], recommendation_scope_label은 str를 반환하며 출력·상태 변경이 없다. result는 같은 g·고객·k로 부른 recommend의 반환값, scope는 그 반환의 group/gender/all 중 하나다. 없는 고객의 ValueError는 그대로 전달한다. 빈 추천은 기존 빈 결과 문장 한 줄로 종료한다. 그 밖의 넓힘·개수 부족·점수 비교·근거 색상 수·조사 규칙과 공백·개행은 W8b·W9·W10 승인 출력 그대로이며, 기존 test_flow·test_view·test_demo 기대값은 바꾸지 않는다.`
+
+### 13-3. 19장 행 (UI0 승인 뒤 [SPEC][UI1]에서 확정할 제안)
+
+```text
+| 승인일 | view.py에 recommendation_lines·recommendation_scope_label 순수 함수 계약 추가, print_recommendation과 웹이 공유. graph·search 동작과 기존 콘솔 출력·기대값은 유지 | 웹에서 추천 안내 조건·근거 색상 수·조사를 다시 구현하지 않고 기존 Python 화면 규칙을 한곳에서 사용 | 찬일 |
+```
+
+6장·demo_expected의 계산 규칙과 값은 변하지 않으므로 새 기대값 재계산은 없다. 콘솔 출력 불변은 기존 승인 문자열 테스트와 추가 순수 함수 검사로 확인한다. API·오류·전송 형식 세부 계약은 UI0의 D1~D3 판정 뒤 확정하며 승인되지 않은 제안을 구현 근거로 삼지 않는다.

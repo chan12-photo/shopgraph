@@ -61,6 +61,7 @@ ul { padding-left: 1.3rem; }
 .graph-node.dim { opacity: .17; }
 .graph-node.active circle { fill: #2374a5; stroke: #123b5b; }
 .graph-node.active text { font-weight: 700; }
+.graph-node:hover text, .graph-node.selected text { font-size: 17px; font-weight: 700; }
 .detail-grid, .form-grid, .chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 .customer-grid { grid-template-columns: minmax(240px, .7fr) minmax(0, 1.3fr); align-items: start; }
 .purchase-meta { display: block; color: #6b7d8c; font-size: .82rem; margin-bottom: .5rem; }

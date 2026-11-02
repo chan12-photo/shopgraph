@@ -18,7 +18,8 @@ type Recommendations = { items: RecommendationItem[]; header_line: string; notic
 type GraphNode = { id: string; kind: "group" | "customer" | "product"; label: string; neighbor_ids: string[] };
 type GraphEdge = { kind: "membership" | "purchase"; source: string; target: string; weight: number | null };
 type GraphData = { nodes: GraphNode[]; edges: GraphEdge[] };
-type GroupTree = { branches: { groups: Group[] }[] };
+type GroupCount = Group & { count: number };
+type GroupTree = { branches: { groups: GroupCount[] }[] };
 type PopularItem = { product_id: string; product_name: string; score: number; buyers: number; status_label: string };
 type PopularResponse = { group: Group; k: number | null; items: PopularItem[] };
 type Integrity = { violation_count: number; lines: string[] };
@@ -74,8 +75,8 @@ function NodeSelect({ label, nodes, value, onChange }: {
 }
 
 /** 노드 수에 따른 조절은 SVG 좌표뿐이며 서버 배열의 순서를 유지한다. */
-function GraphScreen({ data, onCustomer, onProduct }: {
-  data: GraphData | null; onCustomer: (id: string) => void; onProduct: (id: string) => void;
+function GraphScreen({ data, groups, onCustomer, onProduct }: {
+  data: GraphData | null; groups: GroupCount[]; onCustomer: (id: string) => void; onProduct: (id: string) => void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   const layout = useMemo(() => {
@@ -90,13 +91,38 @@ function GraphScreen({ data, onCustomer, onProduct }: {
       const gap = 464 / Math.max(rows.length, 1);
       rows.forEach((node, index) => {
         points[node.id] = { x: column.x, y: 37 + gap * (index + .5),
-          radius: Math.min(6, gap * .28), fontSize: Math.min(12, gap * .8) };
+          radius: Math.min(6, gap * .28), fontSize: 13 };
       });
+    });
+    const groupNodes = data?.nodes.filter((node) => node.kind === "group") ?? [];
+    const occupied: number[] = [];
+    const empty: GraphNode[] = [];
+    groupNodes.forEach((node) => {
+      const memberPoints = node.neighbor_ids.map((id) => points[id]).filter(Boolean);
+      if (memberPoints.length) {
+        points[node.id].y = memberPoints.reduce((sum, point) => sum + point.y, 0) / memberPoints.length;
+        occupied.push(points[node.id].y);
+      } else empty.push(node);
+    });
+    // 빈 그룹만 여유 좌표에 서버 순서대로 배치한다. 그룹/고객 배열은 재정렬하지 않는다.
+    empty.forEach((node) => {
+      const spare = Array.from({ length: 18 }, (_, index) => 50 + index * 25)
+        .find((y) => occupied.every((used) => Math.abs(used - y) >= 24));
+      points[node.id].y = spare ?? points[node.id].y;
+      occupied.push(points[node.id].y);
     });
     return { columns, points };
   }, [data]);
   if (!data) return <p>그래프를 불러오는 중입니다…</p>;
   const selectedNode = data.nodes.find((node) => node.id === selected);
+  const neighbors = selectedNode?.neighbor_ids.map((id) => {
+    const node = data.nodes.find((row) => row.id === id)!;
+    const edge = data.edges.find((row) => (row.source === selected && row.target === id)
+      || (row.target === selected && row.source === id))!;
+    const relation = edge.kind === "purchase" ? `구매${node.kind === "customer" ? " 고객" : ""} · 가중치 ${edge.weight}`
+      : node.kind === "group" ? "소속 그룹" : "소속 고객";
+    return `${node.label}(${relation})`;
+  }).join(", ");
   return <section className="graph-screen">
     <div className="section-heading"><div><h2>그래프</h2><p>노드를 선택하면 이웃과 연결 간선을 강조합니다.</p></div>
       <button className="secondary-button" disabled={!selected} onClick={() => setSelected(null)}>선택 해제</button></div>
@@ -118,9 +144,11 @@ function GraphScreen({ data, onCustomer, onProduct }: {
       {data.nodes.map((node) => {
         const point = layout.points[node.id];
         const active = selected === node.id || selectedNode?.neighbor_ids.includes(node.id);
-        const text = node.kind === "group" ? node.label : `${node.id} · ${node.label.length > 12 ? `${node.label.slice(0, 12)}…` : node.label}`;
+        const count = groups.find((group) => group.id === node.id)?.count;
+        const text = node.kind === "group" ? `${node.label}${count === undefined ? "" : ` · ${count}명`}` : `${node.id} · ${node.label.length > 12 ? `${node.label.slice(0, 12)}…` : node.label}`;
         return <g key={node.id} data-node-id={node.id} aria-label={`${node.id} ${node.label}`}
-          className={`graph-node ${active ? "active" : selected ? "dim" : "rest"}`}
+          data-group-count={node.kind === "group" ? count : undefined}
+          className={`graph-node ${active ? "active" : selected ? "dim" : "rest"} ${selected === node.id ? "selected" : ""}`}
           onClick={() => setSelected(node.id)} role="button" tabIndex={0}
           onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelected(node.id); } }}>
           <title>{node.id} · {node.label}</title><circle cx={point.x} cy={point.y} r={point.radius} />
@@ -130,7 +158,7 @@ function GraphScreen({ data, onCustomer, onProduct }: {
     </svg></div>
     <div className="selected-card" aria-live="polite">{selectedNode ? <>
       <strong>{selectedNode.id} · {selectedNode.label}</strong>
-      <span className="neighbor-summary" title={selectedNode.neighbor_ids.join(", ")}>이웃: {selectedNode.neighbor_ids.join(", ") || "없음"}</span>
+      <span className="neighbor-summary" title={neighbors}>이웃: {neighbors || "없음"}</span>
       {selectedNode.kind === "customer" && <button onClick={() => onCustomer(selectedNode.id)}>고객 상세</button>}
       {selectedNode.kind === "product" && <button onClick={() => onProduct(selectedNode.id)}>상품 상세</button>}
     </> : <span>노드를 선택해 이름과 이웃을 확인하세요.</span>}</div>
@@ -164,7 +192,7 @@ function CustomerScreen({ customerId, customers, refreshKey, onCustomer, onProdu
           <div className="recommendation-title"><strong>{index + 1}. {item.product_name} ({item.product_id})</strong>
             <span className={`scope-badge ${item.scope}`}>{item.scope_label}</span></div>
           <p className="score-summary">점수 {item.score} · 구매 고객 {item.buyers}명</p>
-          <p className="supporter-line">{item.display_lines[1]}</p>
+          <p className="supporter-line">{item.display_lines[1].trimStart()}</p>
           <p>{item.display_lines[2]}</p>
           <div className="card-actions"><button onClick={() => onProduct(item.product_id)}>상품 상세</button>
             <details><summary>콘솔 출력 보기</summary><div className="display-lines">
@@ -373,7 +401,7 @@ export default function App() {
     ] as const).map(([value, label]) => <button key={value} className={screen === value ? "tab active" : "tab"}
       onClick={() => value === "customer" ? showCustomer(customerId) : setScreen(value)}>{label}</button>)}</nav>
     <main className="content"><ErrorBox error={graph.error ?? tree.error ?? meta.error} />
-      {screen === "graph" && <GraphScreen data={graph.data} onCustomer={showCustomer} onProduct={showProduct} />}
+      {screen === "graph" && <GraphScreen data={graph.data} groups={groups} onCustomer={showCustomer} onProduct={showProduct} />}
       {screen === "customer" && <CustomerScreen customerId={customerId} customers={customers} refreshKey={refreshKey} onCustomer={showCustomer} onProduct={showProduct} />}
       {screen === "mutations" && graph.data && <MutationScreen customers={customers} products={products} lastRegisteredId={lastRegisteredId} onChanged={refresh}
         onCustomerCreated={(id) => { setLastRegisteredId(id); showCustomer(id); }} />}

@@ -344,7 +344,10 @@ class TestUI1WebReadAPI(unittest.TestCase):
 
     def test_missing_dist_is_not_api_success(self) -> None:
         """UI3 dist가 아직 없을 때 정적 루트는 API 성공으로 가장하지 않는다."""
-        status, body = self.harness.request("/")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            missing_root = Path(temp_dir) / "not-built-dist"
+            with mock.patch.object(web, "_DIST_ROOT", missing_root):
+                status, body = self.harness.request("/")
         self.assertEqual(status, 503)
         self.assertIn("error", body)
 

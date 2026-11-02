@@ -1,6 +1,6 @@
 # UI0 웹 화면 설계
 
-- 작성: Codex, 2026-11-02. 승인자: 찬일. 상태: **UI0 검토 제출 / [승인] 대기**.
+- 작성: Codex, 2026-11-02. 승인자: 찬일. 상태: **UI0 보완 설계 / [승인] 대기**.
 - 기준: `w12-prep` / `w12-complete`의 `61732037dc5b67413c9639859e6d53d28519d224`. 작업 브랜치: `web-ui`. `main`은 `bfd900c` 그대로 둔다.
 - 찬일의 11/02 결정으로 웹을 추가한다. 콘솔은 교수님 확정 기본 화면이다. 이 문서의 API·화면 세부안은 아직 승인 전이며, UI1은 시작하지 않는다.
 - 지정 순서대로 CLAUDE.md → 계획서 지정 절 → plan_pending → 기대값·장면 절차 → 결함·W12 G7·9784473 검토 원문 → 운영 코드 5개·tests/ 전체를 읽었다.
@@ -58,14 +58,14 @@ web.py는 graph·search의 공개 함수·ShopGraph 공개 메서드·읽기 전
 - POST·PUT 본문은 JSON 객체다. 필수 키 누락, 알 수 없는 키, 중복 JSON 키(중첩 stock 포함), 잘못된 UTF-8·JSON, NaN·Infinity는 변경 전에 400으로 거절한다. JSON bool·실수·null을 정수로 바꾸지 않는다.
 - `k` 쿼리는 한 번만 허용한다. 생략하면 추천은 `K_DEFAULT`, S4는 `None`(전체)이다. 빈 값·`null` 글자·중복·알 수 없는 쿼리는 400. 숫자 문자열을 Python 정수로 변환한 뒤 범위 검사는 search 함수에 맡긴다. URL의 `+`는 경로에서는 보존하고, ID는 URL 인코딩한다.
 - ID·구매일의 앞뒤 공백 제거는 Python HTTP 입력 변환에서 한다(콘솔과 같은 정책). 이름·색상의 정규화와 업무 값 검증은 ShopGraph가 한다. 성별은 메뉴 번호가 아닌 `"남"` 또는 `"여"`를 보낸다.
-- 정수 표기 `int`는 JSON 정수이며 bool이 아니다. 금액·재고만 `decimal`(10진 정수 문자열)로 송수신한다. 요청은 `-?[0-9]+` 전체 일치, 정상 응답은 `0` 또는 선행 0 없는 양의 정수 문자열이다. B.3의 상한 없는 정수를 JavaScript Number가 반올림하지 않게 하기 위함이다. 서버가 형식을 확인해 `int`로 변환하고 graph의 검증에 넘긴다. 음수도 변환해 기존 범위 오류로 처리한다. 프런트는 문자열을 보관하며 금액·재고 계산을 하지 않는다.
+- 정수 표기 `int`는 JSON 정수이며 bool·실수·null·문자열이 아니다. 금액·재고도 JSON 정수로 송수신하고, 콘솔과 같은 9자리 초과 제한을 적용한다. 서버는 형식을 확인해 graph의 검증에 넘기며, 음수도 기존 범위 오류로 처리한다. JavaScript의 안전 정수 한계를 피하려고 decimal 문자열을 도입하지 않는다. 프런트는 금액·재고를 계산하지 않는다.
 
 공통 자료형(아래 필드는 생략하지 않는다):
 
 | 이름 | JSON 필드·형식 |
 |---|---|
 | Customer | `id: str, name: str, gender: "남" 또는 "여", age: int` |
-| Product | `id, name, kind, style: str; price: decimal; stock: {색상명: decimal}`. stock 키는 Python에서 색상 이름순으로 구성 |
+| Product | `id, name, kind, style: str; price: int; stock: {색상명: int}`. 금액·재고는 9자리 이내 JSON 정수이며 stock 키는 Python에서 색상 이름순으로 구성 |
 | Group | `id: str, label: str` (`GROUP_LABELS` 사용, 그룹 ID 문자열을 재해석하지 않음) |
 | EdgeData | `colors: str[], count: int, total_qty: int, last_date: str(YYYY-MM-DD)`; 색상 이름순 |
 | S1Item | `product_id, name: str; colors: str[]; weight, count, total_qty: int; last_date: str` (products_of 결과 그대로) |
@@ -89,10 +89,10 @@ web.py는 graph·search의 공개 함수·ShopGraph 공개 메서드·읽기 전
 | GET `/api/customers/{id}` | 없음 | 200 `{customer: Customer, group: Group, purchases: S1Item[]}` | `get_customer`, `group_of`, `GROUP_LABELS`, `products_of` |
 | GET `/api/products/{id}` | 없음 | 200 `{product: Product, buyers: S2Item[], sold_out: bool, available_colors: str[], status_label: str}` | `get_product`, `customers_of`, `is_sold_out`, `available_colors` |
 | GET `/api/groups/{id}/popular` | `?k=정수` 선택 | 200 `{group: Group, k: int 또는 null, items: PopularItem[]}` | `group_popular`, `get_product`, `GROUP_LABELS` (그룹 검증은 group_popular 먼저) |
-| GET `/api/customers/{id}/recommendations` | `?k=정수` 선택 | 200 `Recommendation` | `recommend`, `get_product`, `recommendation_lines`, `recommendation_scope_label` |
-| POST `/api/customers` | `{name: str, gender: str, age: int}` | 201 `{customer: Customer, group: Group, recommendation: Recommendation}`; 새 ID는 customer.id | `add_customer`, `get_customer`, `group_of`, `recommend(..., K_DEFAULT)`, 추천 응답의 공개 함수들 |
-| POST `/api/purchases` | `{customer_id: str, product_id: str, color: str, qty: int, date: str}` | 201 `{purchase_id: str, customer_id: str, product_id: str, edge: EdgeData, weight: int}` | `add_purchase`, `edge`, `weight` |
-| PUT `/api/products/{id}/stock` | `{stock: {색상명: decimal}}` 전체 | 200 `{product: Product, sold_out: bool, available_colors: str[], status_label: str}` | `update_product(id, stock=변환한_재고)`, `get_product`, `is_sold_out`, `available_colors` |
+| GET `/api/customers/{id}/recommendations` | `?k=정수` 선택 | 200 `Recommendation` | `recommend`, `get_product`, `recommendation_view`, `recommendation_scope_label` |
+| POST `/api/customers` | `{name: str, gender: str, age: int}` | 201 `{customer: Customer, group: Group}`; 새 ID는 customer.id. 추천은 별도 GET으로 조회 | `add_customer`, `get_customer`, `group_of` |
+| POST `/api/purchases` | `{customer_id: str, product_id: str, color: str, qty: int, date: str}` | 201 `{purchase_id: str, customer_id: str, product_id: str, edge: EdgeData, weight: int}`; 변경 직후 edge·weight만 조회 | `add_purchase`, `edge`, `weight` |
+| PUT `/api/products/{id}/stock` | `{stock: {색상명: int}}` 전체 | 200 `{product: Product, sold_out: bool, available_colors: str[], status_label: str}`; 변경 직후 get_product 결과 | `update_product(id, stock=검증한_재고)`, `get_product`, `is_sold_out`, `available_colors` |
 
 MembershipEdge는 `{kind: "membership", source: 그룹ID, target: 고객ID, weight: null}`이다. PurchaseEdge는 `{kind: "purchase", source: 고객ID, target: 상품ID, weight: int, ...EdgeData}`이다. 두 종류 모두 무방향이며 같은 간선을 양쪽 방향으로 두 번 보내지 않는다. 노드는 그룹 → 고객 → 상품, 종류 안에서는 ID 순이다. 소속 간선은 그룹·고객 ID 순, 구매 간선은 고객·상품 ID 순이다. 고립 상품과 빈 그룹도 노드에 포함한다. 이웃 강조는 Python이 돌려준 neighbor_ids를 사용한다.
 
@@ -112,18 +112,18 @@ MembershipEdge는 `{kind: "membership", source: 그룹ID, target: 고객ID, weig
 
 ValueError·전송 검증 실패는 원본·그래프·ID 카운터 전체가 불변이어야 한다. 본문을 모두 읽고 형식 변환을 끝낸 뒤 변경 메서드 한 번을 호출한다. 고객 등록의 추천 K는 고정 기본값이라 등록 뒤 잘못된 K를 검증하는 경로를 만들지 않는다. 구매는 재고를 차감하지 않으며 재고 0인 기존 색상도 기록 가능하다. 재고 수정은 전체 교체이고, 구매된 색상을 빼면 전체 요청이 거절된다.
 
-**판단 D1 — 예상 밖 500의 범위:** graph.py는 변경 뒤 rebuild를 호출하며, 임의의 예외까지 되돌리는 공개 트랜잭션 계약은 없다. 등록 후 추천·문구·JSON 생성이 예상 밖 예외를 내면 이미 등록됐을 수도 있다. 제안은 “입력 검증 실패는 상태 불변, 500은 서버 생존과 일반 오류 응답”으로 범위를 명시하는 것이다. 500까지 상태 불변이 요구된다면 UI2 전에 별도 계약 설계가 필요하며, 이 문서를 그 요구의 충족으로 승인 처리하지 않는다. 입력 검증 단계의 ValueError와 변경 완료 뒤 후처리의 예외는 구별하고, 후자의 내부 ValueError까지 400으로 오인하지 않는 예외 경계를 함께 승인받는다. 연결이 끊긴 경우도 자동 재시도하지 않고 조회로 상태부터 확인한다.
+**판단 D1 — 승인 범위:** 입력·전송 검증 실패는 변경 전에 400으로 거절하고 상태(원본·그래프·ID 카운터)를 불변으로 한다. 예상 밖 예외는 500 JSON으로 응답하고 서버는 다음 요청을 계속 처리한다. 변경 뒤 응답 생성에서 500이 나면 본문에 `변경이 반영됐을 수 있습니다. 다시 조회해 확인하세요`를 포함한다. graph.py 공개 메서드에 임의 예외까지 되돌리는 트랜잭션 계약은 없으므로, 변경 API는 추천을 함께 계산하지 않는다. 고객 등록은 `{customer, group}`만, 구매·재고 수정은 변경 결과와 그 직후 단순 공개 조회만 반환하고 추천은 별도 GET으로 조회한다. 연결이 끊긴 경우도 자동 재시도하지 않고 조회로 상태부터 확인한다.
 
 ## 4. view.py 순수 함수 추출안 — UI1의 [SPEC] 대상
 
 | 함수 | 반환·전제 |
 |---|---|
-| `recommendation_lines(g: ShopGraph, customer_id: str, result: list[dict], k: int) -> list[str]` | 줄바꿈 문자를 붙이지 않은 새 줄 리스트. stdout 출력·상태 변경 없음. result는 같은 g·고객·k의 recommend 반환값이고 호출 사이 상태가 바뀌지 않음 |
+| `recommendation_view(g: ShopGraph, customer_id: str, result: list[dict], k: int) -> dict` | `{"header": str, "items": [[항목줄, 근거줄, 색상줄], ...], "notices": [str, ...]}` 구조의 새 객체. 빈 결과는 header만 있고 items·notices가 빈 리스트. stdout 출력·상태 변경 없음. result는 같은 g·고객·k의 recommend 반환값이고 호출 사이 상태가 바뀌지 않음 |
 | `recommendation_scope_label(g: ShopGraph, customer_id: str, scope: str) -> str` | `같은 그룹` / 해당 성별 `전체` / `전체 고객`. scope는 recommend의 3개 값 중 하나. 카드 배지와 추천 문장 모두 이 함수를 사용 |
 
-현재 print_recommendation의 머리·빈 결과 분기·항목·안내 조건을 recommendation_lines로 옮긴다. `_print_item`은 출력 없는 내부 줄 생성 함수로 바꾸고 기존 `_id_particle`·`_widen_note` 규칙을 그대로 사용한다. print_recommendation의 이름·인자·None 반환은 유지하고, 반환된 각 줄을 `print(line)`으로 한 번씩 출력한다. 마지막 개행·들여쓰기·조사·빈 결과 한 줄 종료도 그대로다. 기존 유효 입력의 콘솔 출력은 한 글자도 바꾸지 않는다.
+현재 print_recommendation의 머리·빈 결과 분기·항목·안내 조건을 recommendation_view로 옮긴다. `_print_item`은 출력 없는 내부 줄 생성 함수로 바꾸고 기존 `_id_particle`·`_widen_note` 규칙을 그대로 사용한다. print_recommendation의 이름·인자·None 반환은 유지하고, 구조의 header → items의 세 줄 → notices 순서로 한 줄씩 출력한다. 마지막 개행·들여쓰기·조사·빈 결과 한 줄 종료도 그대로다. 기존 유효 입력의 콘솔 출력은 한 글자도 바꾸지 않는다.
 
-web.py는 recommendation_lines를 한 번 호출하고 첫 줄을 header_line, 뒤의 항목당 3줄을 display_lines, 나머지를 notice_lines로 나눈다. 이는 표시 구조의 분할일 뿐 넓힘·부족·비교 조건을 다시 판정하지 않는다. 근거의 색상 수는 view가 `g.weight()`로 읽으며 상한 3을 적용하지 않는다. 화면은 근거 문장을 파싱하거나 조사를 만들지 않는다. scope_label도 view 순수 함수가 준다.
+web.py는 recommendation_view가 반환한 구조를 그대로 JSON으로 전달한다. 표시 구조의 분할·재조립 없이 넓힘·부족·비교 조건을 다시 판정하지 않는다. 근거의 색상 수는 view가 `g.weight()`로 읽으며 상한 3을 적용하지 않는다. 화면은 근거 문장을 파싱하거나 조사를 만들지 않는다. scope_label도 view 순수 함수가 준다.
 
 UI1에서는 `[SPEC][UI1]`로 이 공개 계약을 먼저 기록하고 구현 커밋과 분리한다. 관련 문안은 plan_pending 13번이다. 계산·기대값은 변경하지 않으므로 6장·demo_expected 값 재계산은 없다.
 
@@ -150,7 +150,7 @@ UI1에서는 `[SPEC][UI1]`로 이 공개 계약을 먼저 기록하고 구현 �
 
 | 단계 | 검사·통과 기준 |
 |---|---|
-| UI1 HTTP·읽기 | unittest + urllib.request로 실제 HTTP. `create_server(fixtures.make_graph(), port=0)`를 별도 프로세스에서 실행하고 배정 포트를 파이프로 전달. 서버는 단일 요청 처리이며 테스트 실행을 위한 프로세스와 구별. 종료·포트 반환은 finally에서 보장. 모든 읽기 응답의 필드·형식·순서·중복·빈 결과·스냅샷 불변 검사 |
+| UI1 HTTP·읽기 | unittest + urllib.request로 실제 HTTP. 같은 프로세스에서 `create_server(fixtures.make_graph(), port=0)`를 백그라운드 스레드에 두고 `serve_forever()`를 실행한다. 서버 자체는 HTTPServer 단일 요청 처리이며, 응답을 받은 뒤 같은 graph 객체로 snapshot을 직접 비교한다. 테스트 끝에 `shutdown()`·`server_close()`를 finally에서 보장. 모든 읽기 응답의 필드·형식·순서·중복·빈 결과·스냅샷 불변 검사 |
 | UI1 경계·정적 파일 | 없는 경로/ID, 잘못된 k·중복 쿼리, 메서드, Host/Origin, JSON 오류 응답, 경로 이탈·디렉터리 목록 노출 방지, dist 없음(503), MIME, 정적 파일 바이트. main 무인자·--web 분기, 포트 충돌, Ctrl+C 종료 검사. 실제 브라우저 실행은 테스트에서 대체 |
 | UI2 변경 | 고객 등록·구매·재고 전체 교체의 실제 HTTP, 실패 요청마다 서버 프로세스에서 `tests.helpers.snapshot(g)` 전후 비교(제어 파이프로만 확인, 운영 API로 노출 안 함). 실패 뒤 다음 ID, 혼합 유효/무효 재고, 구매된 색상 삭제 거절, bool·실수·null·숫자 문자열(나이/수량)·중복 키·정밀도 큰 재고·잘못된 날짜·ID 한도 검사. 성공 변경마다 check_integrity == [] |
 | UI2 예외 | 조회 중 RuntimeError를 고장 주입해 500 뒤 정상 GET 가능 확인. 변경 후 응답 생성 실패도 별도 주입해 D1 한계를 숨기지 않음. 프로세스 종료·연결 끊김을 성공으로 보고하지 않음 |
@@ -175,18 +175,18 @@ UI1에서는 `[SPEC][UI1]`로 이 공개 계약을 먼저 기록하고 구현 �
 
 `.gitignore`는 UI3에서 `/frontend/node_modules/`, `/frontend/*.tsbuildinfo`, `/frontend/.vite/`만 추가한다. `/frontend/dist/`는 제외하지 않고 index.html과 해시가 붙은 JS·CSS를 모두 추적한다. 저장소 루트나 개발 서버가 아닌 `Path(__file__)` 기준 dist만 제공한다. 디렉터리 목록·저장소 소스·상위 경로를 제공하지 않는다.
 
-정확한 버전 후보(11/02 npm 공식 registry의 latest 메타데이터 조회, **설치·빌드 미실행**):
+정확한 버전(11/02 npm 공식 registry의 메타데이터 조회, **설치·빌드 미실행**):
 
 | 패키지 | 고정 버전 | 구분 |
 |---|---|---|
-| react | 19.3.1 | 실행 번들 |
-| react-dom | 19.3.1 | 실행 번들 |
-| typescript | 7.0.2 | 개발 |
-| vite | 8.3.5 | 개발 |
-| @types/react | 19.3.0 | 개발 |
-| @types/react-dom | 19.3.0 | 개발 |
+| react | 19.3.1 | 실행 번들, 게시 2026-10-14 |
+| react-dom | 19.3.1 | 실행 번들, 게시 2026-10-14 |
+| typescript | 7.0.2 | 개발, 게시 2026-07-08 |
+| vite | 8.3.4 | 개발, 게시 2026-10-08. 최신 8.3.5(2026-10-21)는 2주 미만이어서 바로 이전 안정 버전 선택 |
+| @types/react | 19.3.0 | 개발, 게시 2026-09-09 |
+| @types/react-dom | 19.3.0 | 개발, 게시 2026-09-09 |
 
-UI3에서 위 정확한 버전과 package-lock.json을 함께 고정하며 `^`·`~`·latest를 package.json에 쓰지 않는다. Vite의 확인된 Node 조건은 `^20.19.0 || >=22.12.0`, 현재 Node는 이에 맞는다. 조합의 실제 호환성은 아직 미실행이다. Vite 기본 TSX 변환과 TypeScript `jsx: react-jsx`를 쓰며 React 플러그인은 추가하지 않는다. Vite 설정은 .mjs로 두고 앱 타입 검사 범위는 src로 한정해 @types/node를 직접 추가하지 않는다. React Fast Refresh는 요구하지 않는다.
+UI3에서 위 정확한 버전과 package-lock.json을 함께 고정하며 `^`·`~`·latest를 package.json에 쓰지 않는다. 각 버전의 게시일을 기록하고, 게시 2주 미만이면 위와 같이 바로 이전 안정 버전을 선택한다. typecheck·build가 실패해도 버전을 바꿔가며 시도하지 않고 멈춰 보고한다. Vite의 확인된 Node 조건은 `^20.19.0 || >=22.12.0`, 현재 Node는 이에 맞는다. 현재 Node v25는 홀수 단기 지원이므로 UI3 전에 짝수 LTS 사용을 권장하지만 막는 조건은 아니다. 조합의 실제 호환성은 아직 미실행이다. Vite 기본 TSX 변환과 TypeScript `jsx: react-jsx`를 쓰며 React 플러그인은 추가하지 않는다. Vite 설정은 .mjs로 두고 앱 타입 검사 범위는 src로 한정해 @types/node를 직접 추가하지 않는다. React Fast Refresh는 요구하지 않는다.
 
 **판단 D2 — 간접 의존성:** “4+2개”는 직접 선언하는 패키지 여섯 개로 해석하는 안이다. react-dom·Vite 등이 요구하는 간접 패키지는 필수이므로 UI3에서 lock 파일로 고정·검토한다. 간접 패키지까지 여섯 개 밖을 금지한다는 뜻이면 이 구조로 설치할 수 없으므로 UI3 전에 멈춰 판정을 받는다. UI0에서는 아무 패키지도 설치하지 않았다. 추가 직접 패키지가 필요하면 설치 전에 멈춘다.
 
@@ -215,22 +215,23 @@ python3 -B -m unittest -v
 | 위험 | 대응·확인 시점 |
 |---|---|
 | 시연 당일 오프라인·Node 없음 | dist 추적, 외부 요청 0, 시스템 글꼴. UI5에서 Node 없는 PATH·네트워크 차단 후 Python 서버 실행 |
+| Node 홀수 단기 지원(v25) | UI3 전에 짝수 LTS 사용을 권장한다. UI0을 막지는 않으며, typecheck·build는 지정 버전에서 실패 시 버전 변경 없이 중단·보고 |
 | 포트 충돌·브라우저의 선연결이 단일 서버를 점유 | 충돌 시 새 서버를 시작하지 않고 명확한 오류와 --port 안내. HTTP/1.0 연결 종료·읽기 시간 제한으로 대기 연결 해제. UI1 실제 HTTP 검사 |
 | 브라우저 호환·SVG 밀집 | UI5에서 실제 버전 명시. SVG viewBox·스크롤·텍스트 범례·키보드 조작. 간선 가중치 수치와 표를 함께 제공 |
 | 콘솔 회귀 | main.run 유지, 추천 문구 공유, 기존 기대값 수정 금지, 매 커밋 전체 146개 이상 회귀. 실패 시 기대값을 바꾸지 않고 중단 |
 | 의존 패키지 공급망 | 직접 의존 6개와 lock 무결성 값·간접 목록 확인, 추가 패키지/설치 스크립트 검토, npm ci로 재현, 자동 업데이트·CDN 없음. 보안 점검 실패를 --force로 넘기지 않음 |
 | 정적 파일·브라우저에서 잘못된 요청 | dist 내부 경로만 허용, MIME 지정, HTML 주입 없이 React 텍스트 렌더링, Host·Origin 확인, 본문 제한. API 오류는 JSON으로 통일 |
 | 서로 다른 시점의 그래프·추천 표시 | 한 탭 시연, 요청 순차 처리, 완료된 변경 뒤 재조회, 오래된 응답 폐기. S4 전 상태는 받은 응답을 보존 |
-| 500 뒤 중복 등록·정수 정밀도 | D1 판정, 자동 재시도 금지·조회 확인. 금액·재고 decimal 문자열로 왕복 |
+| 500 뒤 중복 등록·입력 정밀도 | D1 판정, 자동 재시도 금지·조회 확인. 금액·재고는 JSON 정수, 콘솔과 같은 9자리 제한 |
 
 ## 9. G4~G8 기록과 승인 판단
 
 - G4: Codex가 `python3 -B -m unittest -v`를 실행해 **통과 146 / 미도래 0 / 실패 0**을 확인했다(test_demo 8개 포함). 커밋 직전 재실행의 원문은 임시 로그로 보관하고 종료 코드·개수·OK를 확인한 뒤에만 커밋한다. 사람의 실행 결과가 아니다.
 - G5: 아래 항목별로 대조했다. HTTP·브라우저·빌드는 미실행이다.
-- G6: 이 대화의 **자가 재검토**다. 독립 검토로 기록하지 않는다. 별도 맥락의 독립 검토는 **미실행**이며, 검토 수준 상의 G6 완료 근거는 아직 없다. 필수 게이트 자료로 함께 제출한다.
+- G6: **Claude 채팅 검토, 설계 문서 대조, 코드 실행 없음, 반드시 수정 0 / 설계 변경 5건(D1 구조, D3, 아래 1~3)**. 원칙과 설계의 대조로 갈음하며 실행 결과로 기록하지 않는다.
 - 기존 구현의 새 결함 판정은 하지 않았다. D1·D2와 아래 세부안은 UI0에서 결정할 항목이며 구현 결함 수로 집계하지 않는다.
-- G7: 찬일 [승인] 대기. 이해 질문은 요청대로 기록만 하고 나중에 모아 확인한다. 이번 중단 사유는 필수 게이트 승인 대기이며, 질문의 즉시 답변을 새 조건으로 추가하지 않는다. UI1 착수 없음.
-- G8: `[UI0]` 문서 커밋 하나. 실제 테스트 분류·미답 질문·측정 구간을 본문에 기록한다. [AI]·Co-Authored-By·생성 도구 문구는 넣지 않는다. push·PR·main 합치기 없음.
+- G7: 찬일 [승인] 기록 뒤 UI1 착수 전까지 멈춘다. 이해 질문은 요청대로 기록만 하고 나중에 모아 확인한다.
+- G8: `[UI0]` 보완 커밋 뒤 `[승인] UI0` 기록 커밋. 각 커밋 직전 실제 테스트 분류·미답 질문·측정 구간을 본문에 기록한다. [AI]·Co-Authored-By·생성 도구 문구는 넣지 않는다. push·PR·main 합치기 없음.
 
 | G5 항목 | 판정·근거 |
 |---|---|
@@ -253,7 +254,7 @@ python3 -B -m unittest -v
 | 테스트 삭제·skip·기대값 변경 | 확인함: tests/·demo_expected 변경 없음, 전체 146개 통과 |
 | 특정 ID 하드코딩 | 확인함: API·화면은 선택값 사용, 시연의 지정 ID는 입력 절차에만 존재 |
 
-찬일 판단 항목: **D1** 상태 불변을 입력 검증 실패에 한정하는 제안, **D2** 6개 직접 의존성과 lock에 포함되는 필수 간접 의존성 구분, **D3** 금액·재고의 decimal 전송 및 기본 포트·HTTP 계약·화면·테스트 세부안 채택, **D4** 검토 수준 상 G6의 독립 검토 완료 후 UI1 진행 여부. 승인된 아키텍처 자체를 다시 결정해 달라는 뜻은 아니다.
+찬일 판단 항목 반영: **D1** 입력·전송 검증 실패만 상태 불변, 예상 밖 500은 서버 생존과 `변경이 반영됐을 수 있습니다. 다시 조회해 확인하세요` 문구, 변경 API는 변경 결과·직후 단순 조회만 반환하고 추천은 별도 GET. **D2** 6개 직접 의존성과 lock에 포함되는 필수 간접 의존성 구분. **D3** 금액·재고는 JSON 정수와 9자리 제한(decimal 문자열 반려), 기본 포트·HTTP 계약·화면·테스트 세부안 채택. **D4** G6는 Claude 채팅의 설계 문서 대조로 갈음. 승인된 아키텍처 자체를 다시 결정해 달라는 뜻은 아니다.
 
 UI0 이해 질문(찬일 미답, 답은 나중에 모아서 확인):
 

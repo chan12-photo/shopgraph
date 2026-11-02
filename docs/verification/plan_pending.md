@@ -164,7 +164,7 @@ doc-pending 브랜치(99cac86, draft PR #2)에 문안이 이미 들어가 있다
 
 ## 12. 웹 추가 화면 결정과 UI0 설계 문안 (11/02)
 
-근거: 찬일의 11/02 작업 지시, [UI0 설계](ui0_design.md). 콘솔 유지·웹 추가·기술 구성은 찬일 결정이다. API·화면·전송 형식·예외 보장 범위의 세부안은 **UI0 [승인] 대기**다. 아래는 사람이 본문에 반영할 문안이며, 이 문서 작성만으로 UI0 승인이나 UI1 착수를 뜻하지 않는다. 기준 줄은 6173203의 계획서다.
+근거: 찬일의 11/02 작업 지시, [UI0 설계](ui0_design.md). 콘솔 유지·웹 추가·기술 구성은 찬일 결정이다. 초기 문안은 **12번**, 보완·판정 반영은 **14번**에 기록한다. 아래는 사람이 본문에 반영할 문안이며, 실제 승인 기록은 별도 `[승인] UI0` 커밋에 남긴다. 기준 줄은 6173203의 계획서다.
 
 ### 12-1. 1장 기본 기능·언어 (59~60줄)
 
@@ -243,24 +243,36 @@ doc-pending 브랜치(99cac86, draft PR #2)에 문안이 이미 들어가 있다
 | 11/02 | 콘솔 메뉴를 기본으로 유지하고 python main.py --web 추가. Python 표준 http.server(127.0.0.1, 단일 요청 처리) + React·TypeScript·Vite 화면, 직접 작성 SVG. frontend/dist를 포함하고 실행에는 Node 불필요. UI0~UI6로 나누어 UI0·UI1·UI5에서 필수 승인 | 발표의 중심인 "구매 → 그래프·추천 변화"를 눈으로 보여주기. 업계에서 널리 쓰는 화면/계산 분리 구조를 사용하되 Python 실행은 여전히 표준 라이브러리만 | 찬일 |
 ```
 
-## 13. UI1 view 순수 함수 계약 추가 문안 — UI0 승인 전 제안
+## 13. UI1 view 순수 함수 계약 추가 문안 — UI0 보완 반영
 
-근거: 찬일 11/02 절대 원칙 3, ui0_design.md 4절. 함수 시그니처를 승인받으면 **[SPEC][UI1] 계약 커밋을 구현 커밋과 분리**한다. 이번 [UI0]에는 제안 문안만 넣는다. 기존 1번·3번 문안의 k 인자와 승인 출력 규칙을 유지하면서 아래 내용을 합친다.
+근거: 찬일 11/02 절대 원칙 3, ui0_design.md 4절. 함수 시그니처는 **[SPEC][UI1] 계약 커밋을 구현 커밋과 분리**해 확정한다. 아래 구조는 UI0 보완에서 승인된 설계이며 UI1에서 구현한다.
 
 ### 13-1. 5.5 view.py 함수 목록 (468~470줄)
 
 - 지금: `view.py — 출력 전용`, `print_table`, `print_group_tree`, `print_recommendation(g, customer_id, result, k)`(대기 문안 1번), `print_neighbors`.
-- 바꿀: `view.py — 출력 함수와 순수 문구 함수. 기존 print 함수의 인자·None 반환·출력은 유지한다. recommendation_lines(g: ShopGraph, customer_id: str, result: list[dict], k: int) -> list[str]와 recommendation_scope_label(g: ShopGraph, customer_id: str, scope: str) -> str를 추가한다. 전자는 추천 전체를 줄바꿈 없는 새 줄 리스트로, 후자는 범위 표시 이름으로 반환한다. 두 함수는 출력·상태 변경을 하지 않고 ShopGraph 공개 조회만 쓴다. print_recommendation은 recommendation_lines의 줄을 순서대로 출력한다.`
+- 바꿀: `view.py — 출력 함수와 순수 문구 함수. 기존 print 함수의 인자·None 반환·출력은 유지한다. recommendation_view(g: ShopGraph, customer_id: str, result: list[dict], k: int) -> dict와 recommendation_scope_label(g: ShopGraph, customer_id: str, scope: str) -> str를 추가한다. recommendation_view는 {header: str, items: [[항목줄, 근거줄, 색상줄], ...], notices: [str, ...]} 새 구조를 반환하고, 빈 결과는 header만 두며 items·notices는 빈 리스트다. 두 함수는 출력·상태 변경을 하지 않고 ShopGraph 공개 조회만 쓴다. print_recommendation은 header → items 세 줄 → notices 순서로 출력한다.`
 
 ### 13-2. B.2 view.py 반환 계약 (1394줄)
 
 - 지금: `**view.py** — 가고정(W1), W8b에서 최종 고정. 모두 print만 하고 None을 반환한다. 테스트는 contextlib.redirect_stdout으로 출력 문자열을 확인한다.` (본문의 인라인 코드 표기는 유지)
-- 바꿀: `**view.py** — 기존 print 함수는 print만 하고 None을 반환한다. UI1에서 추가한 recommendation_lines는 새 list[str], recommendation_scope_label은 str를 반환하며 출력·상태 변경이 없다. result는 같은 g·고객·k로 부른 recommend의 반환값, scope는 그 반환의 group/gender/all 중 하나다. 없는 고객의 ValueError는 그대로 전달한다. 빈 추천은 기존 빈 결과 문장 한 줄로 종료한다. 그 밖의 넓힘·개수 부족·점수 비교·근거 색상 수·조사 규칙과 공백·개행은 W8b·W9·W10 승인 출력 그대로이며, 기존 test_flow·test_view·test_demo 기대값은 바꾸지 않는다.`
+- 바꿀: `**view.py** — 기존 print 함수는 print만 하고 None을 반환한다. UI1에서 추가한 recommendation_view는 새 dict, recommendation_scope_label은 str를 반환하며 출력·상태 변경이 없다. result는 같은 g·고객·k로 부른 recommend의 반환값, scope는 그 반환의 group/gender/all 중 하나다. 없는 고객의 ValueError는 그대로 전달한다. 빈 추천은 header만 있고 items·notices는 빈 리스트다. 그 밖의 넓힘·개수 부족·점수 비교·근거 색상 수·조사 규칙과 공백·개행은 W8b·W9·W10 승인 출력 그대로이며, 기존 test_flow·test_view·test_demo 기대값은 바꾸지 않는다.`
 
-### 13-3. 19장 행 (UI0 승인 뒤 [SPEC][UI1]에서 확정할 제안)
+### 13-3. 19장 행 (UI1 [SPEC]에서 확정)
 
 ```text
-| 승인일 | view.py에 recommendation_lines·recommendation_scope_label 순수 함수 계약 추가, print_recommendation과 웹이 공유. graph·search 동작과 기존 콘솔 출력·기대값은 유지 | 웹에서 추천 안내 조건·근거 색상 수·조사를 다시 구현하지 않고 기존 Python 화면 규칙을 한곳에서 사용 | 찬일 |
+| 승인일 | view.py에 recommendation_view·recommendation_scope_label 순수 함수 계약 추가, print_recommendation과 웹이 공유. graph·search 동작과 기존 콘솔 출력·기대값은 유지 | 웹에서 추천 안내 조건·근거 색상 수·조사를 다시 구현하지 않고 기존 Python 화면 규칙을 한곳에서 사용 | 찬일 |
 ```
 
-6장·demo_expected의 계산 규칙과 값은 변하지 않으므로 새 기대값 재계산은 없다. 콘솔 출력 불변은 기존 승인 문자열 테스트와 추가 순수 함수 검사로 확인한다. API·오류·전송 형식 세부 계약은 UI0의 D1~D3 판정 뒤 확정하며 승인되지 않은 제안을 구현 근거로 삼지 않는다.
+6장·demo_expected의 계산 규칙과 값은 변하지 않으므로 새 기대값 재계산은 없다. 콘솔 출력 불변은 기존 승인 문자열 테스트와 추가 순수 함수 검사로 확인한다.
+
+## 14. UI0 보완 판정 문안 (2026-11-02)
+
+찬일 결정에 따라 UI0 설계를 다음처럼 보완한다. 본문 계획서는 수정하지 않고 이 대기 문안만 갱신한다.
+
+- D1: 입력·전송 검증 실패는 400과 상태 불변(원본·그래프·ID 카운터)으로 한다. 예상 밖 예외는 500으로 응답하고 서버는 살아 있어야 한다. 변경 뒤 500 본문에는 `변경이 반영됐을 수 있습니다. 다시 조회해 확인하세요`를 넣는다. 변경 API는 변경 결과만 반환한다. `POST /api/customers`는 `{customer, group}`만 반환하고 추천은 `GET /api/customers/{id}/recommendations`로 분리한다. 구매·재고 수정은 변경 결과와 그 직후 단순 공개 조회(edge·weight·get_product)만 반환한다.
+- D2: 직접 의존 6개를 사용하고 간접 의존은 lock으로 고정·검토한다.
+- D3: 금액·재고 decimal 문자열 전송은 반려한다. JSON 정수만 허용하고 콘솔과 같은 9자리 초과를 400으로 거절하며 bool·실수·null·문자열도 거절한다. 포트 8000, 오류 코드, Host·Origin, 화면 6개, 테스트 계획은 유지한다.
+- D4: G6는 `Claude 채팅 검토, 설계 문서 대조, 코드 실행 없음, 반드시 수정 0 / 설계 변경 5건(D1 구조, D3, 아래 1~3)`으로 기록한다.
+- 설계 변경 1: `recommendation_view(g, customer_id, result, k)`가 `{header, items: [[항목줄, 근거줄, 색상줄], ...], notices}`를 반환한다. 빈 결과는 header만 둔다. `print_recommendation`은 이 구조를 순서대로 출력하고 웹은 구조를 그대로 사용한다. `recommendation_scope_label`은 유지한다.
+- 설계 변경 2: 웹 API 테스트는 같은 프로세스의 백그라운드 스레드에서 `HTTPServer.serve_forever()`를 실행하고, port=0과 `urllib`로 실제 HTTP를 검사한다. 응답 뒤 같은 graph 객체 snapshot을 비교하며 finally에서 `shutdown()`·`server_close()`를 보장한다.
+- 설계 변경 3: UI3에서 6개 패키지 각각의 게시일을 기록한다. 게시 2주 미만이면 바로 이전 안정 버전을 선택하고, typecheck·build 실패 시 버전을 바꿔 재시도하지 않고 멈춰 보고한다. Node v25는 홀수 단기 지원이므로 UI3 전에 짝수 LTS 사용을 권장하되 막지는 않는다.

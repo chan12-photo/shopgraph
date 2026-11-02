@@ -341,10 +341,12 @@ class TestUI1WebReadAPI(unittest.TestCase):
     def test_static_dist_file_and_path_escape(self) -> None:
         """dist 파일은 MIME과 바이트를 보존하고, 없는 정적 경로는 제공하지 않는다."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
+            root = Path(temp_dir) / "dist"
+            root.mkdir()
             (root / "index.html").write_bytes(b"<html>ok</html>")
             (root / "assets").mkdir()
             (root / "assets" / "app.js").write_bytes(b"console.log('ok');")
+            (root.parent / "secret.txt").write_bytes(b"TOP_SECRET_DO_NOT_LEAK")
             with mock.patch.object(web, "_DIST_ROOT", root):
                 before = snapshot(self.harness.graph)
                 with urlopen(Request(self.harness.base + "/assets/app.js"), timeout=2) as response:
@@ -352,9 +354,14 @@ class TestUI1WebReadAPI(unittest.TestCase):
                     self.assertIn("javascript", response.headers.get_content_type())
                     self.assertEqual(response.read(), b"console.log('ok');")
                 self.assertEqual(snapshot(self.harness.graph), before)
-                for path in ("/missing.js", "/../web.py", "/%2e%2e/web.py", "/%2e%2e%2fweb.py", "/assets/"):
-                    status, body = self._request_unchanged(path)
-                    self.assertEqual((status, body), (404, {"error": "없는 경로입니다"}), msg=path)
+                for path in ("/missing.js", "/../secret.txt", "/%2e%2e/secret.txt",
+                             "/%2e%2e%2fsecret.txt", "/assets/"):
+                    before = snapshot(self.harness.graph)
+                    status, headers, raw = self.harness.raw_request(path)
+                    self.assertEqual(status, 404, msg=path)
+                    self.assertEqual(json.loads(raw.decode("utf-8")), {"error": "없는 경로입니다"}, msg=path)
+                    self.assertNotIn(b"TOP_SECRET_DO_NOT_LEAK", raw, msg=path)
+                    self.assertEqual(snapshot(self.harness.graph), before, msg=path)
 
     def test_main_web_dispatch(self) -> None:
         """main.py의 --web와 임의 포트 인자가 웹 실행 함수로 전달된다."""
@@ -369,10 +376,12 @@ class TestUI1WebReadAPI(unittest.TestCase):
         run_console.assert_called_once_with()
 
     def test_port_conflict_is_reported(self) -> None:
-        """이미 사용 중인 포트는 두 번째 서버 생성이 OSError로 명확히 실패한다."""
+        """실행 진입점은 포트 충돌을 한국어 오류와 --port 안내로 끝낸다."""
         port = self.harness.server.server_address[1]
-        with self.assertRaises(OSError):
-            create_server(make_graph(), port=port)
+        with self.assertRaises(SystemExit) as raised:
+            main._run_web(port)
+        self.assertIn("[오류] 웹 서버를 시작할 수 없습니다", str(raised.exception))
+        self.assertIn("(다른 포트는 --port PORT)", str(raised.exception))
 
 
 if __name__ == "__main__":

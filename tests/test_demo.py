@@ -9,12 +9,14 @@ NotImplementedError("W11 기대값 승인 전")로 멈춘다 (11.3.3 미도래 �
 화면 문구 확인에 쓰는 글자(안내 줄의 앞부분, "[등록]" 줄 모양)는 W8b·W10 승인 형식이다.
 
 보호 순서: 각 테스트는 main.run()을 실행하기 전에 그 장면과 앞 장면들의 기대값 칸과 확정값을 모두 먼저 읽어
-검사한다(_require_through). 작성 도중이라 칸이 하나라도 비어 있으면 시연을 실행하지 않고 멈춘다.
+검사한다(_require_through). 작성 도중이라 칸이 하나라도 비어 있으면 시연을 실행하지 않고 멈춘다. 칸이 다 채워져도
+demo_expected.md 상태 줄이 "상태: 승인 (찬일, YYYY-MM-DD) / AI 독립 계산 대조: 일치"가 아니면 멈춘다.
 비교: 내부 함수(recommend·products_of·group_popular·stats 등) 결과와 함께, 실제 화면에서 표 행·추천 항목을
 순서대로 뽑아 기대값과 비교한다 (Codex 검토 9784473 1·2번).
 """
 
 import contextlib
+import datetime
 import io
 import pathlib
 import re
@@ -28,6 +30,10 @@ from search import group_popular, products_of, recommend
 
 _EXPECTED_PATH = pathlib.Path(__file__).resolve().parent.parent / "docs" / "demo_expected.md"
 _NOT_READY = "W11 기대값 승인 전"
+_NOT_APPROVED = "11.3.8 승인 전"
+
+# demo_expected.md 맨 위 상태 줄이 정확히 이 모양일 때만 장면을 실행한다 (찬일 11/02 판정)
+_APPROVED_STATUS = re.compile(r"상태: 승인 \(찬일, [0-9]{4}-[0-9]{2}-[0-9]{2}\) / AI 독립 계산 대조: 일치")
 
 # 장면 사이 구분: 없는 메뉴 번호를 한 번 넣으면 이 줄이 찍힌다 (W10 승인 형식)
 _MARKER_INPUT = "9"
@@ -165,7 +171,8 @@ def _require_through(expected: dict, last: int) -> None:
     """장면 1~last에 필요한 표·행·칸·확정값이 모두 있고 형식이 맞는지 실행 전에 확인한다.
 
     시연을 실행하기 전에 부른다. 작성 도중이라 장·표·필수 행이 없거나, 칸이 비었거나, 칸 값 형식이 맞지 않거나,
-    확정값끼리 어긋나면(P_top ≠ 장면 2 추천 1위, 장면 3 두 색상이 같음) 실행하지 않고 멈춘다.
+    확정값끼리 어긋나면(P_top ≠ 장면 2 추천 1위, 장면 3 두 색상이 같음) 실행하지 않고 멈춘다. 마지막으로
+    상태 줄이 승인 형식인지 확인한다(_require_approval). 칸이 다 채워져 있어도 승인 전이면 멈춘다.
 
     인자:
         expected: _load_expected()의 결과.
@@ -175,7 +182,7 @@ def _require_through(expected: dict, last: int) -> None:
         없음.
 
     예외:
-        NotImplementedError: 위 조건 중 하나라도 맞지 않을 때 (기대값 승인 전).
+        NotImplementedError: 위 조건 중 하나라도 맞지 않을 때 (기대값 승인 전, 11.3.8 승인 전).
     """
     for scene in range(1, last + 1):
         section = f"장면 {scene}"
@@ -198,6 +205,33 @@ def _require_through(expected: dict, last: int) -> None:
             raise NotImplementedError(f"{_NOT_READY}: P_top이 장면 2 추천 1위 상품 ID와 다름")
         if fixed("장면 3 색상 1") == fixed("장면 3 색상 2"):
             raise NotImplementedError(f"{_NOT_READY}: 장면 3 색상 1·2가 같음")
+    _require_approval()
+
+
+def _require_approval() -> None:
+    """demo_expected.md의 상태 줄이 승인 형식일 때만 통과한다 (칸이 다 채워져 있어도 승인 전이면 멈춤).
+
+    승인 형식: 맨 처음 나오는 "상태:" 줄 전체가 정확히 "상태: 승인 (찬일, YYYY-MM-DD) / AI 독립 계산 대조: 일치".
+    날짜는 YYYY-MM-DD 10자이고 실제 있는 날짜여야 한다. 사람이 손계산·AI 대조·11.3.8 승인을 마치기 전에
+    시연 결과를 보지 않으려는 장치다 (찬일 11/02 판정, w12_prep_review.md 질문 4).
+
+    인자:
+        없음.
+
+    반환:
+        없음.
+
+    예외:
+        NotImplementedError: 상태 줄이 없거나 승인 형식이 아닐 때 ("11.3.8 승인 전").
+    """
+    lines = [line for line in _EXPECTED_PATH.read_text(encoding="utf-8").splitlines() if line.startswith("상태:")]
+    status = lines[0] if lines else ""
+    if not _APPROVED_STATUS.fullmatch(status):
+        raise NotImplementedError(f"{_NOT_APPROVED}: 상태 줄이 승인 형식이 아님: {status!r}")
+    try:
+        datetime.date.fromisoformat(re.search(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", status).group(0))
+    except ValueError:
+        raise NotImplementedError(f"{_NOT_APPROVED}: 상태 줄의 승인 날짜가 실제 날짜가 아님: {status!r}") from None
 
 
 def _check_formats(section: str, table: str, row: dict[str, str]) -> None:

@@ -283,7 +283,7 @@ class TestUI1WebReadAPI(unittest.TestCase):
         status, body = self._request_unchanged("/api/stats", headers={"Origin": "http://evil.example"})
         self.assertEqual((status, body), (403, {"error": "허용하지 않는 Host 또는 Origin입니다"}))
         status, body = self._request_unchanged("/api/customers", method="POST")
-        self.assertEqual((status, body), (405, {"error": "지원하지 않는 메서드입니다"}))
+        self.assertEqual((status, body), (400, {"error": "요청 본문은 application/json이어야 합니다"}))
         status, body = self._request_unchanged("/api/unknown", method="POST")
         self.assertEqual((status, body), (404, {"error": "없는 경로입니다"}))
         for method in ("DELETE", "PATCH", "OPTIONS", "TRACE", "CONNECT", "FOO"):
@@ -309,6 +309,16 @@ class TestUI1WebReadAPI(unittest.TestCase):
         self.assertEqual(snapshot(self.harness.graph), before)
         status, body = self._request_unchanged("/api/unknown", method="DELETE")
         self.assertEqual((status, body), (404, {"error": "없는 경로입니다"}))
+        for method, path, allow in (("GET", "/api/customers", "POST"),
+                                   ("DELETE", "/api/customers", "POST"),
+                                   ("GET", "/api/products/P03/stock", "PUT"),
+                                   ("DELETE", "/api/products/P03/stock", "PUT")):
+            before = snapshot(self.harness.graph)
+            status, headers, raw = self.harness.raw_request(path, method=method)
+            self.assertEqual(status, 405, msg=(method, path))
+            self.assertEqual(headers.get("Allow"), allow, msg=(method, path))
+            self.assertEqual(json.loads(raw.decode("utf-8")), {"error": "지원하지 않는 메서드입니다"})
+            self.assertEqual(snapshot(self.harness.graph), before)
         with (mock.patch.object(web, "_route_get", side_effect=RuntimeError("고장")),
               mock.patch.object(web._LOGGER, "exception") as log_exception):
             status, error = self._request_unchanged("/api/stats")
@@ -382,6 +392,16 @@ class TestUI1WebReadAPI(unittest.TestCase):
             main._run_web(port)
         self.assertIn("[오류] 웹 서버를 시작할 수 없습니다", str(raised.exception))
         self.assertIn("(다른 포트는 --port PORT)", str(raised.exception))
+
+    def test_browser_open_failure_still_closes_server(self) -> None:
+        """브라우저 자동 열기가 실패해도 실제 _run_web 경로가 서버 소켓을 닫는다."""
+        fake_server = mock.Mock()
+        fake_server.server_address = ("127.0.0.1", 43123)
+        with (mock.patch("web.create_server", return_value=fake_server),
+              mock.patch.object(main.webbrowser, "open", side_effect=RuntimeError("browser"))):
+            with self.assertRaises(RuntimeError):
+                main._run_web(43123)
+        fake_server.server_close.assert_called_once_with()
 
 
 if __name__ == "__main__":

@@ -21,6 +21,15 @@ _DIST_ROOT = Path(__file__).resolve().parent / "frontend" / "dist"
 _JSON_TYPE = "application/json; charset=utf-8"
 _INT_QUERY = re.compile(r"[0-9]+\Z")
 _NOT_FOUND = object()
+_MAX_BODY_BYTES = 64 * 1024
+
+
+class _RequestError(ValueError):
+    """요청 본문 자체의 HTTP 상태를 보존하는 입력 오류."""
+
+    def __init__(self, status: int, message: str) -> None:
+        super().__init__(message)
+        self.status = status
 
 
 def _json_bytes(payload: dict) -> bytes:
@@ -182,6 +191,150 @@ def _decoded_parts(raw_path: str) -> list[str]:
     return [unquote(part) for part in urlsplit(raw_path).path.split("/") if part]
 
 
+def _allowed_methods(raw_path: str) -> tuple[str, ...]:
+    """경로에 정의된 메서드 목록을 결정적 순서로 돌려준다."""
+    path = urlsplit(raw_path).path
+    parts = _decoded_parts(raw_path)
+    if path == "/":
+        return ("GET",)
+    if not path.startswith("/api/"):
+        return ("GET",)
+    if parts in (["api", "meta"], ["api", "graph"], ["api", "groups"],
+                 ["api", "stats"], ["api", "integrity"]):
+        return ("GET",)
+    if parts == ["api", "customers"]:
+        return ("POST",)
+    if parts == ["api", "purchases"]:
+        return ("POST",)
+    if len(parts) == 3 and parts[:2] == ["api", "customers"] and parts[2] != "recommendations":
+        return ("GET",)
+    if len(parts) == 4 and parts[:2] == ["api", "customers"] and parts[3] == "recommendations":
+        return ("GET",)
+    if len(parts) == 3 and parts[:2] == ["api", "products"]:
+        return ("GET",)
+    if len(parts) == 4 and parts[:2] == ["api", "products"] and parts[3] == "stock":
+        return ("PUT",)
+    if len(parts) == 4 and parts[:2] == ["api", "groups"] and parts[3] == "popular":
+        return ("GET",)
+    return ()
+
+
+def _json_pairs(pairs: list[tuple[object, object]]) -> dict:
+    """JSON 객체의 중복 키를 거부하면서 딕셔너리로 만든다."""
+    result: dict = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"요청 JSON: 중복 키입니다 (입력: {key})")
+        result[key] = value
+    return result
+
+
+def _read_json_object(handler: BaseHTTPRequestHandler) -> dict:
+    """Content-Length만큼 JSON 객체를 읽고 전송 형식 오류를 400/413으로 바꾼다."""
+    content_type = handler.headers.get("Content-Type", "")
+    if content_type.split(";", 1)[0].strip().lower() != "application/json":
+        raise _RequestError(400, "요청 본문은 application/json이어야 합니다")
+    raw_length = handler.headers.get("Content-Length")
+    if raw_length is None:
+        raise _RequestError(400, "요청 본문 길이가 필요합니다")
+    try:
+        length = int(raw_length)
+    except ValueError:
+        raise _RequestError(400, "요청 본문 길이가 올바르지 않습니다") from None
+    if length < 0:
+        raise _RequestError(400, "요청 본문 길이가 올바르지 않습니다")
+    if length > _MAX_BODY_BYTES:
+        raise _RequestError(413, "요청 본문이 너무 큽니다 (64KiB 이하)")
+    try:
+        handler.connection.settimeout(2.0)
+        raw = handler.rfile.read(length)
+    except TimeoutError:
+        raise _RequestError(400, "요청 본문을 읽을 수 없습니다") from None
+    if len(raw) != length:
+        raise _RequestError(400, "요청 본문 길이가 올바르지 않습니다")
+    try:
+        text = raw.decode("utf-8")
+        payload = json.loads(text, object_pairs_hook=_json_pairs,
+                             parse_constant=lambda value: (_ for _ in ()).throw(ValueError(
+                                 f"요청 JSON: 허용하지 않는 숫자입니다 (입력: {value})")))
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
+        raise _RequestError(400, f"요청 JSON이 올바르지 않습니다: {error}") from None
+    if not isinstance(payload, dict):
+        raise _RequestError(400, "요청 JSON은 객체여야 합니다")
+    return payload
+
+
+def _require_keys(payload: dict, required: set[str]) -> None:
+    """변경 API 본문이 필수 키를 정확히 한 번씩 갖는지 확인한다."""
+    missing = sorted(required - set(payload))
+    unknown = sorted(set(payload) - required)
+    if missing:
+        raise ValueError(f"요청 JSON: 필수 키가 없습니다 (입력: {', '.join(missing)})")
+    if unknown:
+        raise ValueError(f"요청 JSON: 알 수 없는 키입니다 (입력: {', '.join(unknown)})")
+
+
+def _json_int(value: object, label: str) -> int:
+    """JSON 정수 형식과 9자리 전송 제한만 확인하고 범위는 graph.py에 맡긴다."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"요청 JSON: {label}은 JSON 정수여야 합니다 (입력: {value!r})")
+    if len(str(abs(value))) > 9:
+        raise ValueError(f"요청 JSON: {label}은 9자리 이하 정수여야 합니다 (입력: {value})")
+    return value
+
+
+def _route_post(g: ShopGraph, raw_path: str, payload: dict) -> tuple[int, dict] | object:
+    """POST 변경 경로를 ShopGraph 공개 메서드 호출로 변환한다."""
+    parsed = urlsplit(raw_path)
+    if parsed.query:
+        raise ValueError("요청 쿼리: 이 경로에는 쿼리를 사용할 수 없습니다")
+    parts = _decoded_parts(raw_path)
+    if parts == ["api", "customers"]:
+        _require_keys(payload, {"name", "gender", "age"})
+        age = _json_int(payload["age"], "나이")
+        customer_id = g.add_customer(payload["name"], payload["gender"], age)
+        customer = g.get_customer(customer_id)
+        group_id = g.group_of(customer_id)
+        return 201, {"customer": customer, "group": _group(g, group_id)}
+    if parts == ["api", "purchases"]:
+        _require_keys(payload, {"customer_id", "product_id", "color", "qty", "date"})
+        qty = _json_int(payload["qty"], "수량")
+        purchase_id = g.add_purchase(payload["customer_id"], payload["product_id"],
+                                     payload["color"], qty, payload["date"])
+        edge = g.edge(payload["customer_id"], payload["product_id"])
+        return 201, {"purchase_id": purchase_id, "customer_id": payload["customer_id"],
+                     "product_id": payload["product_id"], "edge": edge,
+                     "weight": g.weight(payload["customer_id"], payload["product_id"])}
+    return _NOT_FOUND
+
+
+def _route_put(g: ShopGraph, raw_path: str, payload: dict) -> tuple[int, dict] | object:
+    """PUT 재고 경로를 ShopGraph 공개 메서드 호출로 변환한다."""
+    parsed = urlsplit(raw_path)
+    if parsed.query:
+        raise ValueError("요청 쿼리: 이 경로에는 쿼리를 사용할 수 없습니다")
+    parts = _decoded_parts(raw_path)
+    if len(parts) != 4 or parts[:2] != ["api", "products"] or parts[3] != "stock":
+        return _NOT_FOUND
+    _require_keys(payload, {"stock"})
+    stock = payload["stock"]
+    if not isinstance(stock, dict):
+        raise ValueError("요청 JSON: stock은 객체여야 합니다")
+    checked_stock: dict[object, int] = {}
+    for color, count in stock.items():
+        if not isinstance(color, str):
+            raise ValueError(f"요청 JSON: 재고 색상 키는 문자열이어야 합니다 (입력: {color!r})")
+        checked_stock[color] = _json_int(count, f"재고({color})")
+    product_id = parts[2]
+    g.update_product(product_id, stock=checked_stock)
+    product = g.get_product(product_id)
+    sold_out = g.is_sold_out(product_id)
+    available = g.available_colors(product_id)
+    return 200, {"product": product, "sold_out": sold_out,
+                 "available_colors": available,
+                 "status_label": "품절" if sold_out else "판매 중"}
+
+
 def _route_get(g: ShopGraph, raw_path: str) -> dict | object:
     """GET API 경로 하나를 공개 함수 호출 결과로 변환한다."""
     parsed = urlsplit(raw_path)
@@ -221,21 +374,7 @@ def _route_get(g: ShopGraph, raw_path: str) -> dict | object:
 
 def _known_path(raw_path: str) -> bool:
     """UI1 읽기 경로와 UI2 예약 변경 경로인지 판정한다."""
-    path = urlsplit(raw_path).path
-    parts = _decoded_parts(raw_path)
-    if path == "/" or parts in (["api", "meta"], ["api", "graph"], ["api", "groups"],
-                                 ["api", "stats"], ["api", "integrity"], ["api", "purchases"],
-                                 ["api", "customers"]):
-        return True
-    if len(parts) == 3 and parts[:2] in (["api", "customers"], ["api", "products"]):
-        return True
-    if len(parts) == 4 and parts[:2] == ["api", "customers"] and parts[3] == "recommendations":
-        return True
-    if len(parts) == 4 and parts[:2] == ["api", "groups"] and parts[3] == "popular":
-        return True
-    if len(parts) == 4 and parts[:2] == ["api", "products"] and parts[3] == "stock":
-        return True
-    return False
+    return bool(_allowed_methods(raw_path))
 
 
 class _RequestHandler(BaseHTTPRequestHandler):
@@ -254,8 +393,9 @@ class _RequestHandler(BaseHTTPRequestHandler):
         if code == 501:
             if not _valid_host(self) or not _valid_origin(self):
                 self._send_json(403, {"error": "허용하지 않는 Host 또는 Origin입니다"})
-            elif _known_path(getattr(self, "path", "")):
-                self._send_json(405, {"error": "지원하지 않는 메서드입니다"}, {"Allow": "GET"})
+            elif (allowed := _allowed_methods(getattr(self, "path", ""))):
+                self._send_json(405, {"error": "지원하지 않는 메서드입니다"},
+                                 {"Allow": ", ".join(allowed)})
             else:
                 self._send_json(404, {"error": "없는 경로입니다"})
             return
@@ -270,7 +410,7 @@ class _RequestHandler(BaseHTTPRequestHandler):
         self._dispatch("POST")
 
     def do_PUT(self) -> None:
-        """UI2 변경 API 전까지 PUT은 허용 메서드 오류로 응답한다."""
+        """PUT 변경 API를 처리한다."""
         self._dispatch("PUT")
 
     def _dispatch(self, method: str) -> None:
@@ -279,12 +419,35 @@ class _RequestHandler(BaseHTTPRequestHandler):
             self._send_json(403, {"error": "허용하지 않는 Host 또는 Origin입니다"})
             return
         parsed = urlsplit(self.path)
+        mutation = False
         try:
-            if method != "GET":
-                if not _known_path(self.path):
+            allowed = _allowed_methods(self.path)
+            if method not in allowed:
+                if not allowed:
+                    self._send_json(404, {"error": "없는 경로입니다"})
+                else:
+                    self._send_json(405, {"error": "지원하지 않는 메서드입니다"},
+                                     {"Allow": ", ".join(allowed)})
+                return
+            if method == "POST":
+                payload = _read_json_object(self)
+                mutation = True
+                result = _route_post(self.server.graph, self.path, payload)
+                if result is _NOT_FOUND:
                     self._send_json(404, {"error": "없는 경로입니다"})
                     return
-                self._send_json(405, {"error": "지원하지 않는 메서드입니다"}, {"Allow": "GET"})
+                status, response = result
+                self._send_json(status, response)
+                return
+            if method == "PUT":
+                payload = _read_json_object(self)
+                mutation = True
+                result = _route_put(self.server.graph, self.path, payload)
+                if result is _NOT_FOUND:
+                    self._send_json(404, {"error": "없는 경로입니다"})
+                    return
+                status, response = result
+                self._send_json(status, response)
                 return
             if parsed.path == "/":
                 self._serve_static(parsed.path, missing_status=503)
@@ -297,11 +460,15 @@ class _RequestHandler(BaseHTTPRequestHandler):
                 self._send_json(404, {"error": "없는 경로입니다"})
                 return
             self._send_json(200, payload)
+        except _RequestError as error:
+            self._send_json(error.status, {"error": str(error)})
         except ValueError as error:
             self._send_json(400, {"error": str(error)})
         except Exception:
             _LOGGER.exception("웹 요청 처리 중 예외")
-            self._send_json(500, {"error": "서버 처리 중 오류가 발생했습니다"})
+            message = ("변경이 반영됐을 수 있습니다. 다시 조회해 확인하세요"
+                       if mutation else "서버 처리 중 오류가 발생했습니다")
+            self._send_json(500, {"error": message})
 
     def _serve_static(self, path: str, *, missing_status: int) -> None:
         """frontend/dist 안의 정적 파일만 제공한다 (루트만 dist 없음 503)."""

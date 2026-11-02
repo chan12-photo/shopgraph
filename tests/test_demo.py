@@ -2,14 +2,15 @@
 
 실행용 data.py(시연 데이터)로 main.run()을 실행하고, docs/verification/w11_scenes.md의 입력 절차대로
 장면 1~N을 차례로 넣은 뒤 장면 N의 결과를 확인한다. 기대값은 docs/demo_expected.md에서만 읽는다
-(사람이 손계산·승인한 값). 이 파일에는 기대값을 적지 않고, 실행 결과를 저장하지도 않는다.
+(프로그램 코드를 쓰지 않은 AI 독립 계산 2건을 대조하고 찬일이 대표 항목을 손으로 확인한 뒤 11.3.8로 승인한 값,
+docs/demo_expected.md "검산·승인 기록"). 이 파일에는 기대값을 적지 않고, 실행 결과를 저장하지도 않는다.
 demo_expected.md에서 필요한 칸이 비어 있으면(양식 상태) 각 테스트는
 NotImplementedError("W11 기대값 승인 전")로 멈춘다 (11.3.3 미도래 분류).
 
 화면 문구 확인에 쓰는 글자(안내 줄의 앞부분, "[등록]" 줄 모양)는 W8b·W10 승인 형식이다.
 
-보호 순서: 각 테스트는 main.run()을 실행하기 전에 그 장면과 앞 장면들의 기대값 칸과 확정값을 모두 먼저 읽어
-검사한다(_require_through). 작성 도중이라 칸이 하나라도 비어 있으면 시연을 실행하지 않고 멈춘다. 칸이 다 채워져도
+보호 순서: 각 테스트는 main.run()을 실행하기 전에 8개 장면 전체의 기대값 표와 확정값을 모두 먼저 읽어
+검사한다(_require_through, 그 장면이 쓰지 않는 장면의 표까지). 작성 도중이라 칸이 하나라도 비어 있으면 시연을 실행하지 않고 멈춘다. 칸이 다 채워져도
 demo_expected.md 상태 줄이 "상태: 승인 (찬일, YYYY-MM-DD) / AI 독립 계산 대조: 일치"가 아니면 멈춘다.
 비교: 내부 함수(recommend·products_of·group_popular·stats 등) 결과와 함께, 장면 화면에서 출력 구간(추천 블록,
 S1 표, S4 표 구매 전·후, 그룹 트리, 통계 표와 무결성 줄)을 잘라 기대 화면과 통째로 assertEqual 한다 (Codex 2차 검토).
@@ -19,6 +20,14 @@ S1 표, S4 표 구매 전·후, 그룹 트리, 통계 표와 무결성 줄)을 �
 weight()만 기대값 "색상 수 안내" 열에서 읽는 대리 그래프(_ExpectedColorCounts)를 넘긴다. 그룹 트리의 고객 줄(이름·나이)은
 기대값이 아니라서 실제 그래프로 만든 트리와 통째로 비교하고, 그룹별 인원은 기대값과 따로 대조한다.
 등록 줄("[등록] …")은 발급되는 구매 ID(T번호)만 빼고 줄 전체를 기대값으로 맞춘다.
+
+이 파일 혼자서는 검증하지 않는 범위 (W12 G6 권장 1, 찬일 11/02):
+- 기대 화면을 화면과 같은 출력 함수(print_recommendation·print_group_tree)로 만들므로, 그 함수가 정하는 표시 규칙
+  (범위 표시 글자, ID 뒤 조사, 색상 수 안내를 붙이는 기준, 넓힘 이유 문장, 같은 성별 범위의 지지자 그룹 표시,
+  트리 줄 모양)이 틀려도 화면과 기대 화면이 똑같이 틀려 비교에서 드러나지 않는다. 이 규칙은 test_view·test_flow가
+  고정 데이터로 지키고, 전체 테스트 통과가 W12 기준이다. 값 쪽은 이 파일이 recommend()·g.weight()와 직접 대조한다
+- 그룹 트리의 고객 줄(이름·나이)은 기대값과 비교하지 않는다 (실제 그래프로 만든 트리와만 비교). 그룹별 인원은 비교한다
+- 구매 등록 줄의 구매 ID(T번호)는 비교하지 않는다 (발급 번호는 기대값에 없음)
 """
 
 import contextlib
@@ -58,7 +67,8 @@ _NOTES = (("넓힘 안내", " ※ 같은 그룹("), ("개수 부족 안내", "�
 _STAT_KEYS = {"그룹 노드": "groups", "고객 노드": "customers", "상품 노드": "products",
               "소속 간선": "membership_edges", "구매 간선": "purchase_edges", "구매 기록": "purchases"}
 
-# 장면마다 입력이나 확인에 쓰는 확정값 이름 (docs/demo_expected.md 확정값 표, w11_scenes.md)
+# 확정값 이름을 처음 쓰는 장면별로 적은 표 (docs/demo_expected.md 확정값 표, w11_scenes.md). 지금은 확정값 표의
+# 필수 행 목록(_FIXED_KEYS)을 만드는 데만 쓴다 (실행 전 검사는 장면과 관계없이 확정값 전부를 본다)
 _FIXED_BY_SCENE = {2: ("C_new",), 3: ("C_new", "P_top", "장면 3 색상 1", "장면 3 색상 2"), 4: ("C_new",),
                    6: ("C_new", "P_top6"), 7: ("C_new7",)}
 _FIXED_KEYS = tuple(dict.fromkeys(key for keys in _FIXED_BY_SCENE.values() for key in keys))  # 확정값 표의 필수 행
@@ -97,6 +107,8 @@ _PRODUCT_ID = r"P[0-9]{2}"
 _POSITIVE = r"[1-9][0-9]*"
 _NON_NEGATIVE = r"0|[1-9][0-9]*"
 _COLOR_NOTE = r"C[0-9]{2}[은는] [2-9][0-9]*가지(, C[0-9]{2}[은는] [2-9][0-9]*가지)*"
+# ID 끝 숫자를 읽은 소리에 받침이 있는 숫자 (0 영, 1 일, 3 삼, 6 육, 7 칠, 8 팔): 뒤 조사 "은", 그 밖은 "는" (W8b 승인 형식)
+_DIGITS_WITH_FINAL = frozenset("013678")
 _COLUMN_FORMATS = {
     "순위": _POSITIVE, "상품 ID": _PRODUCT_ID, "점수": _POSITIVE, "구매자 수": _POSITIVE,
     "지지자": f"{_CUSTOMER_ID}(, {_CUSTOMER_ID})*", "구매 가능 색상": r"[^,\s][^,]*(, [^,\s][^,]*)*",
@@ -222,7 +234,8 @@ def _require_through(expected: dict) -> None:
     어느 장면 테스트든 장면 하나라도 실행하기 전에 부른다. 장·표가 없거나 남거나, 열 목록(이름·순서)이 다르거나,
     필수 행이 빠지거나 겹치거나, 칸이 비었거나, "-"를 허용하지 않는 칸에 "-"가 있거나, 값 형식이 맞지 않거나,
     확정값끼리 어긋나면(P_top ≠ 장면 2 추천 1위, 장면 3 두 색상이 같음) 실행하지 않고 멈춘다. 칸이 다 맞아도
-    상태 줄이 승인 형식이 아니면 멈춘다(_require_approval).
+    상태 줄이 승인 형식이 아니면 멈춘다(_require_approval). 장면 3 색상 1·2는 data.py 원자료에서 P_top의
+    재고가 1 이상인 색상이어야 한다.
 
     인자:
         expected: _load_expected()의 결과.
@@ -243,8 +256,14 @@ def _require_through(expected: dict) -> None:
     first = _rows(expected, "장면 2", "추천 (C_new, K=3)")
     if not first or first[0]["상품 ID"] != _value(expected, "확정값", "확정값", "P_top"):
         raise NotImplementedError(f"{_NOT_READY}: P_top이 장면 2 추천 1위 상품 ID와 다름")
-    if _value(expected, "확정값", "확정값", "장면 3 색상 1") == _value(expected, "확정값", "확정값", "장면 3 색상 2"):
+    colors = [_value(expected, "확정값", "확정값", name) for name, _ in _SCENE3_BUYS]
+    if colors[0] == colors[1]:
         raise NotImplementedError(f"{_NOT_READY}: 장면 3 색상 1·2가 같음")
+    # 장면 1~2는 재고를 바꾸지 않으므로 장면 3 시점의 P_top 재고는 data.py 원자료 그대로다 (w11_scenes.md)
+    stocks = {record["id"]: record["stock"] for record in initial_records()[1]}
+    stock = stocks.get(_value(expected, "확정값", "확정값", "P_top"), {})
+    if any(stock.get(color, 0) <= 0 for color in colors):
+        raise NotImplementedError(f"{_NOT_READY}: 장면 3 색상 {colors}이 P_top의 재고 있는 색상이 아님")
     _require_approval()
 
 
@@ -352,7 +371,10 @@ def _check_value(where: str, column: str, key: str, value: str) -> None:
 
 
 def _check_recommend_row(where: str, row: dict[str, str]) -> None:
-    """추천 표 한 행의 칸끼리 일관성: 구매자 수 = 지지자 수, 색상 수 안내의 고객은 지지자 안에 있고 겹치지 않음.
+    """추천 표 한 행의 칸끼리 일관성과 색상 수 안내 형식을 확인한다.
+
+    구매자 수 = 지지자 수, 색상 수 안내의 고객은 지지자 안에 있고 겹치지 않으며 ID 순이고, ID 뒤 조사는 화면 규칙
+    (ID 끝 숫자 소리에 받침이 있으면 "은", 없으면 "는", W8b 승인 형식)과 같다.
 
     인자:
         where: 오류 메시지 앞부분.
@@ -367,9 +389,14 @@ def _check_recommend_row(where: str, row: dict[str, str]) -> None:
     supporters = row["지지자"].split(", ")
     if len(supporters) != int(row["구매자 수"]) or len(set(supporters)) != len(supporters):
         raise NotImplementedError(f"{where} 지지자 수가 구매자 수와 다르거나 겹침: {row['지지자']!r}")
-    noted = [] if row["색상 수 안내"] == "-" else re.findall(_CUSTOMER_ID, row["색상 수 안내"])
-    if len(set(noted)) != len(noted) or not set(noted) <= set(supporters):
-        raise NotImplementedError(f"{where} 색상 수 안내의 고객이 지지자에 없거나 겹침: {row['색상 수 안내']!r}")
+    noted = [] if row["색상 수 안내"] == "-" else re.findall(r"(C[0-9]{2})([은는])", row["색상 수 안내"])
+    ids = [customer_id for customer_id, _ in noted]
+    if len(set(ids)) != len(ids) or not set(ids) <= set(supporters) or ids != sorted(ids):
+        raise NotImplementedError(f"{where} 색상 수 안내의 고객이 지지자에 없거나 겹치거나 ID 순이 아님: "
+                                  f"{row['색상 수 안내']!r}")
+    for customer_id, particle in noted:
+        if particle != ("은" if customer_id[-1] in _DIGITS_WITH_FINAL else "는"):
+            raise NotImplementedError(f"{where} 색상 수 안내의 조사가 화면 규칙과 다름: {customer_id}{particle}")
 
 
 def _is_real_date(text: str) -> bool:

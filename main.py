@@ -87,9 +87,9 @@ def _run_web(port: int) -> None:
     except OSError as error:
         raise SystemExit(f"[오류] 웹 서버를 시작할 수 없습니다: {error} (다른 포트는 --port PORT)") from error
     address = f"http://127.0.0.1:{server.server_address[1]}"
-    print(f"웹 서버를 시작했습니다: {address}")
-    webbrowser.open(address)
     try:
+        print(f"웹 서버를 시작했습니다: {address}")
+        webbrowser.open(address)
         server.serve_forever()
     except KeyboardInterrupt:
         print("웹 서버를 종료합니다")

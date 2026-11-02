@@ -209,16 +209,12 @@ def _route_get(g: ShopGraph, raw_path: str) -> dict | object:
         k = _query_k(parsed.query, K_DEFAULT)
         if k is None:
             k = K_DEFAULT
-        if not isinstance(k, int) or isinstance(k, bool) or not 1 <= k <= K_MAX:
-            raise ValueError(f"추천 개수 K: 1~{K_MAX}이어야 합니다 (입력: {k})")
         return _recommendations(g, parts[2], k)
     if len(parts) == 3 and parts[:2] == ["api", "products"]:
         _query_k(parsed.query, None, allow_k=False)
         return _product(g, parts[2])
     if len(parts) == 4 and parts[:2] == ["api", "groups"] and parts[3] == "popular":
         k = _query_k(parsed.query, None)
-        if k is not None and (not isinstance(k, int) or isinstance(k, bool) or not 1 <= k <= K_MAX):
-            raise ValueError(f"개수: 1~{K_MAX}이어야 합니다 (입력: {k})")
         return _popular(g, parts[2], k)
     return _NOT_FOUND
 
@@ -251,6 +247,19 @@ class _RequestHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: object) -> None:
         """기본 stderr 로그 대신 표준 logging으로 보낸다."""
         _LOGGER.info("%s - %s", self.address_string(), format % args)
+
+    def send_error(self, code: int, message: str | None = None,
+                   explain: str | None = None) -> None:
+        """정의하지 않은 HTTP 메서드도 HTML 501 대신 계약 JSON으로 응답한다."""
+        if code == 501:
+            if not _valid_host(self) or not _valid_origin(self):
+                self._send_json(403, {"error": "허용하지 않는 Host 또는 Origin입니다"})
+            elif _known_path(getattr(self, "path", "")):
+                self._send_json(405, {"error": "지원하지 않는 메서드입니다"}, {"Allow": "GET"})
+            else:
+                self._send_json(404, {"error": "없는 경로입니다"})
+            return
+        super().send_error(code, message, explain)
 
     def do_GET(self) -> None:
         """GET 요청을 API 또는 안전한 dist 정적 파일로 처리한다."""
@@ -329,7 +338,8 @@ class _RequestHandler(BaseHTTPRequestHandler):
         for key, value in (extra_headers or {}).items():
             self.send_header(key, value)
         self.end_headers()
-        self.wfile.write(body)
+        if self.command != "HEAD":
+            self.wfile.write(body)
         self.close_connection = True
 
 

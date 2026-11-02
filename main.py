@@ -7,6 +7,8 @@
 """
 
 import re
+import sys
+import webbrowser
 from collections.abc import Callable
 from types import MappingProxyType
 from typing import Final, TypeVar
@@ -73,6 +75,54 @@ def run() -> None:
     except (EOFError, KeyboardInterrupt):
         print()
         print("종료합니다")
+
+
+def _run_web(port: int) -> None:
+    """초기 데이터로 로컬 웹 서버를 시작하고 중단 시 소켓을 닫는다."""
+    from web import create_server
+
+    graph = ShopGraph(*initial_records())
+    try:
+        server = create_server(graph, port)
+    except OSError as error:
+        raise SystemExit(f"[오류] 웹 서버를 시작할 수 없습니다: {error} (다른 포트는 --port PORT)") from error
+    address = f"http://127.0.0.1:{server.server_address[1]}"
+    print(f"웹 서버를 시작했습니다: {address}")
+    webbrowser.open(address)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("웹 서버를 종료합니다")
+    finally:
+        server.server_close()
+
+
+def _web_port(text: str) -> int:
+    """--port 인자를 0~65535 정수로 변환한다."""
+    port = _to_int(text, "포트")
+    if port > 65535:
+        raise ValueError(f"포트: 0~65535이어야 합니다 (입력: {port})")
+    return port
+
+
+def main(argv: list[str] | None = None) -> None:
+    """인자 없이 콘솔을, ``--web``로 로컬 웹 화면을 시작한다."""
+    args = list(sys.argv[1:] if argv is None else argv)
+    if not args:
+        run()
+        return
+    if args[0] != "--web":
+        raise SystemExit("사용법: python main.py [--web [--port PORT]]")
+    if len(args) == 1:
+        _run_web(8000)
+        return
+    if len(args) != 3 or args[1] != "--port":
+        raise SystemExit("사용법: python main.py [--web [--port PORT]]")
+    try:
+        port = _web_port(args[2])
+    except ValueError as error:
+        raise SystemExit(f"[오류] {error}") from error
+    _run_web(port)
 
 
 def _menu_loop(g: ShopGraph) -> None:
@@ -847,4 +897,4 @@ _SUBMENUS: Final[MappingProxyType[str, tuple[str, tuple[tuple[str, Callable[[Sho
 
 
 if __name__ == "__main__":
-    run()
+    main()

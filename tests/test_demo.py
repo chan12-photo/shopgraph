@@ -95,7 +95,8 @@ _SCHEMA = {
     "장면 5": {"S4 구매 전 (G-F-20, 전체)": (_S4_COLUMNS, _RANKED),
                "구매 등록 줄 가중치 (C09–P07)": (("구매", "가중치"), ("첫 번째 (블랙)", "두 번째 (그레이)", "세 번째 (네이비)")),
                "S4 구매 후 (G-F-20, 전체)": (_S4_COLUMNS, _RANKED)},
-    "장면 6": dict(_REC_TABLE),
+    "장면 6": {"품절 전 추천 (C_new, K=3)": (_REC_COLUMNS, _RANKED),
+               "품절 전 안내 줄": (("안내", "있음/없음"), _NOTE_NAMES), **_REC_TABLE},
     "장면 7": {"연결 그룹": (("항목", "값"), ("C_new7 연결 그룹 ID",)),
                "추천 (C_new7, K=3)": (_REC_COLUMNS, _RANKED), "안내 줄": (("안내", "있음/없음"), _NOTE_NAMES)},
     "장면 8": {"통계 표": (("항목", "개수"), tuple(_STAT_KEYS)), "무결성 검사": (("항목", "값"), ("위반 수",))},
@@ -264,6 +265,9 @@ def _require_through(expected: dict) -> None:
     stock = stocks.get(_value(expected, "확정값", "확정값", "P_top"), {})
     if any(stock.get(color, 0) <= 0 for color in colors):
         raise NotImplementedError(f"{_NOT_READY}: 장면 3 색상 {colors}이 P_top의 재고 있는 색상이 아님")
+    before_rows = _rows(expected, "장면 6", "품절 전 추천 (C_new, K=3)")
+    if not before_rows or before_rows[0]["상품 ID"] != _value(expected, "확정값", "확정값", "P_top6"):
+        raise NotImplementedError(f"{_NOT_READY}: P_top6이 장면 6 품절 전 추천 1위 상품 ID와 다름")
     _require_approval()
 
 
@@ -303,7 +307,7 @@ def _check_table(section: str, table: str, rows: list[dict[str, str]], columns: 
             continue
         for column, value in row.items():
             _check_value(where, column, row[columns[0]], value)
-        if table.startswith("추천"):
+        if "추천" in table:
             _check_recommend_row(where, row)
 
 
@@ -627,7 +631,8 @@ def _scene_inputs(scene: int, expected: dict) -> list[str]:
     if scene == 6:
         stock = {p["id"]: p["stock"] for p in initial_records()[1]}[fixed("P_top6")]
         zero = ", ".join(f"{color}=0" for color in stock)
-        return ["3", "2", fixed("P_top6"), "", "", "", "", zero, "6", fixed("C_new"), ""]
+        return ["6", fixed("C_new"), "", "3", "2", fixed("P_top6"), "", "", "", "", zero,
+                "6", fixed("C_new"), ""]
     if scene == 7:
         return ["1", "1", "새싹", "1", "15"]
     return ["5", "4"]
@@ -677,28 +682,14 @@ def _run_scenes(last: int, expected: dict) -> tuple[str, ShopGraph]:
 class TestW12Demo(unittest.TestCase):
     """W12: 7장 시연 장면 1~8 (기대값은 docs/demo_expected.md)."""
 
-    def _check_recommend(self, expected: dict, scene: str, g: ShopGraph, customer_id: str, screen: str) -> None:
-        """그 장면의 추천을 recommend()·g.weight()와 대조하고, 화면의 추천 블록을 기대 블록과 통째로 비교한다.
-
-        인자:
-            expected: _load_expected()의 결과.
-            scene: 장 이름 (예: "장면 2").
-            g: 그 장면까지 진행한 ShopGraph.
-            customer_id: 추천 대상 고객 ID.
-            screen: 그 장면의 화면.
-
-        반환:
-            없음.
-
-        예외:
-            NotImplementedError: 기대값 칸이 비어 있을 때.
-            AssertionError: 다를 때.
-        """
-        table = next((name for name in expected.get(scene, {}) if name.startswith("추천")), None)
+    def _check_recommend_data(self, expected: dict, scene: str, table: str, g: ShopGraph,
+                              customer_id: str) -> str:
+        """추천 표 하나를 recommend()·g.weight()와 대조하고 기대 화면 블록을 만든다."""
         if table is None:
             raise NotImplementedError(f"{_NOT_READY}: {scene} 추천 표 없음")
         rows = _rows(expected, scene, table)
-        notes = {name: _value(expected, scene, "안내 줄", name) for name in _NOTE_NAMES}
+        notes_table = "품절 전 안내 줄" if table.startswith("품절 전") else "안내 줄"
+        notes = {name: _value(expected, scene, notes_table, name) for name in _NOTE_NAMES}
         result = recommend(g, customer_id, _RECOMMEND_K)
         self.assertEqual([[item["product_id"], item["scope"], str(item["score"]), str(item["buyers"]),
                            ", ".join(item["supporters"]), ", ".join(item["available_colors"])] for item in result],
@@ -712,7 +703,17 @@ class TestW12Demo(unittest.TestCase):
         want = _expected_recommend_block(g, customer_id, rows)
         for name, mark in _NOTES:
             self.assertEqual(mark in want, notes[name] == "있음", msg=name)
-        self.assertEqual(_screen_blocks(screen, "[추천] "), [want])
+        return want
+
+    def _check_recommend(self, expected: dict, scene: str, g: ShopGraph, customer_id: str,
+                         screen: str, table: str | None = None, block_index: int = 0) -> None:
+        """추천 내부 결과와 화면의 지정 추천 블록을 기대값과 통째로 비교한다."""
+        if table is None:
+            table = next((name for name in expected.get(scene, {}) if name.startswith("추천")), None)
+        want = self._check_recommend_data(expected, scene, table, g, customer_id)
+        blocks = _screen_blocks(screen, "[추천] ")
+        self.assertGreater(len(blocks), block_index)
+        self.assertEqual(blocks[block_index], want)
 
     def _check_register_buys(self, screen: str, buys: list[tuple[str, str, str, str, str]]) -> None:
         """구매 등록 줄들을 구매 ID(T번호)만 빼고 줄 전체로 비교한다.
@@ -838,7 +839,7 @@ class TestW12Demo(unittest.TestCase):
         self._check_s4(g, after_rows, blocks[1])
 
     def test_scene6_sold_out(self) -> None:
-        """장면 6: P_top6(장면 5 상태의 1위) 재고를 전부 0으로 → 품절, 다시 추천 블록."""
+        """장면 6: 품절 전 추천을 확인하고 P_top6을 품절 처리한 뒤 다시 추천한다."""
         expected = _load_expected()
         _require_through(expected)
         customer_id = _value(expected, "확정값", "확정값", "C_new")
@@ -846,9 +847,13 @@ class TestW12Demo(unittest.TestCase):
         _, before = _run_scenes(5, expected)
         top = recommend(before, customer_id, _RECOMMEND_K)
         self.assertEqual(top[0]["product_id"] if top else None, product_id, msg="P_top6 = 장면 5 상태의 C_new 추천 1위")
+        before_table = "품절 전 추천 (C_new, K=3)"
+        self._check_recommend_data(expected, "장면 6", before_table, before, customer_id)
         screen, g = _run_scenes(6, expected)
         self.assertTrue(g.is_sold_out(product_id))
-        self._check_recommend(expected, "장면 6", g, customer_id, screen)
+        self._check_recommend(expected, "장면 6", g, customer_id, screen, block_index=1)
+        self._check_recommend(expected, "장면 6", before, customer_id, screen,
+                              table=before_table, block_index=0)
 
     def test_scene7_widen_to_gender(self) -> None:
         """장면 7: 소속 고객이 없는 남성·10대 고객 등록 → 등록 줄, 연결 그룹, 넓혀 찾은 추천 블록."""

@@ -121,6 +121,67 @@ def print_group_tree(g: ShopGraph) -> None:
                 print(f"{_INDENT * 3}{customer_id} {customer['name']} ({customer['age']}세)")
 
 
+def recommendation_scope_label(g: ShopGraph, customer_id: str, scope: str) -> str:
+    """추천 결과의 범위 코드를 화면 표시 이름으로 바꾼다.
+
+    인자:
+        g: 고객의 성별을 조회할 ShopGraph.
+        customer_id: 추천 대상 고객 ID.
+        scope: recommend() 결과의 ``group``, ``gender`` 또는 ``all``.
+
+    반환:
+        ``같은 그룹``, 성별 표시 이름이 붙은 ``여성 전체``·``남성 전체``, 또는 ``전체 고객``.
+
+    예외:
+        ValueError: 없는 고객 ID이거나 지원하지 않는 범위 코드일 때.
+    """
+    if scope == "group":
+        return "같은 그룹"
+    if scope == "gender":
+        gender = g.get_customer(customer_id)["gender"]
+        return f"{GENDER_LABELS[gender]} 전체"
+    if scope == "all":
+        return _ALL_LABEL
+    raise ValueError(f"알 수 없는 추천 범위입니다 (입력: {scope})")
+
+
+def recommendation_view(g: ShopGraph, customer_id: str, result: list[dict], k: int) -> dict:
+    """추천 화면을 출력 없이 구조화해 돌려준다.
+
+    인자:
+        g: 추천 상품·고객·간선 정보를 조회할 ShopGraph.
+        customer_id: 추천 대상 고객 ID.
+        result: 같은 고객·K로 호출한 recommend() 결과.
+        k: recommend()에 넘긴 추천 개수 K.
+
+    반환:
+        ``{"header": str, "items": [[상품줄, 근거줄, 색상줄], ...],
+        "notices": [str, ...]}`` 새 딕셔너리. 빈 결과는 header만 의미 있는 값이고
+        items·notices는 빈 리스트다.
+
+    예외:
+        ValueError: 없는 고객 ID이거나 결과 항목의 고객·상품 ID가 없을 때.
+    """
+    customer = g.get_customer(customer_id)
+    group_label = GROUP_LABELS[g.group_of(customer_id)]
+    gender_label = f"{GENDER_LABELS[customer['gender']]} 전체"
+    head = f"[추천] {customer['name']}({customer_id}, {group_label})님께 추천"
+    if not result:
+        return {"header": f"{head}할 상품이 없습니다", "items": [], "notices": []}
+
+    items = [[line for line in _item_lines(g, rank, item, recommendation_scope_label(g, customer_id, item["scope"]))]
+             for rank, item in enumerate(result, start=1)]
+    widest = len(_SCOPE_ORDER) - 1 if len(result) < k else _SCOPE_ORDER.index(result[-1]["scope"])
+    notices = []
+    if widest > 0:
+        notices.append(_widen_note(g, customer_id, group_label, gender_label, widest, k))
+    if len(result) < k:
+        notices.append(f" ※ 추천할 수 있는 상품이 {len(result)}개뿐이라 {k}개를 채우지 못함")
+    if len({item["scope"] for item in result}) > 1:
+        notices.append(_SCORE_NOTE)
+    return {"header": f"{head} ({len(result)}개)", "items": items, "notices": notices}
+
+
 def print_recommendation(g: ShopGraph, customer_id: str, result: list[dict], k: int) -> None:
     """추천 결과를 근거(지지 고객)·구매 가능 색상·범위 안내와 함께 출력한다.
 
@@ -144,24 +205,13 @@ def print_recommendation(g: ShopGraph, customer_id: str, result: list[dict], k: 
         ValueError: 없는 고객 ID일 때 g의 메서드가 낸 ValueError를 그대로 전달한다
             (메시지 표시는 main.py가 맡는다). 이때는 아무것도 출력하지 않는다.
     """
-    customer = g.get_customer(customer_id)
-    group_label = GROUP_LABELS[g.group_of(customer_id)]
-    gender_label = f"{GENDER_LABELS[customer['gender']]} 전체"
-    head = f"[추천] {customer['name']}({customer_id}, {group_label})님께 추천"
-    if not result:
-        print(f"{head}할 상품이 없습니다")
-        return
-    print(f"{head} ({len(result)}개)")
-    scope_labels = {"group": "같은 그룹", "gender": gender_label, "all": _ALL_LABEL}
-    for rank, item in enumerate(result, start=1):
-        _print_item(g, rank, item, scope_labels[item["scope"]])
-    widest = len(_SCOPE_ORDER) - 1 if len(result) < k else _SCOPE_ORDER.index(result[-1]["scope"])
-    if widest > 0:
-        print(_widen_note(g, customer_id, group_label, gender_label, widest, k))
-    if len(result) < k:
-        print(f" ※ 추천할 수 있는 상품이 {len(result)}개뿐이라 {k}개를 채우지 못함")
-    if len({item["scope"] for item in result}) > 1:
-        print(_SCORE_NOTE)
+    view = recommendation_view(g, customer_id, result, k)
+    print(view["header"])
+    for lines in view["items"]:
+        for line in lines:
+            print(line)
+    for notice in view["notices"]:
+        print(notice)
 
 
 def _id_particle(item_id: str, with_final: str, without_final: str) -> str:
@@ -181,8 +231,8 @@ def _id_particle(item_id: str, with_final: str, without_final: str) -> str:
     return with_final if item_id[-1] in _DIGITS_WITH_FINAL else without_final
 
 
-def _print_item(g: ShopGraph, rank: int, item: dict, scope_label: str) -> None:
-    """추천 항목 하나를 세 줄(상품·점수·범위 / 근거 / 구매 가능 색상)로 출력한다.
+def _item_lines(g: ShopGraph, rank: int, item: dict, scope_label: str) -> list[str]:
+    """추천 항목 하나의 세 화면 줄(상품·근거·구매 가능 색상)을 만든다.
 
     근거에는 지지 고객 ID를 적는다. 같은 성별 범위에서는 지지 고객마다 그룹 표시 이름을 붙이고,
     그 상품을 2가지 이상 색상으로 산 지지 고객은 색상 수를 덧붙인다 (5.3.3 출력 예시).
@@ -194,15 +244,15 @@ def _print_item(g: ShopGraph, rank: int, item: dict, scope_label: str) -> None:
         scope_label: 범위 표시 이름 (예: "남성 전체").
 
     반환:
-        없음.
+        상품·근거·구매 가능 색상 순서의 새 문자열 세 개.
 
     예외:
         ValueError: 항목의 상품·지지 고객 ID가 g에 없을 때 g의 메서드가 낸 것을 그대로 전달한다.
     """
     product_id = item["product_id"]
     name = g.get_product(product_id)["name"]
-    print(f" {rank}. {name} ({product_id}) - 점수 {item['score']}, "
-          f"구매 고객 {item['buyers']}명 [{scope_label}]")
+    first = (f" {rank}. {name} ({product_id}) - 점수 {item['score']}, "
+             f"구매 고객 {item['buyers']}명 [{scope_label}]")
     supporters = item["supporters"]
     if item["scope"] == "gender":
         names = ", ".join(f"{cid}({GROUP_LABELS[g.group_of(cid)]})" for cid in supporters)
@@ -213,8 +263,14 @@ def _print_item(g: ShopGraph, rank: int, item: dict, scope_label: str) -> None:
              for cid in supporters if g.weight(cid, product_id) >= 2]
     if multi:
         reason += f" ({', '.join(multi)} 색상 구매)"
-    print(reason)
-    print(f"    구매 가능 색상: {', '.join(item['available_colors'])}")
+    third = f"    구매 가능 색상: {', '.join(item['available_colors'])}"
+    return [first, reason, third]
+
+
+def _print_item(g: ShopGraph, rank: int, item: dict, scope_label: str) -> None:
+    """추천 항목의 세 줄을 출력한다 (기존 내부 호환용)."""
+    for line in _item_lines(g, rank, item, scope_label):
+        print(line)
 
 
 def _widen_note(g: ShopGraph, customer_id: str, group_label: str, gender_label: str,

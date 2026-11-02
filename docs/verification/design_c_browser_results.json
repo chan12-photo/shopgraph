@@ -1,0 +1,116 @@
+{
+  "scenes": [
+    {
+      "scene": 1,
+      "file": "01_groups.png",
+      "result": "일치",
+      "checks": "그룹 8개 인원 전체"
+    },
+    {
+      "scene": 2,
+      "file": "02_registered_recommendation.png",
+      "result": "일치",
+      "checks": "C_new ID·추천 3항목 전체·안내 없음"
+    },
+    {
+      "scene": 3,
+      "file": "03a_purchase_s1.png",
+      "result": "일치",
+      "checks": "구매 가중치 1→2·S1 색상/가중치"
+    },
+    {
+      "scene": 3,
+      "file": "03b_graph_weight2.png",
+      "result": "일치",
+      "checks": "선택 정보 이웃 이름·관계·가중치 2"
+    },
+    {
+      "scene": 4,
+      "file": "04_recommend_again.png",
+      "result": "일치",
+      "checks": "기구매 P_top 제외·추천 전체"
+    },
+    {
+      "scene": 5,
+      "file": "05a_popular_before.png",
+      "result": "일치",
+      "checks": "S4 구매 전 9항목·점수·구매자·상태"
+    },
+    {
+      "scene": 5,
+      "file": "05b_popular_after.png",
+      "result": "일치",
+      "checks": "S4 전 고정·구매 후 9항목·순위 변화"
+    },
+    {
+      "scene": 6,
+      "file": "06a_before_stock.png",
+      "result": "일치",
+      "checks": "품절 전 P_top6 1위·색상 수 안내 포함 추천 전체"
+    },
+    {
+      "scene": 6,
+      "file": "06b_zero_stock.png",
+      "result": "일치",
+      "checks": "모든 기존 색상 재고 0·품절·C_new 추천 복귀 버튼"
+    },
+    {
+      "scene": 6,
+      "file": "06c_after_stock.png",
+      "result": "일치",
+      "checks": "품절 후 P_top6 제외·다음 후보 포함 추천 전체"
+    },
+    {
+      "scene": 7,
+      "file": "07_widen_gender.png",
+      "result": "일치",
+      "checks": "남성 전체 3항목·점수/지지자/색상·넓힘 안내 원문"
+    },
+    {
+      "scene": 8,
+      "file": "08_integrity.png",
+      "result": "일치",
+      "checks": "통계 6항목·위반 수"
+    }
+  ],
+  "external": [],
+  "exceptions": [],
+  "browser": "Chrome/156.0.8078.74",
+  "entry": "python3 -B main.py --web --port 8011",
+  "viewport": [
+    1440,
+    900
+  ],
+  "layout": [
+    {
+      "label": "장면 1 선택 없음",
+      "nodes": 60,
+      "api_nodes": 60,
+      "viewport": [
+        1440,
+        900
+      ],
+      "scrollHeight": 900,
+      "scrollWidth": 1440,
+      "outside": [],
+      "graphMinFont": 13,
+      "bodyMinFont": 14.25,
+      "dimWithoutSelection": 0
+    },
+    {
+      "label": "장면 3 C_new 등록 뒤 선택 전",
+      "nodes": 61,
+      "api_nodes": 61,
+      "viewport": [
+        1440,
+        900
+      ],
+      "scrollHeight": 900,
+      "scrollWidth": 1440,
+      "outside": [],
+      "graphMinFont": 13,
+      "bodyMinFont": 14.25,
+      "dimWithoutSelection": 0
+    }
+  ]
+}

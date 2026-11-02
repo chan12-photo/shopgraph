@@ -276,3 +276,7 @@ doc-pending 브랜치(99cac86, draft PR #2)에 문안이 이미 들어가 있다
 - 설계 변경 1: `recommendation_view(g, customer_id, result, k)`가 `{header, items: [[항목줄, 근거줄, 색상줄], ...], notices}`를 반환한다. 빈 결과는 header만 둔다. `print_recommendation`은 이 구조를 순서대로 출력하고 웹은 구조를 그대로 사용한다. `recommendation_scope_label`은 유지한다.
 - 설계 변경 2: 웹 API 테스트는 같은 프로세스의 백그라운드 스레드에서 `HTTPServer.serve_forever()`를 실행하고, port=0과 `urllib`로 실제 HTTP를 검사한다. 응답 뒤 같은 graph 객체 snapshot을 비교하며 finally에서 `shutdown()`·`server_close()`를 보장한다.
 - 설계 변경 3: UI3에서 6개 패키지 각각의 게시일을 기록한다. 게시 2주 미만이면 바로 이전 안정 버전을 선택하고, typecheck·build 실패 시 버전을 바꿔 재시도하지 않고 멈춰 보고한다. Node v25는 홀수 단기 지원이므로 UI3 전에 짝수 LTS 사용을 권장하되 막지는 않는다.
+
+## 15. UI0 [승인] 기록 (2026-11-02)
+
+찬일 결정에 따라 14번 보완 문안을 승인 기록한다. `[UI0] UI0 보완 설계 반영` 커밋은 `d1dd4ec`이며, 이 기록 커밋 뒤 UI1을 시작하지 않는다. 계획서 본문은 계속 수정하지 않고, 다음 단계는 별도 [승인] 지시 후 진행한다.

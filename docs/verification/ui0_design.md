@@ -270,3 +270,7 @@ Context7으로 공식 자료를 확인했다. Vite는 TSX 변환과 타입 검�
 - [TypeScript noEmit](https://www.typescriptlang.org/tsconfig/noEmit.html), [JSX 설정](https://www.typescriptlang.org/tsconfig/jsx.html)
 - [React createRoot](https://react.dev/reference/react-dom/client/createRoot)
 - 버전·engines·peerDependencies: `https://registry.npmjs.org/{패키지}/latest`를 11/02에 읽기만 수행. UI3 실제 설치 시 정확한 버전으로 고정한다.
+
+## 11. UI0 [승인] 기록 (2026-11-02)
+
+찬일 결정으로 UI0 보완을 승인 기록했다. D1~D4와 설계 변경 5건은 위 계약으로 확정했으며, 첫 보완 커밋은 `d1dd4ec`이다. 이 기록 커밋 뒤에도 UI1은 시작하지 않고 다음 명시적 지시까지 멈춘다. 문서 검토에서 코드 실행은 없었고, 커밋 직전 전체 회귀 테스트만 분류한다.

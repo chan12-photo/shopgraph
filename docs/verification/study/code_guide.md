@@ -169,7 +169,7 @@ view.py   ──> graph.py (공개 메서드와 대문자 상수만)
 | | TestW10aMessages | W10a 오류 메시지 형식 | tests/test_flow.py:688 |
 | | TestW10bInputs | W10b 고장 검사에서 찾은 입력 처리 공백(자릿수 경계, 삭제 ID 공백), 추천 K 라벨 | tests/test_flow.py:719 |
 | tests/test_view.py | TestW9Table, TestW9GroupTree, TestW9Neighbors | W9 표·그룹 트리·인접 리스트 | tests/test_view.py:59, 120, 190 |
-| tests/test_demo.py | TestW12Demo | W12 시연 장면 1~8 (기대값 승인 전이라 지금은 NotImplementedError) | tests/test_demo.py:309 |
+| tests/test_demo.py | TestW12Demo | W12 시연 장면 1~8 (기대값 승인 전이라 지금은 NotImplementedError) | tests/test_demo.py:650 |
 
 - 고정 데이터는 tests/fixtures.py가 테스트마다 새로 만들어요. 실행용 data.py를 읽는 테스트는 test_demo뿐이에요 (CLAUDE.md "테스트" 절, tests/test_demo.py 모듈 설명).
 - 실패 입력 테스트는 `snapshot(g)`로 내부 상태 전체를 전후 비교해요 (tests/helpers.py, CLAUDE.md "테스트" 절).

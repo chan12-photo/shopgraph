@@ -11,8 +11,14 @@ NotImplementedError("W11 기대값 승인 전")로 멈춘다 (11.3.3 미도래 �
 보호 순서: 각 테스트는 main.run()을 실행하기 전에 그 장면과 앞 장면들의 기대값 칸과 확정값을 모두 먼저 읽어
 검사한다(_require_through). 작성 도중이라 칸이 하나라도 비어 있으면 시연을 실행하지 않고 멈춘다. 칸이 다 채워져도
 demo_expected.md 상태 줄이 "상태: 승인 (찬일, YYYY-MM-DD) / AI 독립 계산 대조: 일치"가 아니면 멈춘다.
-비교: 내부 함수(recommend·products_of·group_popular·stats 등) 결과와 함께, 실제 화면에서 표 행·추천 항목을
-순서대로 뽑아 기대값과 비교한다 (Codex 검토 9784473 1·2번).
+비교: 내부 함수(recommend·products_of·group_popular·stats 등) 결과와 함께, 장면 화면에서 출력 구간(추천 블록,
+S1 표, S4 표 구매 전·후, 그룹 트리, 통계 표와 무결성 줄)을 잘라 기대 화면과 통째로 assertEqual 한다 (Codex 2차 검토).
+기대 화면은 승인된 출력 함수(view.print_recommendation·print_table·print_group_tree)에 기대값으로 만든 입력을 넣어
+만든다. 그래서 출력 형식 자체가 맞는지는 test_view·test_flow가 지키고, 이 파일은 값·순서·개수·빠진 줄·덧붙은 줄을
+지킨다. 추천 근거 줄의 색상 수 안내는 print_recommendation이 g.weight()로 정하므로, 기대 화면을 만들 때는
+weight()만 기대값 "색상 수 안내" 열에서 읽는 대리 그래프(_ExpectedColorCounts)를 넘긴다. 그룹 트리의 고객 줄(이름·나이)은
+기대값이 아니라서 실제 그래프로 만든 트리와 통째로 비교하고, 그룹별 인원은 기대값과 따로 대조한다.
+등록 줄("[등록] …")은 발급되는 구매 ID(T번호)만 빼고 줄 전체를 기대값으로 맞춘다.
 """
 
 import contextlib
@@ -26,7 +32,9 @@ from unittest import mock
 import main
 from data import initial_records
 from graph import GROUP_IDS, ShopGraph
+from graph import GROUP_LABELS
 from search import group_popular, products_of, recommend
+from view import print_group_tree, print_recommendation, print_table
 
 _EXPECTED_PATH = pathlib.Path(__file__).resolve().parent.parent / "docs" / "demo_expected.md"
 _NOT_READY = "W11 기대값 승인 전"
@@ -53,7 +61,7 @@ _STAT_KEYS = {"그룹 노드": "groups", "고객 노드": "customers", "상품 �
 # 장면마다 입력이나 확인에 쓰는 확정값 이름 (docs/demo_expected.md 확정값 표, w11_scenes.md)
 _FIXED_BY_SCENE = {2: ("C_new",), 3: ("C_new", "P_top", "장면 3 색상 1", "장면 3 색상 2"), 4: ("C_new",),
                    6: ("C_new", "P_top6"), 7: ("C_new7",)}
-_FIXED_KEYS = ("C_new", "P_top", "장면 3 색상 1", "장면 3 색상 2", "P_top6", "C_new7")
+_FIXED_KEYS = tuple(dict.fromkeys(key for keys in _FIXED_BY_SCENE.values() for key in keys))  # 확정값 표의 필수 행
 _NOTE_NAMES = tuple(name for name, _ in _NOTES)
 
 # 행 규칙: 필수 행 이름 튜플(첫 열 값이 정확히 이 집합, 중복 없음), _RANKED(순위 1부터 연속, 뒤쪽 행은 "-"로
@@ -99,11 +107,14 @@ _COLUMN_CHOICES = {"범위": frozenset(_SCOPES), "상태": frozenset({"판매 �
 _VALUE_FORMATS = {"C_new": _CUSTOMER_ID, "C_new7": _CUSTOMER_ID, "P_top": _PRODUCT_ID, "P_top6": _PRODUCT_ID,
                   "장면 3 색상 1": r"[^,\s-][^,]*", "장면 3 색상 2": r"[^,\s-][^,]*", "위반 수": _NON_NEGATIVE}
 
-# 화면 줄 모양 (W8b·W9·W10 승인 형식)
-_TREE_GROUP = re.compile(r"^ {4}\S.*? \((G-[FM]-\d+\+?)\) (\d+)명$", re.M)
-_REC_ITEM = re.compile(r"^ (\d+)\. .+ \((P\d{2})\) - 점수 (\d+), 구매 고객 (\d+)명 \[(.+)\]$")
-_REC_REASON = re.compile(r"^ {4}근거: (.+?)(?:이|가) 구매")
-_REC_COLORS = "    구매 가능 색상: "
+# 화면 구간 첫 줄 글자와 표 머리 (W8b·W9·W10 승인 형식, main.py _search_s1·_search_s4·_print_stats와 같음)
+_S1_SCREEN_HEADERS = ["상품 ID", "상품명", "구매 색상", "가중치", "기록 수", "총수량", "최근 구매일"]
+_S4_SCREEN_HEADERS = ["순위", "상품 ID", "상품명", "점수", "구매 고객 수", "상태"]
+_INTEGRITY_OK = "[무결성 검사] 위반 없음: 원본과 그래프가 일치함을 확인"
+
+# 장면 3·5에서 넣는 구매 (w11_scenes.md): 장면 3은 (확정값 색상 이름, 날짜), 장면 5는 (색상, 날짜). 수량은 모두 1
+_SCENE3_BUYS = (("장면 3 색상 1", "2026-10-30"), ("장면 3 색상 2", "2026-10-31"))
+_SCENE5_BUYS = (("블랙", "2026-10-30"), ("그레이", "2026-10-30"), ("네이비", "2026-10-31"))
 
 
 def _load_expected() -> dict[str, dict[str, list[dict[str, str]]]]:
@@ -406,67 +417,158 @@ def _require_approval() -> None:
         raise NotImplementedError(f"{_NOT_APPROVED}: 상태 줄의 승인 날짜가 실제 날짜가 아님: {status!r}")
 
 
-def _screen_tables(screen: str, title: str) -> list[list[list[str]]]:
-    """화면에서 title이 들어 있는 줄 뒤의 print_table 표를 모두 찾아 행(칸 리스트)으로 돌려준다.
+def _capture(func: object, *args: object) -> str:
+    """출력 함수 하나를 불러 표준 출력을 문자열로 받는다.
 
-    표는 제목 줄 → 머리 줄 → 구분 줄 → 행들 순서다 (W9·W10 승인 형식). 행은 빈 줄, "["로 시작하는 줄,
-    "메뉴 선택" 줄 앞에서 끝난다. 칸은 공백 2칸 이상으로 나눈다 (열 사이 공백 2칸, W9).
-    "[제목] 결과가 없습니다" 줄은 빈 표로 센다.
+    인자:
+        func: 부를 함수 (승인된 view 출력 함수).
+        *args: 넘길 인자.
+
+    반환:
+        출력 문자열.
+
+    예외:
+        func가 내는 예외를 그대로 전달한다.
+    """
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer):
+        func(*args)
+    return buffer.getvalue()
+
+
+def _screen_blocks(screen: str, mark: str) -> list[str]:
+    """화면에서 mark가 들어 있는 줄마다, 그 줄의 mark부터 다음 빈 줄 앞까지를 출력 구간으로 잘라 돌려준다.
+
+    입력 안내(예: "번호 선택: ")가 같은 줄 앞에 붙으므로 첫 줄은 mark 앞을 지운다. 구간 뒤에는 메인 메뉴가
+    빈 줄로 시작한다 (main.py _MENU). 구간 안에 덧붙은 줄이 있으면 구간에 같이 들어가 비교에서 드러난다.
 
     인자:
         screen: 장면 화면.
-        title: 표 제목 글자 (예: "[S4 그룹 인기 상품]").
+        mark: 구간 첫 줄 글자 (예: "[추천] ", "[그래프 통계]").
 
     반환:
-        표마다 행 리스트. 화면에 나온 순서.
+        구간 문자열 리스트 (각 구간은 줄마다 줄바꿈으로 끝남). 화면에 나온 순서.
 
     예외:
         없음.
     """
     lines = screen.splitlines()
-    tables = []
+    blocks = []
     for index, line in enumerate(lines):
-        if title not in line:
+        if mark not in line:
             continue
-        if line.endswith("결과가 없습니다"):
-            tables.append([])
-            continue
-        rows = []
-        for row in lines[index + 3:]:
-            if not row.strip() or row.startswith("[") or row.startswith("메뉴 선택"):
+        block = [line[line.index(mark):]]
+        for following in lines[index + 1:]:
+            if not following.strip():
                 break
-            rows.append(re.split(r" {2,}", row.strip()))
-        tables.append(rows)
-    return tables
+            block.append(following)
+        blocks.append("".join(text + "\n" for text in block))
+    return blocks
 
 
-def _screen_recommend(screen: str) -> list[list[str]]:
-    """추천 화면에서 항목마다 [순위, 상품 ID, 점수, 구매자 수, 범위, 지지자, 구매 가능 색상]을 화면 순서대로 뽑는다.
-
-    항목 줄 다음 줄이 근거 줄, 그다음 줄이 구매 가능 색상 줄이다 (W8b 승인 형식). 지지자는 근거 줄에서
-    "이/가 구매" 앞의 고객 ID들이다 (그룹 표시 이름과 색상 수 안내는 뺌).
+def _register_lines(screen: str) -> list[str]:
+    """화면의 "[등록] " 줄을 입력 안내를 지운 채 화면 순서대로 돌려준다.
 
     인자:
         screen: 장면 화면.
 
     반환:
-        항목 리스트. 근거·색상 줄 모양이 다르면 그 줄을 그대로 넣어 비교에서 드러나게 한다.
+        "[등록] …" 줄 리스트.
 
     예외:
         없음.
     """
-    lines = screen.splitlines() + ["", ""]
-    items = []
-    for index, line in enumerate(lines):
-        match = _REC_ITEM.match(line)
-        if not match:
-            continue
-        reason = _REC_REASON.match(lines[index + 1])
-        supporters = ", ".join(re.findall(r"C\d{2}", reason.group(1))) if reason else lines[index + 1]
-        colors = lines[index + 2]
-        colors = colors[len(_REC_COLORS):] if colors.startswith(_REC_COLORS) else colors
-        items.append(list(match.groups()) + [supporters, colors])
-    return items
+    return [line[line.index("[등록] "):] for line in screen.splitlines() if "[등록] " in line]
+
+
+class _ExpectedColorCounts:
+    """print_recommendation에 넘기는 그래프 대리: weight()만 기대값 "색상 수 안내" 열에서 읽고 나머지는 실제 그래프에 맡긴다.
+
+    print_recommendation은 근거 줄의 "(C02는 2가지 색상 구매)"를 g.weight()가 2 이상인 지지자로 만든다.
+    기대 화면의 그 부분을 기대값으로 만들려고 weight()만 바꾼다 (상품명·그룹 표시 이름 등은 기대값이 아님).
+    """
+
+    def __init__(self, g: ShopGraph, counts: dict[tuple[str, str], int]) -> None:
+        """대리를 만든다.
+
+        인자:
+            g: 실제 그래프 (장면을 진행한 상태).
+            counts: (고객 ID, 상품 ID) → 기대 색상 수. 없는 쌍은 1로 본다 (안내에 나오지 않음).
+
+        반환:
+            없음.
+
+        예외:
+            없음.
+        """
+        self.graph = g
+        self.counts = counts
+
+    def weight(self, customer_id: str, product_id: str) -> int:
+        """기대 색상 수를 돌려준다.
+
+        인자:
+            customer_id: 고객 ID.
+            product_id: 상품 ID.
+
+        반환:
+            "색상 수 안내"에 적힌 수, 없으면 1.
+
+        예외:
+            없음.
+        """
+        return self.counts.get((customer_id, product_id), 1)
+
+    def __getattr__(self, name: str) -> object:
+        """weight 말고는 실제 그래프의 공개 메서드를 돌려준다.
+
+        인자:
+            name: 속성 이름.
+
+        반환:
+            실제 그래프의 속성.
+
+        예외:
+            AttributeError: 실제 그래프에도 없을 때.
+        """
+        return getattr(self.graph, name)
+
+
+def _color_counts(rows: list[dict[str, str]]) -> dict[tuple[str, str], int]:
+    """추천 표 행들의 "색상 수 안내"를 (고객 ID, 상품 ID) → 색상 수로 읽는다.
+
+    인자:
+        rows: 쓰인 추천 표 행.
+
+    반환:
+        딕셔너리 ("-"인 행은 들어가지 않음).
+
+    예외:
+        없음.
+    """
+    return {(customer_id, row["상품 ID"]): int(count) for row in rows
+            for customer_id, count in re.findall(r"(C[0-9]{2})[은는] ([0-9]+)가지", row["색상 수 안내"])}
+
+
+def _expected_recommend_block(g: ShopGraph, customer_id: str, rows: list[dict[str, str]]) -> str:
+    """기대 추천 표로 recommend() 결과 모양을 만들어 승인된 print_recommendation으로 기대 추천 블록을 만든다.
+
+    인자:
+        g: 장면을 진행한 실제 그래프 (이름·그룹 표시 이름·넓힘 이유용 소속 고객).
+        customer_id: 추천 대상 고객 ID.
+        rows: 쓰인 추천 표 행 (순위 순).
+
+    반환:
+        기대 화면 문자열 (머리 줄부터 안내 줄까지).
+
+    예외:
+        ValueError: 기대값의 고객·상품 ID가 그래프에 없을 때 (g가 낸다).
+    """
+    result = [{"product_id": row["상품 ID"], "score": int(row["점수"]), "buyers": int(row["구매자 수"]),
+               "scope": _SCOPES[row["범위"]], "supporters": row["지지자"].split(", "),
+               "available_colors": row["구매 가능 색상"].split(", ")} for row in rows]
+    return _capture(print_recommendation, _ExpectedColorCounts(g, _color_counts(rows)), customer_id, result,
+                    _RECOMMEND_K)
 
 
 def _scene_inputs(scene: int, expected: dict) -> list[str]:
@@ -488,14 +590,12 @@ def _scene_inputs(scene: int, expected: dict) -> list[str]:
     if scene == 2:
         return ["1", "1", "하람", "2", "25"]
     if scene == 3:
-        buy = [["1", "3", fixed("C_new"), fixed("P_top"), fixed(f"장면 3 색상 {n}"), "1", day]
-               for n, day in ((1, "2026-10-30"), (2, "2026-10-31"))]
+        buy = [["1", "3", fixed("C_new"), fixed("P_top"), fixed(name), "1", day] for name, day in _SCENE3_BUYS]
         return buy[0] + buy[1] + ["2", "4", fixed("C_new")]
     if scene == 4:
         return ["6", fixed("C_new"), ""]
     if scene == 5:
-        buys = [["1", "3", "C09", "P07", color, "1", day]
-                for color, day in (("블랙", "2026-10-30"), ("그레이", "2026-10-30"), ("네이비", "2026-10-31"))]
+        buys = [["1", "3", "C09", "P07", color, "1", day] for color, day in _SCENE5_BUYS]
         return ["2", "7", "2", ""] + buys[0] + buys[1] + buys[2] + ["2", "7", "2", ""]
     if scene == 6:
         stock = {p["id"]: p["stock"] for p in initial_records()[1]}[fixed("P_top6")]
@@ -551,7 +651,7 @@ class TestW12Demo(unittest.TestCase):
     """W12: 7장 시연 장면 1~8 (기대값은 docs/demo_expected.md)."""
 
     def _check_recommend(self, expected: dict, scene: str, g: ShopGraph, customer_id: str, screen: str) -> None:
-        """그 장면의 추천 표·안내 줄을 recommend() 결과와 화면에 대조한다.
+        """그 장면의 추천을 recommend()·g.weight()와 대조하고, 화면의 추천 블록을 기대 블록과 통째로 비교한다.
 
         인자:
             expected: _load_expected()의 결과.
@@ -571,108 +671,123 @@ class TestW12Demo(unittest.TestCase):
         if table is None:
             raise NotImplementedError(f"{_NOT_READY}: {scene} 추천 표 없음")
         rows = _rows(expected, scene, table)
-        notes = {name: _value(expected, scene, "안내 줄", name) for name, _ in _NOTES}
-        result = recommend(g, customer_id, 3)
-        self.assertEqual([item["product_id"] for item in result], [row["상품 ID"] for row in rows])
-        for item, row in zip(result, rows):
-            self.assertEqual(item["scope"], _SCOPES[row["범위"]], msg=row)
-            self.assertEqual((str(item["score"]), str(item["buyers"])), (row["점수"], row["구매자 수"]), msg=row)
-            self.assertEqual(", ".join(item["supporters"]), row["지지자"], msg=row)
-            self.assertEqual(", ".join(item["available_colors"]), row["구매 가능 색상"], msg=row)
-        # 화면: 항목 순서·개수·근거 줄·구매 가능 색상 줄을 순서대로 비교
-        self.assertEqual(_screen_recommend(screen),
-                         [[row["순위"], row["상품 ID"], row["점수"], row["구매자 수"], row["범위"], row["지지자"],
+        notes = {name: _value(expected, scene, "안내 줄", name) for name in _NOTE_NAMES}
+        result = recommend(g, customer_id, _RECOMMEND_K)
+        self.assertEqual([[item["product_id"], item["scope"], str(item["score"]), str(item["buyers"]),
+                           ", ".join(item["supporters"]), ", ".join(item["available_colors"])] for item in result],
+                         [[row["상품 ID"], _SCOPES[row["범위"]], row["점수"], row["구매자 수"], row["지지자"],
                            row["구매 가능 색상"]] for row in rows])
-        if rows:
-            self.assertEqual(re.findall(r"님께 추천 \((\d+)개\)", screen), [str(len(rows))])
-        else:
-            self.assertIn("님께 추천할 상품이 없습니다", screen)
+        self.assertEqual({(cid, item["product_id"]): g.weight(cid, item["product_id"]) for item in result
+                          for cid in item["supporters"] if g.weight(cid, item["product_id"]) >= 2},
+                         _color_counts(rows))
+        gender_label = {"여": "여성 전체", "남": "남성 전체"}[g.get_customer(customer_id)["gender"]]
+        self.assertTrue(all(row["범위"] == gender_label for row in rows if _SCOPES[row["범위"]] == "gender"))
+        want = _expected_recommend_block(g, customer_id, rows)
         for name, mark in _NOTES:
-            self.assertEqual(mark in screen, notes[name] == "있음", msg=name)
+            self.assertEqual(mark in want, notes[name] == "있음", msg=name)
+        self.assertEqual(_screen_blocks(screen, "[추천] "), [want])
 
-    def _check_weights(self, expected: dict, scene: str, table: str, screen: str) -> None:
-        """구매 등록 줄의 "(가중치 W)" 값들을 표와 대조한다.
+    def _check_register_buys(self, screen: str, buys: list[tuple[str, str, str, str, str]]) -> None:
+        """구매 등록 줄들을 구매 ID(T번호)만 빼고 줄 전체로 비교한다.
 
         인자:
-            expected: _load_expected()의 결과.
-            scene: 장 이름.
-            table: 가중치 표 제목.
-            screen: 그 장면의 화면.
+            screen: 장면 화면.
+            buys: (고객 ID, 상품 ID, 색상, 구매일, 기대 가중치) 리스트, 입력 순서.
 
         반환:
             없음.
 
         예외:
-            NotImplementedError: 기대값 칸이 비어 있을 때.
-            AssertionError: 다를 때.
+            AssertionError: 줄 수가 다르거나 줄이 다를 때.
         """
-        rows = _rows(expected, scene, table)
-        self.assertEqual(re.findall(r"\(가중치 (\d+)\)", screen), [row["가중치"] for row in rows])
+        lines = _register_lines(screen)
+        self.assertEqual(len(lines), len(buys), msg=lines)
+        for line, (customer_id, product_id, color, day, weight) in zip(lines, buys):
+            rest = f": {customer_id} → {product_id}, {color}, 1개, {day} (가중치 {weight})"
+            self.assertRegex(line, "^" + re.escape("[등록] ") + "T[0-9]{3}" + re.escape(rest) + "$")
 
-    def _check_s4(self, expected: dict, table: str, g: ShopGraph, screen_rows: list[list[str]]) -> None:
-        """S4(G-F-20, 전체) 결과를 내부 함수 결과와 화면 표 행 둘 다 기대 표와 대조한다.
+    def _s4_block(self, g: ShopGraph, rows: list[dict[str, str]]) -> str:
+        """기대 S4 표(G-F-20)로 S4 화면 구간을 만든다 (main.py _search_s4·_print_rows 승인 형식).
 
         인자:
-            expected: _load_expected()의 결과.
-            table: "장면 5"의 S4 표 제목.
+            g: 상품명을 읽을 그래프.
+            rows: 쓰인 S4 표 행.
+
+        반환:
+            기대 화면 문자열.
+
+        예외:
+            ValueError: 없는 상품 ID일 때 (g가 낸다).
+        """
+        title = f"[S4 그룹 인기 상품] {GROUP_LABELS['G-F-20']}(G-F-20)"
+        if not rows:
+            return f"{title} 결과가 없습니다\n"
+        table = [[int(row["순위"]), row["상품 ID"], g.get_product(row["상품 ID"])["name"], int(row["점수"]),
+                  int(row["구매 고객 수"]), row["상태"]] for row in rows]
+        return f"{title} {len(rows)}개\n" + _capture(print_table, _S4_SCREEN_HEADERS, table)
+
+    def _check_s4(self, g: ShopGraph, rows: list[dict[str, str]], block: str) -> None:
+        """S4(G-F-20, 전체)를 group_popular()와 대조하고 화면 구간을 기대 구간과 통째로 비교한다.
+
+        인자:
             g: 비교할 시점의 ShopGraph.
-            screen_rows: 화면의 S4 표 행 (_screen_tables의 표 하나).
+            rows: 쓰인 S4 표 행.
+            block: 화면에서 자른 S4 구간.
 
         반환:
             없음.
 
         예외:
-            NotImplementedError: 기대값 칸이 비어 있을 때.
             AssertionError: 다를 때.
         """
-        rows = _rows(expected, "장면 5", table)
         actual = [[item["product_id"], str(item["score"]), str(item["buyers"]), "품절" if item["sold_out"] else "판매 중"]
                   for item in group_popular(g, "G-F-20")]
         self.assertEqual(actual, [[row["상품 ID"], row["점수"], row["구매 고객 수"], row["상태"]] for row in rows])
-        # 화면 표: [순위, 상품 ID, 상품명, 점수, 구매 고객 수, 상태] 중 상품명을 뺀 칸 (행 순서·개수)
-        self.assertEqual([[cells[0], cells[1]] + cells[3:] for cells in screen_rows],
-                         [[row["순위"], row["상품 ID"], row["점수"], row["구매 고객 수"], row["상태"]] for row in rows])
+        self.assertEqual(block, self._s4_block(g, rows))
 
     def test_scene1_group_tree(self) -> None:
-        """장면 1: 그룹별 고객 트리의 그룹별 인원 (화면 줄과 g.members())."""
+        """장면 1: 그룹별 인원을 g.members()와 대조하고, 화면의 그룹 트리 구간을 실제 그래프로 만든 트리와 통째로 비교."""
         expected = _load_expected()
         _require_through(expected)
-        rows = _rows(expected, "장면 1", "그룹별 인원")
+        counts = {row["그룹 ID"]: row["인원"] for row in _rows(expected, "장면 1", "그룹별 인원")}
         screen, g = _run_scenes(1, expected)
-        want = [(row["그룹 ID"], row["인원"]) for row in rows]
-        self.assertEqual(_TREE_GROUP.findall(screen), want)  # 화면 순서·개수까지
-        self.assertEqual([(group_id, str(len(g.members(group_id)))) for group_id, _ in want], want)
+        self.assertEqual({group_id: str(len(g.members(group_id))) for group_id in GROUP_IDS}, counts)
+        self.assertEqual(_screen_blocks(screen, "[그룹별 고객]"), [_capture(print_group_tree, g)])
 
     def test_scene2_register_recommend(self) -> None:
-        """장면 2: "25세 여성" 등록 → 연결 그룹, 즉시 추천과 안내 줄."""
+        """장면 2: "25세 여성" 등록 → 등록 줄, 연결 그룹, 즉시 추천 블록."""
         expected = _load_expected()
         _require_through(expected)
         customer_id = _value(expected, "확정값", "확정값", "C_new")
         group_id = _value(expected, "장면 2", "연결 그룹", "C_new 연결 그룹 ID")
         screen, g = _run_scenes(2, expected)
-        self.assertIn(f"[등록] 하람({customer_id}) → ", screen)
+        self.assertEqual(_register_lines(screen), [f"[등록] 하람({customer_id}) → {GROUP_LABELS[group_id]} 그룹에 연결"])
         self.assertEqual(g.group_of(customer_id), group_id)
         self._check_recommend(expected, "장면 2", g, customer_id, screen)
 
     def test_scene3_two_colors_s1(self) -> None:
-        """장면 3: 추천 1위를 두 색상으로 구매 → 구매 등록 줄 가중치와 S1 (화면 표와 products_of())."""
+        """장면 3: 추천 1위를 두 색상으로 구매 → 등록 줄 2개와 S1 구간 (products_of()와 화면)."""
         expected = _load_expected()
         _require_through(expected)
-        customer_id = _value(expected, "확정값", "확정값", "C_new")
+        fixed = lambda key: _value(expected, "확정값", "확정값", key)  # noqa: E731
+        customer_id, product_id = fixed("C_new"), fixed("P_top")
+        weights = [row["가중치"] for row in _rows(expected, "장면 3", "구매 등록 줄 가중치")]
         rows = _rows(expected, "장면 3", "S1 (C_new)")
-        want = [[row["상품 ID"], row["구매 색상"], row["가중치"], row["기록 수"], row["총수량"], row["최근 구매일"]]
-                for row in rows]
         screen, g = _run_scenes(3, expected)
-        self._check_weights(expected, "장면 3", "구매 등록 줄 가중치", screen)
+        self._check_register_buys(screen, [(customer_id, product_id, fixed(name), day, weight)
+                                           for (name, day), weight in zip(_SCENE3_BUYS, weights)])
         actual = [[item["product_id"], ", ".join(item["colors"]), str(item["weight"]), str(item["count"]),
                    str(item["total_qty"]), item["last_date"]] for item in products_of(g, customer_id)]
-        self.assertEqual(actual, want)
-        tables = _screen_tables(screen, "[S1 고객이 산 상품]")
-        self.assertEqual(len(tables), 1)
-        self.assertEqual([[cells[0]] + cells[2:] for cells in tables[0]], want)
+        self.assertEqual(actual, [[row["상품 ID"], row["구매 색상"], row["가중치"], row["기록 수"], row["총수량"],
+                                   row["최근 구매일"]] for row in rows])
+        table = [[row["상품 ID"], g.get_product(row["상품 ID"])["name"], row["구매 색상"], int(row["가중치"]),
+                  int(row["기록 수"]), int(row["총수량"]), row["최근 구매일"]] for row in rows]
+        title = f"[S1 고객이 산 상품] {g.get_customer(customer_id)['name']}({customer_id}) {len(rows)}개\n"
+        self.assertEqual(_screen_blocks(screen, "[S1 고객이 산 상품]"),
+                         [title + _capture(print_table, _S1_SCREEN_HEADERS, table)])
 
     def test_scene4_recommend_again(self) -> None:
-        """장면 4: 다시 추천 → 이미 산 상품이 빠진 결과와 안내 줄."""
+        """장면 4: 다시 추천 → 이미 산 상품이 빠진 추천 블록."""
         expected = _load_expected()
         _require_through(expected)
         customer_id = _value(expected, "확정값", "확정값", "C_new")
@@ -680,58 +795,62 @@ class TestW12Demo(unittest.TestCase):
         self._check_recommend(expected, "장면 4", g, customer_id, screen)
 
     def test_scene5_s4_change(self) -> None:
-        """장면 5: C09가 P07을 세 색상으로 구매 → 구매 등록 줄 가중치, S4 구매 전·후 (화면 표 2개와 group_popular())."""
+        """장면 5: C09가 P07을 세 색상으로 구매 → 등록 줄 3개, S4 구매 전·후 구간 (group_popular()와 화면)."""
         expected = _load_expected()
         _require_through(expected)
+        before_rows = _rows(expected, "장면 5", "S4 구매 전 (G-F-20, 전체)")
+        after_rows = _rows(expected, "장면 5", "S4 구매 후 (G-F-20, 전체)")
+        weights = [row["가중치"] for row in _rows(expected, "장면 5", "구매 등록 줄 가중치 (C09–P07)")]
         _, before = _run_scenes(4, expected)
         screen, g = _run_scenes(5, expected)
-        tables = _screen_tables(screen, "[S4 그룹 인기 상품]")
-        self.assertEqual(len(tables), 2)
-        self._check_s4(expected, "S4 구매 전 (G-F-20, 전체)", before, tables[0])
-        self._check_weights(expected, "장면 5", "구매 등록 줄 가중치 (C09–P07)", screen)
-        self._check_s4(expected, "S4 구매 후 (G-F-20, 전체)", g, tables[1])
+        blocks = _screen_blocks(screen, "[S4 그룹 인기 상품]")
+        self.assertEqual(len(blocks), 2)
+        self._check_s4(before, before_rows, blocks[0])
+        self._check_register_buys(screen, [("C09", "P07", color, day, weight)
+                                           for (color, day), weight in zip(_SCENE5_BUYS, weights)])
+        self._check_s4(g, after_rows, blocks[1])
 
     def test_scene6_sold_out(self) -> None:
-        """장면 6: P_top6 재고를 전부 0으로 → 품절, 다시 추천과 안내 줄."""
+        """장면 6: P_top6(장면 5 상태의 1위) 재고를 전부 0으로 → 품절, 다시 추천 블록."""
         expected = _load_expected()
         _require_through(expected)
         customer_id = _value(expected, "확정값", "확정값", "C_new")
         product_id = _value(expected, "확정값", "확정값", "P_top6")
         _, before = _run_scenes(5, expected)
-        top = recommend(before, customer_id, 3)
+        top = recommend(before, customer_id, _RECOMMEND_K)
         self.assertEqual(top[0]["product_id"] if top else None, product_id, msg="P_top6 = 장면 5 상태의 C_new 추천 1위")
         screen, g = _run_scenes(6, expected)
         self.assertTrue(g.is_sold_out(product_id))
         self._check_recommend(expected, "장면 6", g, customer_id, screen)
 
     def test_scene7_widen_to_gender(self) -> None:
-        """장면 7: 소속 고객이 없는 남성·10대 고객 등록 → 연결 그룹, 넓혀 찾은 추천과 안내 줄."""
+        """장면 7: 소속 고객이 없는 남성·10대 고객 등록 → 등록 줄, 연결 그룹, 넓혀 찾은 추천 블록."""
         expected = _load_expected()
         _require_through(expected)
         customer_id = _value(expected, "확정값", "확정값", "C_new7")
         group_id = _value(expected, "장면 7", "연결 그룹", "C_new7 연결 그룹 ID")
         screen, g = _run_scenes(7, expected)
-        self.assertIn(f"[등록] 새싹({customer_id}) → ", screen)
+        self.assertEqual(_register_lines(screen), [f"[등록] 새싹({customer_id}) → {GROUP_LABELS[group_id]} 그룹에 연결"])
         self.assertEqual(g.group_of(customer_id), group_id)
         self._check_recommend(expected, "장면 7", g, customer_id, screen)
 
     def test_scene8_integrity(self) -> None:
-        """장면 8: 장면 1~7 뒤 통계 표와 무결성 검사 (화면 표·판정 줄과 g.stats()·check_integrity())."""
+        """장면 8: 장면 1~7 뒤 통계 6항목·무결성 위반 수를 g와 대조하고, 통계 표와 무결성 줄 구간을 통째로 비교."""
         expected = _load_expected()
         _require_through(expected)
-        rows = _rows(expected, "장면 8", "통계 표")
+        counts = {row["항목"]: row["개수"] for row in _rows(expected, "장면 8", "통계 표")}
         violations = _value(expected, "장면 8", "무결성 검사", "위반 수")
-        want = [[row["항목"], row["개수"]] for row in rows]
         screen, g = _run_scenes(8, expected)
         stats = g.stats()
-        self.assertEqual([[name, str(stats[_STAT_KEYS[name]])] for name, _ in want], want)
-        self.assertEqual(str(len(g.check_integrity())), violations)
-        tables = _screen_tables(screen, "[그래프 통계]")
-        self.assertEqual(tables, [want])
-        if violations == "0":
-            self.assertIn("\n[무결성 검사] 위반 없음: 원본과 그래프가 일치함을 확인\n", screen)
-        else:
-            self.assertIn(f"\n[무결성 검사] 위반 {violations}건\n", screen)
+        self.assertEqual({label: str(stats[key]) for label, key in _STAT_KEYS.items()}, counts)
+        problems = g.check_integrity()
+        self.assertEqual(str(len(problems)), violations)
+        verdict = [_INTEGRITY_OK] if not problems else [f"[무결성 검사] 위반 {len(problems)}건"] + [
+            f"  - {problem}" for problem in problems]
+        want = ("[그래프 통계]\n" + _capture(print_table, ["항목", "개수"],
+                                            [[label, int(counts[label])] for label in _STAT_KEYS])
+                + "".join(line + "\n" for line in verdict))
+        self.assertEqual(_screen_blocks(screen, "[그래프 통계]"), [want])
 
 
 if __name__ == "__main__":

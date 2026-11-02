@@ -175,10 +175,6 @@ function GraphScreen({ data, groups, onCustomer, onProduct }: {
       <g className="graph-header">
         {GRAPH_COLUMNS.map((column) => <text key={column.kind} x={column.x} y="20" className="column-label">{column.label}</text>)}
         <line x1="0" x2={GRAPH_WIDTH} y1="31" y2="31" className="header-rule" />
-        <line x1="212" x2="238" y1="16" y2="16" className="legend-line membership" />
-        <text x="244" y="20" className="lane-label membership">소속 간선</text>
-        <line x1="576" x2="606" y1="16" y2="16" className="legend-line purchase" strokeWidth="2" />
-        <text x="612" y="20" className="lane-label purchase">구매 간선 · 굵기 = 가중치</text>
       </g>
       {data.edges.filter((edge) => !touches(edge)).map(renderEdge)}
       {data.edges.filter(touches).map(renderEdge)}

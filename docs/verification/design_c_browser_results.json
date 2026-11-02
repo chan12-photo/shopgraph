@@ -112,5 +112,116 @@
       "bodyMinFont": 14.25,
       "dimWithoutSelection": 0
     }
-  ]
+  ],
+  "decoration": [
+    {
+      "scene": 1,
+      "file": "01_groups.png",
+      "legends": 1,
+      "innerLegends": 0,
+      "columns": 3,
+      "notice": null
+    },
+    {
+      "scene": 2,
+      "file": "02_registered_recommendation.png",
+      "legends": null,
+      "innerLegends": null,
+      "columns": null,
+      "notice": null
+    },
+    {
+      "scene": 3,
+      "file": "03a_purchase_s1.png",
+      "legends": null,
+      "innerLegends": null,
+      "columns": null,
+      "notice": null
+    },
+    {
+      "scene": 3,
+      "file": "03b_graph_weight2.png",
+      "legends": 1,
+      "innerLegends": 0,
+      "columns": 3,
+      "notice": null
+    },
+    {
+      "scene": 4,
+      "file": "04_recommend_again.png",
+      "legends": null,
+      "innerLegends": null,
+      "columns": null,
+      "notice": null
+    },
+    {
+      "scene": 5,
+      "file": "05a_popular_before.png",
+      "legends": null,
+      "innerLegends": null,
+      "columns": null,
+      "notice": null
+    },
+    {
+      "scene": 5,
+      "file": "05b_popular_after.png",
+      "legends": null,
+      "innerLegends": null,
+      "columns": null,
+      "notice": null
+    },
+    {
+      "scene": 6,
+      "file": "06a_before_stock.png",
+      "legends": null,
+      "innerLegends": null,
+      "columns": null,
+      "notice": null
+    },
+    {
+      "scene": 6,
+      "file": "06b_zero_stock.png",
+      "legends": null,
+      "innerLegends": null,
+      "columns": null,
+      "notice": null
+    },
+    {
+      "scene": 6,
+      "file": "06c_after_stock.png",
+      "legends": null,
+      "innerLegends": null,
+      "columns": null,
+      "notice": null
+    },
+    {
+      "scene": 7,
+      "file": "07_widen_gender.png",
+      "legends": null,
+      "innerLegends": null,
+      "columns": null,
+      "notice": {
+        "background": "rgb(220, 240, 243)",
+        "border": "rgb(11, 111, 128)",
+        "style": "solid"
+      }
+    },
+    {
+      "scene": 8,
+      "file": "08_integrity.png",
+      "legends": null,
+      "innerLegends": null,
+      "columns": null,
+      "notice": null
+    }
+  ],
+  "controls": {
+    "s4_clear": "통과",
+    "s4_group_clear": "통과",
+    "s4_k_clear": "통과",
+    "customer_selector": "통과",
+    "last_registered_customer": "통과",
+    "product_color_selectors": "통과",
+    "graph_clear": "통과"
+  }
 }

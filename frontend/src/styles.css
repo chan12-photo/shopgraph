@@ -82,9 +82,6 @@ ul { padding-left: 1.2rem; }
 .graph-svg { display: block; width: 100%; height: clamp(420px, calc(100dvh - 156px), 980px); }
 .column-label { fill: var(--ink); font-size: 15px; font-weight: 800; }
 .header-rule { stroke: var(--rule); }
-.lane-label { font-size: 13px; font-weight: 600; }
-.lane-label.membership { fill: var(--membership); }
-.lane-label.purchase { fill: var(--purchase); }
 .graph-edge { fill: none; pointer-events: none; }
 .graph-edge.membership { stroke: var(--membership); stroke-dasharray: 5 4; }
 .graph-edge.purchase { stroke: var(--purchase); }
@@ -143,7 +140,8 @@ ul { padding-left: 1.2rem; }
 .card-actions details { flex: 1; min-width: 150px; }
 summary { cursor: pointer; color: var(--muted); font-size: .95rem; padding: .5rem 0; }
 .display-lines { display: grid; gap: .12rem; padding: .6rem; color: var(--ink-soft); background: var(--paper); font-family: var(--mono); font-size: .95rem; white-space: pre-wrap; }
-.notice-box { padding: .75rem 1rem; margin: .9rem 0 .5rem; background: var(--paper); border: 2px dashed var(--ink); border-radius: 6px; }
+.notice-box { padding: .75rem 1rem; margin: .9rem 0 .5rem; background: var(--scope-gender-bg); border: 2px solid var(--scope-gender); border-left-width: 6px; border-radius: 6px; }
+.notice-box strong { color: var(--scope-gender); }
 .notice-box p { margin: .3rem 0 0; font-size: .95rem; }
 .link-button { padding: 0; border: 0; color: var(--ink); background: none; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; text-align: left; }
 .link-button:hover { background: var(--select-soft); }

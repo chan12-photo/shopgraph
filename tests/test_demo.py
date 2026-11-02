@@ -25,7 +25,7 @@ from unittest import mock
 
 import main
 from data import initial_records
-from graph import ShopGraph
+from graph import GROUP_IDS, ShopGraph
 from search import group_popular, products_of, recommend
 
 _EXPECTED_PATH = pathlib.Path(__file__).resolve().parent.parent / "docs" / "demo_expected.md"
@@ -50,27 +50,54 @@ _NOTES = (("넓힘 안내", " ※ 같은 그룹("), ("개수 부족 안내", "�
 _STAT_KEYS = {"그룹 노드": "groups", "고객 노드": "customers", "상품 노드": "products",
               "소속 간선": "membership_edges", "구매 간선": "purchase_edges", "구매 기록": "purchases"}
 
-# 장면마다 반드시 있어야 하는 표와, 두 칸 표에서 반드시 있어야 하는 행 이름 (None = 행 이름을 정하지 않는 표)
-_NOTE_NAMES = tuple(name for name, _ in _NOTES)
-_REQUIRED_TABLES = {
-    1: {"그룹별 인원": None},
-    2: {"연결 그룹": ("C_new 연결 그룹 ID",), "추천 (C_new, K=3)": None, "안내 줄": _NOTE_NAMES},
-    3: {"구매 등록 줄 가중치": None, "S1 (C_new)": None},
-    4: {"추천 (C_new, K=3)": None, "안내 줄": _NOTE_NAMES},
-    5: {"S4 구매 전 (G-F-20, 전체)": None, "구매 등록 줄 가중치 (C09–P07)": None, "S4 구매 후 (G-F-20, 전체)": None},
-    6: {"추천 (C_new, K=3)": None, "안내 줄": _NOTE_NAMES},
-    7: {"연결 그룹": ("C_new7 연결 그룹 ID",), "추천 (C_new7, K=3)": None, "안내 줄": _NOTE_NAMES},
-    8: {"통계 표": None, "무결성 검사": ("위반 수",)},
-}
-
-# 칸 값 형식: 숫자 칸, 정해진 값만 쓰는 칸 (docs/demo_expected.md "쓰는 법")
-_NUMBER_COLUMNS = frozenset({"순위", "점수", "구매자 수", "구매 고객 수", "가중치", "기록 수", "총수량", "인원", "개수"})
-_CHOICE_COLUMNS = {"범위": frozenset(_SCOPES), "상태": frozenset({"판매 중", "품절"}),
-                   "있음/없음": frozenset({"있음", "없음"})}
-
 # 장면마다 입력이나 확인에 쓰는 확정값 이름 (docs/demo_expected.md 확정값 표, w11_scenes.md)
 _FIXED_BY_SCENE = {2: ("C_new",), 3: ("C_new", "P_top", "장면 3 색상 1", "장면 3 색상 2"), 4: ("C_new",),
                    6: ("C_new", "P_top6"), 7: ("C_new7",)}
+_FIXED_KEYS = ("C_new", "P_top", "장면 3 색상 1", "장면 3 색상 2", "P_top6", "C_new7")
+_NOTE_NAMES = tuple(name for name, _ in _NOTES)
+
+# 행 규칙: 필수 행 이름 튜플(첫 열 값이 정확히 이 집합, 중복 없음), _RANKED(순위 1부터 연속, 뒤쪽 행은 "-"로
+# 해당 없음 가능), _LISTED(행 1개 이상, "-" 없음, 첫 열 중복 없음)
+_RANKED = "순위 표"
+_LISTED = "목록 표"
+_REC_COLUMNS = ("순위", "상품 ID", "범위", "점수", "구매자 수", "지지자", "구매 가능 색상", "색상 수 안내")
+_S4_COLUMNS = ("순위", "상품 ID", "점수", "구매 고객 수", "상태")
+_S1_COLUMNS = ("상품 ID", "구매 색상", "가중치", "기록 수", "총수량", "최근 구매일")
+_RECOMMEND_K = 3
+_REC_TABLE = {"추천 (C_new, K=3)": (_REC_COLUMNS, _RANKED), "안내 줄": (("안내", "있음/없음"), _NOTE_NAMES)}
+
+# demo_expected.md의 장(## ) → 표(### ) → (정확한 열 목록, 행 규칙). 여기 없는 장(쓰는 법, 검산·승인 기록)은 보지 않는다
+_SCHEMA = {
+    "확정값": {"확정값": (("이름", "값", "정하는 근거"), _FIXED_KEYS)},
+    "장면 1": {"그룹별 인원": (("그룹 ID", "인원", "메모"), GROUP_IDS)},
+    "장면 2": {"연결 그룹": (("항목", "값"), ("C_new 연결 그룹 ID",)), **_REC_TABLE},
+    "장면 3": {"구매 등록 줄 가중치": (("구매", "가중치"), ("첫 번째 (장면 3 색상 1)", "두 번째 (장면 3 색상 2)")),
+               "S1 (C_new)": (_S1_COLUMNS, _LISTED)},
+    "장면 4": dict(_REC_TABLE),
+    "장면 5": {"S4 구매 전 (G-F-20, 전체)": (_S4_COLUMNS, _RANKED),
+               "구매 등록 줄 가중치 (C09–P07)": (("구매", "가중치"), ("첫 번째 (블랙)", "두 번째 (그레이)", "세 번째 (네이비)")),
+               "S4 구매 후 (G-F-20, 전체)": (_S4_COLUMNS, _RANKED)},
+    "장면 6": dict(_REC_TABLE),
+    "장면 7": {"연결 그룹": (("항목", "값"), ("C_new7 연결 그룹 ID",)),
+               "추천 (C_new7, K=3)": (_REC_COLUMNS, _RANKED), "안내 줄": (("안내", "있음/없음"), _NOTE_NAMES)},
+    "장면 8": {"통계 표": (("항목", "개수"), tuple(_STAT_KEYS)), "무결성 검사": (("항목", "값"), ("위반 수",))},
+}
+
+# 칸 값 형식 (docs/demo_expected.md "쓰는 법"). 두 칸 표의 "값" 칸은 행 이름에 따라 _VALUE_FORMATS
+_CUSTOMER_ID = r"C[0-9]{2}"
+_PRODUCT_ID = r"P[0-9]{2}"
+_POSITIVE = r"[1-9][0-9]*"
+_NON_NEGATIVE = r"0|[1-9][0-9]*"
+_COLOR_NOTE = r"C[0-9]{2}[은는] [2-9][0-9]*가지(, C[0-9]{2}[은는] [2-9][0-9]*가지)*"
+_COLUMN_FORMATS = {
+    "순위": _POSITIVE, "상품 ID": _PRODUCT_ID, "점수": _POSITIVE, "구매자 수": _POSITIVE,
+    "지지자": f"{_CUSTOMER_ID}(, {_CUSTOMER_ID})*", "구매 가능 색상": r"[^,\s][^,]*(, [^,\s][^,]*)*",
+    "색상 수 안내": f"-|{_COLOR_NOTE}", "구매 고객 수": _POSITIVE, "가중치": _POSITIVE, "기록 수": _POSITIVE,
+    "총수량": _POSITIVE, "구매 색상": r"[^,\s][^,]*(, [^,\s][^,]*)*", "인원": _NON_NEGATIVE, "개수": _NON_NEGATIVE,
+}
+_COLUMN_CHOICES = {"범위": frozenset(_SCOPES), "상태": frozenset({"판매 중", "품절"}), "있음/없음": frozenset({"있음", "없음"})}
+_VALUE_FORMATS = {"C_new": _CUSTOMER_ID, "C_new7": _CUSTOMER_ID, "P_top": _PRODUCT_ID, "P_top6": _PRODUCT_ID,
+                  "장면 3 색상 1": r"[^,\s-][^,]*", "장면 3 색상 2": r"[^,\s-][^,]*", "위반 수": _NON_NEGATIVE}
 
 # 화면 줄 모양 (W8b·W9·W10 승인 형식)
 _TREE_GROUP = re.compile(r"^ {4}\S.*? \((G-[FM]-\d+\+?)\) (\d+)명$", re.M)
@@ -82,31 +109,39 @@ _REC_COLORS = "    구매 가능 색상: "
 def _load_expected() -> dict[str, dict[str, list[dict[str, str]]]]:
     """demo_expected.md를 장(## 제목의 마침표 앞) → 표(### 제목) → 행(머리 → 칸 딕셔너리)으로 읽는다.
 
+    모든 칸이 "-"인 행은 구분 줄과 같이 버린다. 칸 값은 앞뒤 공백을 지운 문자열(빈칸은 "").
+
     인자:
         없음.
 
     반환:
         {"장면 2": {"추천 (C_new, K=3)": [{"순위": "1", "상품 ID": "", …}, …], …}, …}.
-        칸 값은 앞뒤 공백을 지운 문자열(빈칸은 "").
 
     예외:
         OSError: 파일을 읽지 못할 때.
-        NotImplementedError: 칸 수가 머리 칸 수와 다른 행이 있을 때 (작성 중인 표).
+        NotImplementedError: 같은 이름의 장이나 같은 장 안에 같은 이름의 표가 두 번 나올 때, 머리에 같은 열 이름이
+            두 번 나올 때, 칸 수가 머리 칸 수와 다른 행이 있을 때 (작성 중이거나 깨진 양식).
     """
     sections: dict[str, dict[str, list[dict[str, str]]]] = {}
     section, table, header = "", "", []
     for line in _EXPECTED_PATH.read_text(encoding="utf-8").splitlines():
         if line.startswith("## "):
             section, table = line[3:].split(".")[0].strip(), ""
+            if section in sections:
+                raise NotImplementedError(f"{_NOT_READY}: 같은 이름의 장이 두 번 나옴: {section}")
             sections[section] = {}
         elif line.startswith("### ") and section:
             table, header = line[4:].strip(), []
+            if table in sections[section]:
+                raise NotImplementedError(f"{_NOT_READY}: {section}에 같은 이름의 표가 두 번 나옴: {table}")
             sections[section][table] = []
         elif line.startswith("|") and table:
             cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
             if header and all(cell and set(cell) <= {"-"} for cell in cells):
                 continue  # 머리 아래 구분 줄, 또는 모든 칸이 "-"인 행 (어느 쪽이든 쓰지 않음)
             if not header:
+                if len(set(cells)) != len(cells):
+                    raise NotImplementedError(f"{_NOT_READY}: {section} / {table} 머리에 같은 열 이름이 두 번 나옴")
                 header = cells
             elif len(cells) != len(header):
                 raise NotImplementedError(f"{_NOT_READY}: {section} / {table} 칸 수가 머리({len(header)}칸)와 다름")
@@ -116,7 +151,7 @@ def _load_expected() -> dict[str, dict[str, list[dict[str, str]]]]:
 
 
 def _rows(expected: dict, section: str, table: str) -> list[dict[str, str]]:
-    """표의 행 중 해당 없음(첫 칸 말고 모두 "-")이 아닌 행을 돌려준다. 빈칸이 있으면 미도래로 멈춘다.
+    """표의 행 중 해당 없음(첫 칸 말고 모두 "-")이 아닌 행을 파일 순서대로 돌려준다. 빈칸이 있으면 멈춘다.
 
     인자:
         expected: _load_expected()의 결과.
@@ -124,7 +159,7 @@ def _rows(expected: dict, section: str, table: str) -> list[dict[str, str]]:
         table: 표 제목 (### 뒤 글자 그대로).
 
     반환:
-        채워진 행 리스트 (파일 순서).
+        채워진 행 리스트.
 
     예외:
         NotImplementedError: 표가 없거나, 행에 빈칸이 있을 때 (기대값 승인 전).
@@ -144,39 +179,42 @@ def _rows(expected: dict, section: str, table: str) -> list[dict[str, str]]:
 
 
 def _value(expected: dict, section: str, table: str, key: str) -> str:
-    """두 칸짜리(이름 | 값) 표에서 key 행의 값을 돌려준다.
+    """두 칸 표(확정값·연결 그룹·안내 줄·무결성 검사)에서 key 행의 값을 열 제목으로 읽어 돌려준다.
+
+    이름 열과 값 열은 _SCHEMA의 열 목록 첫째·둘째 열 제목이다 (칸 위치로 읽지 않는다).
 
     인자:
         expected: _load_expected()의 결과.
         section: 장 이름.
         table: 표 제목.
-        key: 첫 칸 글자.
+        key: 이름 열의 글자.
 
     반환:
-        둘째 칸 값.
+        값 열의 글자.
 
     예외:
-        NotImplementedError: 표나 행이 없거나 값이 비어 있을 때 (기대값 승인 전).
+        NotImplementedError: 표·행·열이 없거나, 같은 이름 행이 둘 이상이거나, 값이 비었거나 "-"일 때.
     """
-    for row in expected.get(section, {}).get(table, []):
-        cells = list(row.values())
-        if cells[0] == key:
-            if not cells[1]:
-                raise NotImplementedError(f"{_NOT_READY}: {section} / {key} 빈칸")
-            return cells[1]
-    raise NotImplementedError(f"{_NOT_READY}: {section} / {key} 행 없음")
+    key_column, value_column = _SCHEMA[section][table][0][:2]
+    found = [row for row in expected.get(section, {}).get(table, []) if row.get(key_column) == key]
+    if len(found) != 1:
+        raise NotImplementedError(f"{_NOT_READY}: {section} / {table} / {key} 행이 {len(found)}개")
+    value = found[0].get(value_column, "")
+    if value in ("", "-"):
+        raise NotImplementedError(f"{_NOT_READY}: {section} / {key} 값이 비었거나 \"-\"")
+    return value
 
 
-def _require_through(expected: dict, last: int) -> None:
-    """장면 1~last에 필요한 표·행·칸·확정값이 모두 있고 형식이 맞는지 실행 전에 확인한다.
+def _require_through(expected: dict) -> None:
+    """시연을 실행하기 전에 8개 장면 전체와 확정값의 양식·값을 모두 확인하고, 마지막으로 승인 줄을 확인한다.
 
-    시연을 실행하기 전에 부른다. 작성 도중이라 장·표·필수 행이 없거나, 칸이 비었거나, 칸 값 형식이 맞지 않거나,
-    확정값끼리 어긋나면(P_top ≠ 장면 2 추천 1위, 장면 3 두 색상이 같음) 실행하지 않고 멈춘다. 마지막으로
-    상태 줄이 승인 형식인지 확인한다(_require_approval). 칸이 다 채워져 있어도 승인 전이면 멈춘다.
+    어느 장면 테스트든 장면 하나라도 실행하기 전에 부른다. 장·표가 없거나 남거나, 열 목록(이름·순서)이 다르거나,
+    필수 행이 빠지거나 겹치거나, 칸이 비었거나, "-"를 허용하지 않는 칸에 "-"가 있거나, 값 형식이 맞지 않거나,
+    확정값끼리 어긋나면(P_top ≠ 장면 2 추천 1위, 장면 3 두 색상이 같음) 실행하지 않고 멈춘다. 칸이 다 맞아도
+    상태 줄이 승인 형식이 아니면 멈춘다(_require_approval).
 
     인자:
         expected: _load_expected()의 결과.
-        last: 마지막 장면 번호.
 
     반환:
         없음.
@@ -184,28 +222,164 @@ def _require_through(expected: dict, last: int) -> None:
     예외:
         NotImplementedError: 위 조건 중 하나라도 맞지 않을 때 (기대값 승인 전, 11.3.8 승인 전).
     """
-    for scene in range(1, last + 1):
-        section = f"장면 {scene}"
-        if not expected.get(section):
+    for section, tables in _SCHEMA.items():
+        if section not in expected:
             raise NotImplementedError(f"{_NOT_READY}: {section} 없음")
-        for table, keys in _REQUIRED_TABLES[scene].items():
-            if not expected[section].get(table):
-                raise NotImplementedError(f"{_NOT_READY}: {section} / {table} 표 또는 행 없음")
-            for key in keys or ():
-                _value(expected, section, table, key)
-        for table in expected[section]:
-            for row in _rows(expected, section, table):
-                _check_formats(section, table, row)
-        for key in _FIXED_BY_SCENE.get(scene, ()):
-            _value(expected, "확정값", "확정값", key)
-    if last >= 3:
-        fixed = lambda key: _value(expected, "확정값", "확정값", key)  # noqa: E731
-        first = _rows(expected, "장면 2", "추천 (C_new, K=3)")
-        if not first or first[0]["상품 ID"] != fixed("P_top"):
-            raise NotImplementedError(f"{_NOT_READY}: P_top이 장면 2 추천 1위 상품 ID와 다름")
-        if fixed("장면 3 색상 1") == fixed("장면 3 색상 2"):
-            raise NotImplementedError(f"{_NOT_READY}: 장면 3 색상 1·2가 같음")
+        if set(expected[section]) != set(tables):
+            raise NotImplementedError(f"{_NOT_READY}: {section}의 표 목록이 양식과 다름: {sorted(expected[section])}")
+        for table, (columns, rule) in tables.items():
+            _check_table(section, table, expected[section][table], columns, rule)
+    first = _rows(expected, "장면 2", "추천 (C_new, K=3)")
+    if not first or first[0]["상품 ID"] != _value(expected, "확정값", "확정값", "P_top"):
+        raise NotImplementedError(f"{_NOT_READY}: P_top이 장면 2 추천 1위 상품 ID와 다름")
+    if _value(expected, "확정값", "확정값", "장면 3 색상 1") == _value(expected, "확정값", "확정값", "장면 3 색상 2"):
+        raise NotImplementedError(f"{_NOT_READY}: 장면 3 색상 1·2가 같음")
     _require_approval()
+
+
+def _check_table(section: str, table: str, rows: list[dict[str, str]], columns: tuple[str, ...], rule: object) -> None:
+    """표 하나의 열 목록·행 규칙·칸 형식을 확인한다.
+
+    인자:
+        section: 장 이름.
+        table: 표 제목.
+        rows: 그 표의 행 (_load_expected 결과 그대로).
+        columns: 정확한 열 목록 (이름·순서).
+        rule: 필수 행 이름 튜플, _RANKED, _LISTED 중 하나.
+
+    반환:
+        없음.
+
+    예외:
+        NotImplementedError: 맞지 않는 것이 있을 때.
+    """
+    where = f"{_NOT_READY}: {section} / {table}"
+    if not rows:
+        raise NotImplementedError(f"{where} 행 없음")
+    for row in rows:
+        if tuple(row) != columns:
+            raise NotImplementedError(f"{where} 열 목록이 양식과 다름: {list(row)}")
+        if any(value == "" for value in row.values()):
+            raise NotImplementedError(f"{where} 빈칸")
+    keys = [row[columns[0]] for row in rows]
+    if rule == _RANKED:
+        _check_ranked(where, rows, table.startswith("추천"))
+    elif len(set(keys)) != len(keys):
+        raise NotImplementedError(f"{where} 행이 겹침: {keys}")
+    elif rule != _LISTED and set(keys) != set(rule):
+        raise NotImplementedError(f"{where} 필수 행이 양식과 다름: {keys}")
+    for row in rows:
+        if rule == _RANKED and all(value == "-" for value in list(row.values())[1:]):
+            continue
+        for column, value in row.items():
+            _check_value(where, column, row[columns[0]], value)
+        if table.startswith("추천"):
+            _check_recommend_row(where, row)
+
+
+def _check_ranked(where: str, rows: list[dict[str, str]], recommend_table: bool) -> None:
+    """순위 표: 순위가 1부터 연속이고, 해당 없음 행(순위 말고 모두 "-")은 쓰인 행 뒤에만 오며, 그 밖에 "-"가 섞이지 않는다.
+
+    "-"는 해당 없음 행과 추천 표의 "색상 수 안내" 칸에만 쓸 수 있다. 추천 표는 행이 정확히 K(3)개다.
+
+    인자:
+        where: 오류 메시지 앞부분.
+        rows: 표의 행.
+        recommend_table: 추천 표이면 True.
+
+    반환:
+        없음.
+
+    예외:
+        NotImplementedError: 맞지 않을 때.
+    """
+    if [row["순위"] for row in rows] != [str(rank) for rank in range(1, len(rows) + 1)]:
+        raise NotImplementedError(f"{where} 순위가 1부터 연속이 아님")
+    if recommend_table and len(rows) != _RECOMMEND_K:
+        raise NotImplementedError(f"{where} 추천 표 행이 {_RECOMMEND_K}개가 아님")
+    unused_seen = False
+    for row in rows:
+        values = list(row.values())[1:]
+        if all(value == "-" for value in values):
+            unused_seen = True
+            continue
+        dashes = [column for column, value in row.items() if value == "-" and column != "색상 수 안내"]
+        if unused_seen or dashes:
+            raise NotImplementedError(f"{where} \"-\"는 해당 없음 행(뒤쪽)과 색상 수 안내 칸에만 쓸 수 있음")
+
+
+def _check_value(where: str, column: str, key: str, value: str) -> None:
+    """칸 하나의 값 형식을 확인한다 (ID 규칙, 실제 날짜, 양의 정수, 정해진 값, 그룹 ID·통계 항목 이름).
+
+    인자:
+        where: 오류 메시지 앞부분.
+        column: 열 제목.
+        key: 그 행의 첫 열 값 (두 칸 표의 "값" 칸 형식을 정할 때 쓴다).
+        value: 칸 값.
+
+    반환:
+        없음.
+
+    예외:
+        NotImplementedError: 형식이 맞지 않을 때.
+    """
+    if column == "값":
+        pattern = _VALUE_FORMATS.get(key)
+        ok = value in GROUP_IDS if key.endswith("연결 그룹 ID") else pattern is not None and re.fullmatch(pattern, value)
+    elif column in _COLUMN_CHOICES:
+        ok = value in _COLUMN_CHOICES[column]
+    elif column == "그룹 ID":
+        ok = value in GROUP_IDS
+    elif column == "최근 구매일":
+        ok = _is_real_date(value)
+    elif column in _COLUMN_FORMATS:
+        ok = re.fullmatch(_COLUMN_FORMATS[column], value) is not None
+    else:
+        ok = value != "-"  # 이름 열·메모·근거 같은 글자 칸
+    if not ok:
+        raise NotImplementedError(f"{where} / {column} 형식 확인 필요: {value!r}")
+
+
+def _check_recommend_row(where: str, row: dict[str, str]) -> None:
+    """추천 표 한 행의 칸끼리 일관성: 구매자 수 = 지지자 수, 색상 수 안내의 고객은 지지자 안에 있고 겹치지 않음.
+
+    인자:
+        where: 오류 메시지 앞부분.
+        row: 쓰인 추천 표 행.
+
+    반환:
+        없음.
+
+    예외:
+        NotImplementedError: 맞지 않을 때.
+    """
+    supporters = row["지지자"].split(", ")
+    if len(supporters) != int(row["구매자 수"]) or len(set(supporters)) != len(supporters):
+        raise NotImplementedError(f"{where} 지지자 수가 구매자 수와 다르거나 겹침: {row['지지자']!r}")
+    noted = [] if row["색상 수 안내"] == "-" else re.findall(_CUSTOMER_ID, row["색상 수 안내"])
+    if len(set(noted)) != len(noted) or not set(noted) <= set(supporters):
+        raise NotImplementedError(f"{where} 색상 수 안내의 고객이 지지자에 없거나 겹침: {row['색상 수 안내']!r}")
+
+
+def _is_real_date(text: str) -> bool:
+    """YYYY-MM-DD 10자(0~9 숫자)이고 실제 있는 날짜인지 (부록 B.3 구매일 규칙과 같은 두 단계).
+
+    인자:
+        text: 검사할 글자.
+
+    반환:
+        맞으면 True.
+
+    예외:
+        없음.
+    """
+    if not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", text):
+        return False
+    try:
+        datetime.date.fromisoformat(text)
+    except ValueError:
+        return False
+    return True
 
 
 def _require_approval() -> None:
@@ -228,33 +402,8 @@ def _require_approval() -> None:
     status = lines[0] if lines else ""
     if not _APPROVED_STATUS.fullmatch(status):
         raise NotImplementedError(f"{_NOT_APPROVED}: 상태 줄이 승인 형식이 아님: {status!r}")
-    try:
-        datetime.date.fromisoformat(re.search(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", status).group(0))
-    except ValueError:
-        raise NotImplementedError(f"{_NOT_APPROVED}: 상태 줄의 승인 날짜가 실제 날짜가 아님: {status!r}") from None
-
-
-def _check_formats(section: str, table: str, row: dict[str, str]) -> None:
-    """한 행의 칸 값 형식을 확인한다: 숫자 칸은 0~9 숫자, 범위·상태·있음/없음 칸은 정해진 값, 통계 항목은 정해진 이름.
-
-    인자:
-        section: 장 이름.
-        table: 표 제목.
-        row: 머리 → 칸 딕셔너리.
-
-    반환:
-        없음.
-
-    예외:
-        NotImplementedError: 형식이 맞지 않을 때 (작성 중이거나 오타).
-    """
-    for column, value in row.items():
-        bad = ((column in _NUMBER_COLUMNS and not re.fullmatch(r"[0-9]+", value))
-               or (column in _CHOICE_COLUMNS and value not in _CHOICE_COLUMNS[column])
-               or (table == "통계 표" and column == "항목" and value not in _STAT_KEYS)
-               or (table == "무결성 검사" and column == "값" and not re.fullmatch(r"[0-9]+", value)))
-        if bad:
-            raise NotImplementedError(f"{_NOT_READY}: {section} / {table} / {column} 형식 확인 필요: {value!r}")
+    if not _is_real_date(re.search(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", status).group(0)):
+        raise NotImplementedError(f"{_NOT_APPROVED}: 상태 줄의 승인 날짜가 실제 날짜가 아님: {status!r}")
 
 
 def _screen_tables(screen: str, title: str) -> list[list[list[str]]]:
@@ -487,7 +636,7 @@ class TestW12Demo(unittest.TestCase):
     def test_scene1_group_tree(self) -> None:
         """장면 1: 그룹별 고객 트리의 그룹별 인원 (화면 줄과 g.members())."""
         expected = _load_expected()
-        _require_through(expected, 1)
+        _require_through(expected)
         rows = _rows(expected, "장면 1", "그룹별 인원")
         screen, g = _run_scenes(1, expected)
         want = [(row["그룹 ID"], row["인원"]) for row in rows]
@@ -497,7 +646,7 @@ class TestW12Demo(unittest.TestCase):
     def test_scene2_register_recommend(self) -> None:
         """장면 2: "25세 여성" 등록 → 연결 그룹, 즉시 추천과 안내 줄."""
         expected = _load_expected()
-        _require_through(expected, 2)
+        _require_through(expected)
         customer_id = _value(expected, "확정값", "확정값", "C_new")
         group_id = _value(expected, "장면 2", "연결 그룹", "C_new 연결 그룹 ID")
         screen, g = _run_scenes(2, expected)
@@ -508,7 +657,7 @@ class TestW12Demo(unittest.TestCase):
     def test_scene3_two_colors_s1(self) -> None:
         """장면 3: 추천 1위를 두 색상으로 구매 → 구매 등록 줄 가중치와 S1 (화면 표와 products_of())."""
         expected = _load_expected()
-        _require_through(expected, 3)
+        _require_through(expected)
         customer_id = _value(expected, "확정값", "확정값", "C_new")
         rows = _rows(expected, "장면 3", "S1 (C_new)")
         want = [[row["상품 ID"], row["구매 색상"], row["가중치"], row["기록 수"], row["총수량"], row["최근 구매일"]]
@@ -525,7 +674,7 @@ class TestW12Demo(unittest.TestCase):
     def test_scene4_recommend_again(self) -> None:
         """장면 4: 다시 추천 → 이미 산 상품이 빠진 결과와 안내 줄."""
         expected = _load_expected()
-        _require_through(expected, 4)
+        _require_through(expected)
         customer_id = _value(expected, "확정값", "확정값", "C_new")
         screen, g = _run_scenes(4, expected)
         self._check_recommend(expected, "장면 4", g, customer_id, screen)
@@ -533,7 +682,7 @@ class TestW12Demo(unittest.TestCase):
     def test_scene5_s4_change(self) -> None:
         """장면 5: C09가 P07을 세 색상으로 구매 → 구매 등록 줄 가중치, S4 구매 전·후 (화면 표 2개와 group_popular())."""
         expected = _load_expected()
-        _require_through(expected, 5)  # 구매 전·후 표를 둘 다 실행 전에 확인
+        _require_through(expected)
         _, before = _run_scenes(4, expected)
         screen, g = _run_scenes(5, expected)
         tables = _screen_tables(screen, "[S4 그룹 인기 상품]")
@@ -545,7 +694,7 @@ class TestW12Demo(unittest.TestCase):
     def test_scene6_sold_out(self) -> None:
         """장면 6: P_top6 재고를 전부 0으로 → 품절, 다시 추천과 안내 줄."""
         expected = _load_expected()
-        _require_through(expected, 6)
+        _require_through(expected)
         customer_id = _value(expected, "확정값", "확정값", "C_new")
         product_id = _value(expected, "확정값", "확정값", "P_top6")
         _, before = _run_scenes(5, expected)
@@ -558,7 +707,7 @@ class TestW12Demo(unittest.TestCase):
     def test_scene7_widen_to_gender(self) -> None:
         """장면 7: 소속 고객이 없는 남성·10대 고객 등록 → 연결 그룹, 넓혀 찾은 추천과 안내 줄."""
         expected = _load_expected()
-        _require_through(expected, 7)
+        _require_through(expected)
         customer_id = _value(expected, "확정값", "확정값", "C_new7")
         group_id = _value(expected, "장면 7", "연결 그룹", "C_new7 연결 그룹 ID")
         screen, g = _run_scenes(7, expected)
@@ -569,7 +718,7 @@ class TestW12Demo(unittest.TestCase):
     def test_scene8_integrity(self) -> None:
         """장면 8: 장면 1~7 뒤 통계 표와 무결성 검사 (화면 표·판정 줄과 g.stats()·check_integrity())."""
         expected = _load_expected()
-        _require_through(expected, 8)
+        _require_through(expected)
         rows = _rows(expected, "장면 8", "통계 표")
         violations = _value(expected, "장면 8", "무결성 검사", "위반 수")
         want = [[row["항목"], row["개수"]] for row in rows]

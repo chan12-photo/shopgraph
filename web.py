@@ -230,10 +230,10 @@ def _json_pairs(pairs: list[tuple[object, object]]) -> dict:
 
 
 def _read_json_object(handler: BaseHTTPRequestHandler) -> dict:
-    """Content-Length만큼 JSON 객체를 읽고 전송 형식 오류를 400/413으로 바꾼다."""
+    """Content-Length만큼 JSON 객체를 읽고 전송 형식 오류를 400/413/415로 바꾼다."""
     content_type = handler.headers.get("Content-Type", "")
     if content_type.split(";", 1)[0].strip().lower() != "application/json":
-        raise _RequestError(400, "요청 본문은 application/json이어야 합니다")
+        raise _RequestError(415, "요청 본문은 application/json이어야 합니다")
     raw_length = handler.headers.get("Content-Length")
     if raw_length is None:
         raise _RequestError(400, "요청 본문 길이가 필요합니다")

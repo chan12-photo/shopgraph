@@ -248,5 +248,43 @@ class TestUI5DemoGuard(unittest.TestCase):
         self.check_blocked(text.replace(row, "| 구매 기록 | invalid |"))
 
 
+    def _check_blocked_before_data_and_graph(self, content: str) -> None:
+        """문서 사본을 훼손하고 DemoHTTP가 실제로 부르는 데이터·그래프·서버 생성을 감시한다.
+
+        인자: 승인 줄·빈칸·형식 중 하나가 잘못된 문서 내용.
+        반환: 없음. 예외: 보호 검사보다 생성이 먼저 실행되면 AssertionError로 실패한다.
+        """
+        with tempfile.TemporaryDirectory(prefix="shopgraph-ui5-guard-", dir="/tmp") as folder:
+            path = pathlib.Path(folder) / "demo_expected.md"
+            path.write_text(content, encoding="utf-8")
+            with (mock.patch.object(expected_data.legacy, "_EXPECTED_PATH", path),
+                  mock.patch("data.initial_records", side_effect=AssertionError("데이터 실행됨")) as data,
+                  mock.patch("graph.ShopGraph", side_effect=AssertionError("그래프 생성됨")) as graph,
+                  mock.patch.object(web, "create_server", side_effect=AssertionError("서버 생성됨")) as server):
+                with self.assertRaises(NotImplementedError):
+                    DemoHTTP()
+                data.assert_not_called()
+                graph.assert_not_called()
+                server.assert_not_called()
+
+    def test_missing_approval_blocks_real_data_and_graph(self) -> None:
+        """승인 줄 누락은 실제 data.initial_records·graph.ShopGraph 호출 전 차단한다."""
+        text = expected_data.legacy._EXPECTED_PATH.read_text(encoding="utf-8")
+        content = "\n".join(line for line in text.splitlines() if not line.startswith("상태:"))
+        self._check_blocked_before_data_and_graph(content)
+
+    def test_last_scene_blank_blocks_real_data_and_graph(self) -> None:
+        """마지막 장면의 빈칸도 실제 데이터·그래프 생성 전 차단한다."""
+        text = expected_data.legacy._EXPECTED_PATH.read_text(encoding="utf-8")
+        row = next(line for line in text.splitlines() if line.startswith("| 구매 기록 |"))
+        self._check_blocked_before_data_and_graph(text.replace(row, "| 구매 기록 |  |"))
+
+    def test_invalid_format_blocks_real_data_and_graph(self) -> None:
+        """마지막 장면의 잘못된 숫자 형식도 실제 데이터·그래프 생성 전 차단한다."""
+        text = expected_data.legacy._EXPECTED_PATH.read_text(encoding="utf-8")
+        row = next(line for line in text.splitlines() if line.startswith("| 구매 기록 |"))
+        self._check_blocked_before_data_and_graph(text.replace(row, "| 구매 기록 | invalid |"))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -407,5 +407,21 @@ class TestUI1WebReadAPI(unittest.TestCase):
         fake_server.server_close.assert_called_once_with()
 
 
+    def test_popular_keeps_sold_out_product_and_status(self) -> None:
+        """P02를 품절로 바꿔도 S4 순위·점수는 유지되며 판매 상태 두 필드만 품절이다."""
+        g = self.harness.graph
+        g.update_product("P02", stock={"블랙": 0, "베이지": 0})
+        self.assertEqual(g.check_integrity(), [])
+        status, body = self._request_unchanged("/api/groups/G-F-20/popular")
+        self.assertEqual(status, 200)
+        # fixtures: P02는 C01 1색+C02 2색=3점/2명, P01은 C01 4색의 상한=3점/1명.
+        # P03은 C02·C03 각 1색=2점/2명, P05는 C03 1색=1점/1명이며 원래 품절이다.
+        keys = ("product_id", "score", "buyers", "status_label", "sold_out")
+        self.assertEqual([tuple(item[key] for key in keys) for item in body["items"]], [
+            ("P02", 3, 2, "품절", True), ("P01", 3, 1, "판매 중", False),
+            ("P03", 2, 2, "판매 중", False), ("P05", 1, 1, "품절", True),
+        ])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -283,7 +283,7 @@ class TestUI1WebReadAPI(unittest.TestCase):
         status, body = self._request_unchanged("/api/stats", headers={"Origin": "http://evil.example"})
         self.assertEqual((status, body), (403, {"error": "허용하지 않는 Host 또는 Origin입니다"}))
         status, body = self._request_unchanged("/api/customers", method="POST")
-        self.assertEqual((status, body), (400, {"error": "요청 본문은 application/json이어야 합니다"}))
+        self.assertEqual((status, body), (415, {"error": "요청 본문은 application/json이어야 합니다"}))
         status, body = self._request_unchanged("/api/unknown", method="POST")
         self.assertEqual((status, body), (404, {"error": "없는 경로입니다"}))
         for method in ("DELETE", "PATCH", "OPTIONS", "TRACE", "CONNECT", "FOO"):

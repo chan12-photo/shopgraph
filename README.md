@@ -52,6 +52,7 @@ CLAUDE.md                AI 작업 규칙
 
 ## 현재 상태
 
+이 섹션만 모든 단계에서 갱신한다.
 
 - 완료: W0~W12(태그 `w12-complete`), 웹 UI0~UI8(UI5 승인 11/06, UI6 승인 11/07). UI8 구현·Codex 자체 확인은 완료했으며 최종 판정은 찬일이 한다.
 - 실행: `python3 main.py`(콘솔), `python3 main.py --web`(웹).

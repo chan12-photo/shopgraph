@@ -94,3 +94,19 @@ python tools/check_data.py
 [오류] 나이: 10~99이어야 합니다 (입력: 5)
 [오류] 성별: 1(남) 또는 2(여)로 입력해 주세요
 ```
+
+## 웹 화면 실행
+
+저장소 루트에서 `python3 main.py --web`을 실행한다. 기본 주소는 `http://127.0.0.1:8000`이며 시작 시 실제 주소를 안내하고 브라우저를 연다. 터미널에서 Ctrl+C로 종료한다. 서버를 다시 켜면 처음 상태로 돌아간다. 커밋된 `frontend/dist/`를 제공하므로 실행에는 Node가 필요 없다. 이번 세션에서는 `python3 main.py --web --port 0`으로 임의 포트 시작과 Ctrl+C 종료를 확인했다(기본 포트 실행은 미실행).
+
+프런트 소스를 수정할 때만 `frontend/`에서 아래를 순서대로 실행한다. npm 명령은 package.json 기준이며 이 세션에서 미실행했다.
+
+```bash
+npm ci
+npm run typecheck
+npm run build
+```
+
+재빌드 결과는 별도 임시 사본에 커밋본을 `git archive`로 풀고, 양쪽 `frontend/dist`의 상대 파일 목록과 각 파일의 SHA-256을 비교한다. 파일 추가·삭제와 해시 차이를 모두 확인한다. 기존 비교 기록은 `ui5_g7.md`를 참고한다. 이 세션에서 재빌드·해시 비교는 미실행했다.
+
+저장소 루트에서 전체 테스트는 `python3 -B -m unittest`, 웹 시연 테스트만은 `python3 -B -m unittest tests.test_web_demo -v`로 실행한다. 이번 세션에서는 각각 189개, 14개가 통과했다.

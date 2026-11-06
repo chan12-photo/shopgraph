@@ -208,7 +208,7 @@ doc-pending 브랜치(99cac86, draft PR #2)에 문안이 이미 들어가 있다
 | Neo4j, FastAPI, Cytoscape, Docker, CI/CD, 클라우드 배포 (초기 딥리서치 보고서) | [폐기] | 자료구조와 그래프 그림은 라이브러리 없이 구현. 웹 서버는 Python 표준 http.server, 로컬 시연만 제공 |
 ```
 
-간접 의존성을 lock 파일에 포함하는 해석은 ui0_design.md D2로 판정 대기다. 이 문안을 근거로 목록 밖 직접 패키지를 설치하지 않는다. CSS 프레임워크·UI/차트/그래프/아이콘 패키지·외부 글꼴·CDN은 금지한다.
+간접 의존성은 lock 파일에 고정·검토한다(D2 승인, d1dd4ec). 이 문안을 근거로 목록 밖 직접 패키지를 설치하지 않는다. CSS 프레임워크·UI/차트/그래프/아이콘 패키지·외부 글꼴·CDN은 금지한다.
 
 ### 12-5. 11.3 추가 단계·게이트 (11/02 지시 반영 문안)
 
@@ -269,13 +269,15 @@ doc-pending 브랜치(99cac86, draft PR #2)에 문안이 이미 들어가 있다
 
 찬일 결정에 따라 UI0 설계를 다음처럼 보완한다. 본문 계획서는 수정하지 않고 이 대기 문안만 갱신한다.
 
-- D1: 입력·전송 검증 실패는 400과 상태 불변(원본·그래프·ID 카운터)으로 한다. 예상 밖 예외는 500으로 응답하고 서버는 살아 있어야 한다. 변경 뒤 500 본문에는 `변경이 반영됐을 수 있습니다. 다시 조회해 확인하세요`를 넣는다. 변경 API는 변경 결과만 반환한다. `POST /api/customers`는 `{customer, group}`만 반환하고 추천은 `GET /api/customers/{id}/recommendations`로 분리한다. 구매·재고 수정은 변경 결과와 그 직후 단순 공개 조회(edge·weight·get_product)만 반환한다.
+- D1: 업무·입력 오류는 400, Host·Origin 오류 403, 없는 경로 404, 지원하지 않는 메서드 405(+Allow), 본문 64KiB 초과 413, JSON이 아닌 Content-Type 415, 그 밖의 예외 500, dist 없음 503으로 응답한다. 입력·전송 검증 실패는 상태 불변(원본·그래프·ID 카운터)이다. 예상 밖 예외 뒤 서버는 살아 있어야 한다. 변경 뒤 500 본문에는 `변경이 반영됐을 수 있습니다. 다시 조회해 확인하세요`를 넣는다. 변경 API는 변경 결과만 반환한다. `POST /api/customers`는 `{customer, group}`만 반환하고 추천은 `GET /api/customers/{id}/recommendations`로 분리한다. `POST /api/purchases`는 `{purchase_id, customer_id, product_id, edge, weight}`, `PUT /api/products/{id}/stock`은 `{product, sold_out, available_colors, status_label}`을 반환한다. 근거: f80574f, c14b3d2, e578bcf.
 - D2: 직접 의존 6개를 사용하고 간접 의존은 lock으로 고정·검토한다.
 - D3: 금액·재고 decimal 문자열 전송은 반려한다. JSON 정수만 허용하고 콘솔과 같은 9자리 초과를 400으로 거절하며 bool·실수·null·문자열도 거절한다. 포트 8000, 오류 코드, Host·Origin, 화면 6개, 테스트 계획은 유지한다.
 - D4: G6는 `Claude 채팅 검토, 설계 문서 대조, 코드 실행 없음, 반드시 수정 0 / 설계 변경 5건(D1 구조, D3, 아래 1~3)`으로 기록한다.
 - 설계 변경 1: `recommendation_view(g, customer_id, result, k)`가 `{header, items: [[항목줄, 근거줄, 색상줄], ...], notices}`를 반환한다. 빈 결과는 header만 둔다. `print_recommendation`은 이 구조를 순서대로 출력하고 웹은 구조를 그대로 사용한다. `recommendation_scope_label`은 유지한다.
 - 설계 변경 2: 웹 API 테스트는 같은 프로세스의 백그라운드 스레드에서 `HTTPServer.serve_forever()`를 실행하고, port=0과 `urllib`로 실제 HTTP를 검사한다. 응답 뒤 같은 graph 객체 snapshot을 비교하며 finally에서 `shutdown()`·`server_close()`를 보장한다.
 - 설계 변경 3: UI3에서 6개 패키지 각각의 게시일을 기록한다. 게시 2주 미만이면 바로 이전 안정 버전을 선택하고, typecheck·build 실패 시 버전을 바꿔 재시도하지 않고 멈춰 보고한다. Node v25는 홀수 단기 지원이므로 UI3 전에 짝수 LTS 사용을 권장하되 막지는 않는다.
+
+최종 반영 이력: 디자인 C 채택·마무리(80c53cd, 89e2887), UI5 오류 코드 계약·경계 검사 보완(c14b3d2, e578bcf), UI5 찬일 승인 2026-11-06(1d0172f). 짝수 LTS 재빌드와 보완 뒤 브라우저 시연 재실행은 승인 시 남은 한계로 수용했다.
 
 ## 15. UI0 [승인] 기록 (2026-11-02)
 

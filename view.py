@@ -136,10 +136,10 @@ def recommendation_scope_label(g: ShopGraph, customer_id: str, scope: str) -> st
     예외:
         ValueError: 없는 고객 ID이거나 지원하지 않는 범위 코드일 때.
     """
+    gender = g.get_customer(customer_id)["gender"]
     if scope == "group":
         return "같은 그룹"
     if scope == "gender":
-        gender = g.get_customer(customer_id)["gender"]
         return f"{GENDER_LABELS[gender]} 전체"
     if scope == "all":
         return _ALL_LABEL

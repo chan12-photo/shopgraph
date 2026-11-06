@@ -185,7 +185,7 @@ class TestUI2WebWriteAPI(unittest.TestCase):
         """중첩 stock의 아이보리 중복은 마지막 값 덮어쓰기 없이 요청 전체를 거절한다."""
         raw = '{"stock":{"아이보리":3,"아이보리":4,"네이비":0}}'.encode("utf-8")
         self._assert_raw_rejected("/api/products/P03/stock", raw, 400,
-                                  "요청 JSON이 올바르지 않습니다: 요청 JSON: 중복 키입니다 (입력: 아이보리)",
+                                  "요청 JSON: 중복 키입니다 (입력: 아이보리)",
                                   method="PUT")
 
     def test_nonfinite_json_numbers_are_rejected(self) -> None:
@@ -194,7 +194,7 @@ class TestUI2WebWriteAPI(unittest.TestCase):
             with self.subTest(value=value):
                 raw = ('{"name":"새 고객","gender":"여","age":' + value + '}').encode("utf-8")
                 self._assert_raw_rejected("/api/customers", raw, 400,
-                                          "요청 JSON이 올바르지 않습니다: 요청 JSON: 허용하지 않는 숫자입니다 "
+                                          "요청 JSON: 허용하지 않는 숫자입니다 "
                                           f"(입력: {value})")
 
     def test_body_over_64kib_is_rejected(self) -> None:

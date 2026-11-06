@@ -258,6 +258,8 @@ def _read_json_object(handler: BaseHTTPRequestHandler) -> dict:
                              parse_constant=lambda value: (_ for _ in ()).throw(ValueError(
                                  f"요청 JSON: 허용하지 않는 숫자입니다 (입력: {value})")))
     except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
+        if str(error).startswith("요청 JSON:"):
+            raise _RequestError(400, str(error)) from None
         raise _RequestError(400, f"요청 JSON이 올바르지 않습니다: {error}") from None
     if not isinstance(payload, dict):
         raise _RequestError(400, "요청 JSON은 객체여야 합니다")

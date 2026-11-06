@@ -203,6 +203,12 @@ class TestUI2WebWriteAPI(unittest.TestCase):
         raw += b" " * (65537 - len(raw))
         self._assert_raw_rejected("/api/customers", raw, 413, "요청 본문이 너무 큽니다 (64KiB 이하)")
 
+    def test_malformed_json_keeps_original_decode_error(self) -> None:
+        """JSON 문법 오류는 기존 해독 오류 문구·400과 전체 상태 불변을 유지한다."""
+        self._assert_raw_rejected(
+            "/api/customers", b'{"name":', 400,
+            "요청 JSON이 올바르지 않습니다: Expecting value: line 1 column 9 (char 8)")
+
     def test_non_json_content_types_rejected_before_mutation(self) -> None:
         """세 변경 경로 모두 text/plain·Content-Type 누락을 415로 거절하고 상태를 보존한다."""
         requests = [

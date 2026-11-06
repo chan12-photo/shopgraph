@@ -27,7 +27,13 @@ type Stats = { groups: number; customers: number; products: number; membership_e
 type Meta = { k_default: number; k_max: number };
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, init);
+  let response: Response;
+  try {
+    response = await fetch(path, init);
+  } catch (reason: unknown) {
+    if (init?.signal?.aborted || (reason instanceof DOMException && reason.name === "AbortError")) throw reason;
+    throw new Error("서버에 연결할 수 없습니다. 터미널에서 서버(python3 main.py --web)가 켜져 있는지 확인하세요");
+  }
   const payload = await response.json() as T & { error?: string };
   if (!response.ok) throw new Error(payload.error ?? `HTTP ${response.status}`);
   return payload;

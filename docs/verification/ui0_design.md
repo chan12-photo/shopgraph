@@ -46,7 +46,7 @@ Switched to a new branch 'web-ui'
 
 `main.py`가 유일한 실행 진입점이다. 인자 없는 실행은 기존 `run()` 그대로다. `--web`일 때만 지연 import한 `web.create_server()`를 사용한다. 서버 시작마다 `ShopGraph(*initial_records())` 한 개를 새로 만들고, 그 객체를 서버 인스턴스가 참조한다. 요청마다 초기화하지 않는다. 저장·초기화 API는 만들지 않으며 처음 상태로 돌아가려면 서버를 재시작한다.
 
-새 공개 계약은 `web.create_server(g: ShopGraph, port: int = 8000) -> HTTPServer`다. `127.0.0.1`로 고정 바인드하고 `HTTPServer`로 순차 처리한다. `ThreadingHTTPServer`·요청별 작업 스레드는 쓰지 않는다. 운영 경로의 출력·브라우저 열기·종료 처리는 main.py가 맡고, web.py는 HTTP 응답을 쓴다. `Ctrl+C` 뒤 소켓을 닫는다.
+새 공개 계약은 `web.create_server(g: ShopGraph, port: int = 8000) -> HTTPServer`다. `127.0.0.1`로 고정 바인드하고 `ThreadingHTTPServer`(daemon_threads=True)로 연결을 동시에 받되, 서버당 `threading.Lock` 하나로 그래프 처리는 한 번에 하나만 한다. 요청 줄·헤더·본문 읽기와 전송 검증은 잠금 밖, 그래프 조회·변경과 응답 본문 생성은 잠금 안에서 한다. 핸들러 timeout = 2는 유지한다 (찬일 11/07, 외부 버그 검토 #6). 운영 경로의 출력·브라우저 열기·종료 처리는 main.py가 맡고, web.py는 HTTP 응답을 쓴다. `Ctrl+C` 뒤 소켓을 닫는다.
 
 web.py는 graph·search의 공개 함수·ShopGraph 공개 메서드·읽기 전용 공개 상수와 승인받을 view 순수 함수만 호출한다. `_adj`, `_edges`, `_next_ids`나 main.py의 내부 함수를 읽지 않는다. 점수·가중치·품절·추천 범위는 기존 Python 결과를 받는다. TypeScript는 입력값·선택 상태·받은 응답·화면 배치만 관리한다. 서버가 준 순위를 다시 정렬하거나 구매 기록으로 점수를 계산하지 않는다.
 

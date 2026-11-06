@@ -31,7 +31,7 @@ class TestUI8WebStability(unittest.TestCase):
                 except TimeoutError:
                     self.fail("유휴 연결 때문에 /api/stats 응답이 시간 안에 오지 않음")
                 self.assertLess(time.monotonic() - started, 4)
-                idle.settimeout(0.5)
+                idle.settimeout(3)
                 try:
                     remaining = idle.recv(1)
                 except ConnectionError:

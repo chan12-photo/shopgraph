@@ -384,6 +384,7 @@ class _RequestHandler(BaseHTTPRequestHandler):
 
     server_version = "ShopGraphHTTP/1.0"
     protocol_version = "HTTP/1.0"
+    timeout = 2
 
     def log_message(self, format: str, *args: object) -> None:
         """기본 stderr 로그 대신 표준 logging으로 보낸다."""

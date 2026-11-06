@@ -89,7 +89,10 @@ def _run_web(port: int) -> None:
     address = f"http://127.0.0.1:{server.server_address[1]}"
     try:
         print(f"웹 서버를 시작했습니다: {address}")
-        webbrowser.open(address)
+        try:
+            webbrowser.open(address)
+        except Exception:
+            print(f"브라우저를 자동으로 열지 못했습니다. 주소를 직접 여세요: {address}")
         server.serve_forever()
     except KeyboardInterrupt:
         print("웹 서버를 종료합니다")

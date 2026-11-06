@@ -397,14 +397,23 @@ class TestUI1WebReadAPI(unittest.TestCase):
         self.assertIn("(다른 포트는 --port PORT)", str(raised.exception))
 
     def test_browser_open_failure_still_closes_server(self) -> None:
-        """브라우저 자동 열기가 실패해도 실제 _run_web 경로가 서버 소켓을 닫는다."""
+        """브라우저 열기 예외는 안내하고 서버를 계속 실행한 뒤 소켓을 닫는다."""
+        from contextlib import redirect_stdout
+        from io import StringIO
+
         fake_server = mock.Mock()
         fake_server.server_address = ("127.0.0.1", 43123)
+        output = StringIO()
         with (mock.patch("web.create_server", return_value=fake_server),
-              mock.patch.object(main.webbrowser, "open", side_effect=RuntimeError("browser"))):
-            with self.assertRaises(RuntimeError):
-                main._run_web(43123)
+              mock.patch.object(main.webbrowser, "open", side_effect=RuntimeError("browser")),
+              redirect_stdout(output)):
+            main._run_web(43123)
+        fake_server.serve_forever.assert_called_once_with()
         fake_server.server_close.assert_called_once_with()
+        self.assertIn(
+            "브라우저를 자동으로 열지 못했습니다. 주소를 직접 여세요: http://127.0.0.1:43123",
+            output.getvalue(),
+        )
 
 
     def test_popular_keeps_sold_out_product_and_status(self) -> None:

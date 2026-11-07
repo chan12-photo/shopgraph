@@ -150,7 +150,7 @@ UI1에서는 `[SPEC][UI1]`로 이 공개 계약을 먼저 기록하고 구현 �
 
 | 단계 | 검사·통과 기준 |
 |---|---|
-| UI1 HTTP·읽기 | unittest + urllib.request로 실제 HTTP. 같은 프로세스에서 `create_server(fixtures.make_graph(), port=0)`를 백그라운드 스레드에 두고 `serve_forever()`를 실행한다. 서버 자체는 HTTPServer 단일 요청 처리이며, 응답을 받은 뒤 같은 graph 객체로 snapshot을 직접 비교한다. 테스트 끝에 `shutdown()`·`server_close()`를 finally에서 보장. 모든 읽기 응답의 필드·형식·순서·중복·빈 결과·스냅샷 불변 검사 |
+| UI1 HTTP·읽기 | unittest + urllib.request로 실제 HTTP. 같은 프로세스에서 `create_server(fixtures.make_graph(), port=0)`를 백그라운드 스레드에 두고 `serve_forever()`를 실행한다. 서버는 연결을 동시에 받고 그래프 처리는 잠금으로 하나씩 하며, 응답을 받은 뒤 같은 graph 객체로 snapshot을 직접 비교한다. 테스트 끝에 `shutdown()`·`server_close()`를 finally에서 보장. 모든 읽기 응답의 필드·형식·순서·중복·빈 결과·스냅샷 불변 검사 |
 | UI1 경계·정적 파일 | 없는 경로/ID, 잘못된 k·중복 쿼리, 메서드, Host/Origin, JSON 오류 응답, 경로 이탈·디렉터리 목록 노출 방지, dist 없음(503), MIME, 정적 파일 바이트. main 무인자·--web 분기, 포트 충돌, Ctrl+C 종료 검사. 실제 브라우저 실행은 테스트에서 대체 |
 | UI2 변경 | 고객 등록·구매·재고 전체 교체의 실제 HTTP, 실패 요청마다 서버 프로세스에서 `tests.helpers.snapshot(g)` 전후 비교(제어 파이프로만 확인, 운영 API로 노출 안 함). 실패 뒤 다음 ID, 혼합 유효/무효 재고, 구매된 색상 삭제 거절, bool·실수·null·숫자 문자열(나이/수량)·중복 키·정밀도 큰 재고·잘못된 날짜·ID 한도 검사. 성공 변경마다 check_integrity == [] |
 | UI2 예외 | 조회 중 RuntimeError를 고장 주입해 500 뒤 정상 GET 가능 확인. 변경 후 응답 생성 실패도 별도 주입해 D1 한계를 숨기지 않음. 프로세스 종료·연결 끊김을 성공으로 보고하지 않음 |

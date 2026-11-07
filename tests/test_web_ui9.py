@@ -12,6 +12,7 @@ import time
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from http.client import HTTPConnection
+from http.server import HTTPServer
 from pathlib import Path
 from unittest import mock
 
@@ -28,6 +29,9 @@ _DEEP = "요청 JSON: 너무 깊게 중첩되어 있습니다"
 _FORBIDDEN = "허용하지 않는 Host 또는 Origin입니다"
 _BAD_LENGTH = "요청 본문 길이가 올바르지 않습니다"
 _MISSING = "없는 경로입니다"
+_CLOSING = "서버가 종료 중입니다"
+_BAD_HEADER = "요청 헤더 형식이 올바르지 않습니다"
+_TWO_TYPES = "요청 헤더가 중복됐습니다 (Content-Type)"
 
 
 def _customer_body(**changes: object) -> bytes:
@@ -623,6 +627,185 @@ class TestUI9MissedMutants(_WireCase):
         """성별 메뉴 번호 "01"은 1로 읽지 않고 거절한다 (현재 동작 고정)."""
         with self.assertRaisesRegex(ValueError, "성별:"):
             main._to_gender("01")
+
+
+class TestUI9ClosedServer(_WireCase):
+    """Codex 확인 1차: 서버를 닫은 뒤 남은 연결이 그래프를 건드리지 못한다."""
+
+    def open_partial(self, request: bytes, sent: int) -> socket.socket:
+        """요청의 앞부분만 보내고 서버가 그 연결을 받을 때까지 기다린다.
+
+        연결은 받은 순서대로 처리되므로, 뒤에 보낸 GET의 200은 앞 연결이 수락됐다는 뜻이다.
+
+        인자: request는 요청 전체 바이트, sent는 먼저 보낼 바이트 수.
+        반환: 열린 소켓. 예외: AssertionError는 뒤따른 GET이 200이 아닐 때.
+        """
+        connection = socket.create_connection(self.address, timeout=5)
+        self.addCleanup(connection.close)
+        connection.sendall(request[:sent])
+        self.assertEqual(self.send("GET", "/api/stats")[0], 200)
+        return connection
+
+    def stop_serving(self) -> None:
+        """serve_forever를 멈추고 스레드가 끝날 때까지 기다린다.
+
+        인자: 없음. 반환: 없음. 예외: AssertionError는 스레드가 끝나지 않을 때.
+        """
+        self.harness.server.shutdown()
+        self.harness.thread.join(timeout=2)
+        self.assertFalse(self.harness.thread.is_alive())
+
+    def finish(self, connection: socket.socket, rest: bytes) -> tuple[int, dict]:
+        """요청의 나머지를 보내고 상태와 JSON 본문을 돌려준다.
+
+        인자: connection은 열린 소켓, rest는 남은 바이트. 반환: (상태, JSON 객체).
+        예외: ValueError는 응답이 HTTP 형식이 아닐 때.
+        """
+        connection.sendall(rest)
+        chunks = []
+        while chunk := connection.recv(65536):
+            chunks.append(chunk)
+        head, _, body = b"".join(chunks).partition(b"\r\n\r\n")
+        return int(head.split()[1]), json.loads(body.decode("utf-8"))
+
+    def test_body_finished_after_close_changes_nothing(self) -> None:
+        """헤더와 본문 1바이트를 보내고 서버를 닫은 뒤 나머지를 보내도 등록되지 않는다."""
+        before = snapshot(self.harness.graph)
+        request = self.message("POST", "/api/customers", _customer_body())
+        connection = self.open_partial(request, len(request) - len(_customer_body()) + 1)
+        self.stop_serving()
+        self.harness.server.server_close()
+        rest = request[len(request) - len(_customer_body()) + 1:]
+        self.assertEqual(self.finish(connection, rest), (503, {"error": _CLOSING}))
+        self.assertEqual(snapshot(self.harness.graph), before)
+        self.assertEqual(self.harness.graph.stats()["customers"], 6)
+
+    def test_shutdown_alone_blocks_later_change(self) -> None:
+        """shutdown만 끝난 상태에서도 재고 변경은 503이고 상태가 그대로다."""
+        before = snapshot(self.harness.graph)
+        raw = json.dumps({"stock": {"블랙": 1}}).encode("ascii")
+        request = self.message("PUT", "/api/products/P01/stock", raw)
+        connection = self.open_partial(request, len(request) - 1)
+        self.stop_serving()
+        self.assertEqual(self.finish(connection, request[-1:]), (503, {"error": _CLOSING}))
+        self.assertEqual(snapshot(self.harness.graph), before)
+
+    def test_server_close_alone_blocks_later_change(self) -> None:
+        """main.py처럼 server_close만 불러도 남은 연결의 구매 등록은 503이다."""
+        before = snapshot(self.harness.graph)
+        request = self.message("POST", "/api/purchases", _purchase_body())
+        connection = self.open_partial(request, len(request) - 1)
+        HTTPServer.shutdown(self.harness.server)  # 종료 표시 없이 수신 고리만 멈춘다
+        self.harness.thread.join(timeout=2)
+        self.harness.server.server_close()
+        self.assertEqual(self.finish(connection, request[-1:]), (503, {"error": _CLOSING}))
+        self.assertEqual(snapshot(self.harness.graph), before)
+
+    def test_read_after_close_is_503(self) -> None:
+        """닫은 뒤 끝난 GET API도 그래프를 읽지 않고 503이다."""
+        request = self.message("GET", "/api/stats")
+        connection = self.open_partial(request, len(request) - 1)
+        self.stop_serving()
+        self.assertEqual(self.finish(connection, request[-1:]), (503, {"error": _CLOSING}))
+
+    def test_port_in_use_keeps_oserror(self) -> None:
+        """포트를 못 열면 server_close 재정의가 OSError를 가리지 않는다."""
+        with self.assertRaises(OSError):
+            web.create_server(make_graph(), port=self.address[1])
+
+
+class TestUI9MalformedHeaders(_WireCase):
+    """Codex 확인 1차: 헤더 줄 결함 뒤에 숨은 헤더와 길이·Content-Type 경계."""
+
+    def raw_request(self, method: str, path: str, body: bytes, lines: tuple[str, ...]) -> bytes:
+        """Host 뒤에 주어진 헤더 줄을 그대로 넣은 요청 바이트를 만든다.
+
+        인자: 메서드·경로·본문, Host 다음에 넣을 헤더 줄. 반환: 요청 바이트.
+        예외: UnicodeEncodeError는 헤더가 latin-1이 아닐 때.
+        """
+        head = [f"{method} {path} HTTP/1.1", f"Host: {self.host}", *lines]
+        return "\r\n".join(head).encode("iso-8859-1") + b"\r\n\r\n" + body
+
+    def assert_raw_rejected(self, expected: tuple[int, dict], request: bytes) -> None:
+        """요청 바이트가 기대 응답으로 거절되고 snapshot이 그대로인지 확인한다.
+
+        인자: expected는 (상태, JSON), request는 요청 바이트. 반환: 없음.
+        예외: AssertionError는 응답이 다르거나 상태가 바뀌었을 때.
+        """
+        before = snapshot(self.harness.graph)
+        status, _, body = self.wire(request)
+        self.assertEqual((status, json.loads(body.decode("utf-8"))), expected)
+        self.assertEqual(snapshot(self.harness.graph), before)
+
+    def test_headers_hidden_after_bad_line_are_rejected(self) -> None:
+        """콜론 없는 줄 뒤의 외부 Origin·TE·두 번째 Host가 붙은 POST는 모두 400이다."""
+        raw = _customer_body()
+        valid = ("Content-Type: application/json", f"Content-Length: {len(raw)}")
+        for hidden in ("Origin: http://evil.example", "Transfer-Encoding: chunked", "Host: evil.example"):
+            with self.subTest(hidden=hidden):
+                self.assert_raw_rejected((400, {"error": _BAD_HEADER}), self.raw_request(
+                    "POST", "/api/customers", raw, (*valid, "badline", hidden)))
+
+    def test_bad_header_line_checked_before_other_checks(self) -> None:
+        """헤더 줄 결함은 Host·경로 검사보다 먼저이고 GET도 400이다."""
+        for line in ("badline", "Origin : http://evil.example", ": no-name"):
+            with self.subTest(line=line):
+                self.assert_raw_rejected((400, {"error": _BAD_HEADER}),
+                                         self.raw_request("GET", "/api/stats", b"", (line,)))
+        self.assert_raw_rejected((400, {"error": _BAD_HEADER}),
+                                 b"GET /api/stats HTTP/1.1\r\nbadline\r\nHost: bad.example\r\n\r\n")
+
+    def test_multipart_content_type_stays_415(self) -> None:
+        """파서가 multipart 본문 결함을 남겨도 정상 형식 헤더는 계약대로 415다."""
+        raw = _customer_body()
+        for value in ("multipart/form-data", "multipart/form-data; boundary=x"):
+            with self.subTest(value=value):
+                self.assert_raw_rejected(
+                    (415, {"error": "요청 본문은 application/json이어야 합니다"}),
+                    self.raw_request("POST", "/api/customers", raw,
+                                     (f"Content-Type: {value}", f"Content-Length: {len(raw)}")))
+
+    def test_multipart_does_not_hide_bad_line(self) -> None:
+        """multipart 결함이 함께 있어도 헤더 줄 결함이 있으면 400이다."""
+        raw = _customer_body()
+        self.assert_raw_rejected((400, {"error": _BAD_HEADER}), self.raw_request(
+            "POST", "/api/customers", raw,
+            ("Content-Type: multipart/form-data; boundary=x", f"Content-Length: {len(raw)}",
+             "badline", "Origin: http://evil.example")))
+
+    def test_zero_padded_content_length_is_400(self) -> None:
+        """실제 길이가 작아도 선행 0을 4,400개 붙인 표기는 413이 아니라 400이다."""
+        raw = _customer_body()
+        self.assert_rejected((400, {"error": _BAD_LENGTH}), "POST", "/api/customers", raw,
+                             (("Content-Length", "0" * 4400 + str(len(raw))),), length=False)
+
+    def test_content_length_digit_boundary(self) -> None:
+        """10자리 표기는 값으로 판정하고 11자리 표기는 값과 상관없이 400이다."""
+        raw = _customer_body()
+        status, body = self.send("POST", "/api/customers", raw,
+                                 (("Content-Length", f"{len(raw):010}"),), length=False)
+        self.assertEqual((status, body["customer"]["id"]), (201, "C07"))
+        self.assert_rejected((413, {"error": "요청 본문이 너무 큽니다 (64KiB 이하)"}),
+                             "POST", "/api/customers", b"", (("Content-Length", "9" * 10),), length=False)
+        self.assert_rejected((400, {"error": _BAD_LENGTH}), "POST", "/api/customers", raw,
+                             (("Content-Length", f"{len(raw):011}"),), length=False)
+
+    def test_two_content_types_are_rejected_in_both_orders(self) -> None:
+        """Content-Type이 둘이면 어느 쪽이 먼저여도 400이고 상태가 그대로다."""
+        raw = _customer_body()
+        pair = ("Content-Type: application/json", "Content-Type: text/plain")
+        for first, second in (pair, pair[::-1]):
+            with self.subTest(first=first):
+                self.assert_raw_rejected((400, {"error": _TWO_TYPES}), self.raw_request(
+                    "POST", "/api/customers", raw, (first, second, f"Content-Length: {len(raw)}")))
+
+    def test_duplicate_host_and_origin_stay_403(self) -> None:
+        """Host·Origin 중복은 Content-Type 중복과 달리 기존 403이다."""
+        origin = f"http://127.0.0.1:{self.address[1]}"
+        self.assert_rejected((403, {"error": _FORBIDDEN}), "POST", "/api/customers", _customer_body(),
+                             (("Host", self.host),))
+        self.assert_rejected((403, {"error": _FORBIDDEN}), "POST", "/api/customers", _customer_body(),
+                             (("Origin", origin), ("Origin", origin)))
 
 
 if __name__ == "__main__":

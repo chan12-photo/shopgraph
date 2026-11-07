@@ -11,6 +11,9 @@ import mimetypes
 import re
 import threading
 from collections.abc import Callable
+from email.errors import (CloseBoundaryNotFoundDefect, InvalidMultipartContentTransferEncodingDefect,
+                          MultipartInvariantViolationDefect, NoBoundaryInMultipartDefect,
+                          StartBoundaryNotFoundDefect)
 from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import SplitResult, parse_qs, unquote, urlsplit
@@ -26,8 +29,12 @@ _INT_QUERY = re.compile(r"[0-9]+\Z")
 _NOT_FOUND = object()
 _MAX_BODY_BYTES = 64 * 1024
 _MAX_DIGITS = 9
+_MAX_LENGTH_DIGITS = 10
 _MAX_JSON_DEPTH = 64
 _DEEP_JSON = "요청 JSON: 너무 깊게 중첩되어 있습니다"
+_MULTIPART_BODY_DEFECTS = (CloseBoundaryNotFoundDefect, InvalidMultipartContentTransferEncodingDefect,
+                           MultipartInvariantViolationDefect, NoBoundaryInMultipartDefect,
+                           StartBoundaryNotFoundDefect)
 _TRANSPORT_ERRORS = {
     400: "요청 형식이 올바르지 않습니다",
     414: "요청 주소가 너무 깁니다",
@@ -243,6 +250,26 @@ def _query_k(query: str, default: int | None, *, allow_k: bool = True) -> int | 
     if len(raw) > _MAX_DIGITS:
         raise ValueError(f"요청 쿼리: k가 너무 깁니다 ({_MAX_DIGITS}자리 이하)")
     return int(raw)
+
+
+def _check_header_lines(handler: BaseHTTPRequestHandler) -> None:
+    """헤더 줄이 모두 헤더로 읽혔는지 확인한다.
+
+    콜론 없는 줄을 만나면 파서가 그 뒤의 헤더를 headers에 넣지 않고 defects에만 남긴다. 숨은 헤더는
+    Host·Origin·길이 검사가 볼 수 없으므로 먼저 거절한다. multipart 내용 형식은 헤더 줄이 정상이어도
+    본문이 없다는 결함을 남기므로 제외한다. 그 요청은 내용 형식 검사에서 415가 된다.
+
+    인자:
+        handler: 헤더를 읽은 요청 핸들러.
+
+    반환:
+        없음.
+
+    예외:
+        _RequestError: multipart 본문 결함이 아닌 결함이 하나라도 있을 때 (400).
+    """
+    if any(not isinstance(defect, _MULTIPART_BODY_DEFECTS) for defect in handler.headers.defects):
+        raise _RequestError(400, "요청 헤더 형식이 올바르지 않습니다")
 
 
 def _valid_host(handler: BaseHTTPRequestHandler) -> bool:
@@ -470,20 +497,17 @@ def _content_length(handler: BaseHTTPRequestHandler) -> int:
         0 이상 _MAX_BODY_BYTES 이하의 본문 길이.
 
     예외:
-        _RequestError: Transfer-Encoding이 있거나 Content-Length가 없거나, 하나의 ASCII 십진수가
-            아닐 때 (400). 길이가 한도를 넘을 때 (413).
+        _RequestError: Transfer-Encoding이 있거나 Content-Length가 없거나, 하나의 10자리 이하 ASCII
+            십진수가 아닐 때 (400). 올바르게 읽은 길이가 한도를 넘을 때 (413).
     """
     if handler.headers.get_all("Transfer-Encoding"):
         raise _RequestError(400, "Transfer-Encoding 요청은 지원하지 않습니다")
     values = handler.headers.get_all("Content-Length", [])
     if not values:
         raise _RequestError(400, "요청 본문 길이가 필요합니다")
-    if len(values) != 1 or _INT_QUERY.fullmatch(values[0]) is None:
+    if len(values) != 1 or len(values[0]) > _MAX_LENGTH_DIGITS or _INT_QUERY.fullmatch(values[0]) is None:
         raise _RequestError(400, "요청 본문 길이가 올바르지 않습니다")
-    try:
-        length = int(values[0])
-    except ValueError:
-        length = _MAX_BODY_BYTES + 1  # int()의 자릿수 제한을 넘는 값도 한도 초과다
+    length = int(values[0])
     if length > _MAX_BODY_BYTES:
         raise _RequestError(413, "요청 본문이 너무 큽니다 (64KiB 이하)")
     return length
@@ -491,7 +515,10 @@ def _content_length(handler: BaseHTTPRequestHandler) -> int:
 
 def _read_json_object(handler: BaseHTTPRequestHandler) -> dict:
     """Content-Length만큼 JSON 객체를 읽고 전송 형식 오류를 400/413/415로 바꾼다."""
-    content_type = handler.headers.get("Content-Type", "")
+    content_types = handler.headers.get_all("Content-Type", [])
+    if len(content_types) > 1:
+        raise _RequestError(400, "요청 헤더가 중복됐습니다 (Content-Type)")
+    content_type = content_types[0] if content_types else ""
     if content_type.split(";", 1)[0].strip().lower() != "application/json":
         raise _RequestError(415, "요청 본문은 application/json이어야 합니다")
     length = _content_length(handler)
@@ -743,6 +770,7 @@ class _RequestHandler(BaseHTTPRequestHandler):
         content_type = _JSON_TYPE
         extra_headers = None
         try:
+            _check_header_lines(self)
             if not _valid_host(self) or not _valid_origin(self):
                 raise _RequestError(403, "허용하지 않는 Host 또는 Origin입니다")
             parsed = _checked_url(self.path, method)
@@ -765,9 +793,25 @@ class _RequestHandler(BaseHTTPRequestHandler):
             status, body = 500, _error_bytes(message)
         self._send_bytes(status, body, content_type, extra_headers)
 
+    def _require_open(self) -> None:
+        """서버가 닫히지 않았는지 확인한다. 호출자가 그래프 잠금을 잡고 있어야 한다.
+
+        인자:
+            없음.
+
+        반환:
+            없음.
+
+        예외:
+            _RequestError: 종료 표시가 서 있을 때 (503). 그래프는 건드리지 않는다.
+        """
+        if self.server.closing:
+            raise _RequestError(503, "서버가 종료 중입니다")
+
     def _read_api(self) -> bytes:
         """잠금 안에서 GET API를 조회하고 응답 본문을 만든다."""
         with self.server.graph_lock:
+            self._require_open()
             payload = _route_get(self.server.graph, self.path)
             if payload is _NOT_FOUND:
                 raise _RequestError(404, "없는 경로입니다")
@@ -777,6 +821,7 @@ class _RequestHandler(BaseHTTPRequestHandler):
         """잠금 안에서 변경 메서드를 부르고 응답 본문을 만든다."""
         route = _route_post if method == "POST" else _route_put
         with self.server.graph_lock:
+            self._require_open()
             result = route(self.server.graph, self.path, payload)
             if result is _NOT_FOUND:
                 raise _RequestError(404, "없는 경로입니다")
@@ -806,6 +851,40 @@ class _ShopGraphHTTPServer(ThreadingHTTPServer):
     daemon_threads = True
     request_queue_size = 32
 
+    def __init__(self, address: tuple[str, int], handler: type[BaseHTTPRequestHandler]) -> None:
+        """잠금과 종료 표시를 만들고 소켓을 연다.
+
+        부모 생성자는 바인드에 실패하면 server_close를 부르므로 잠금을 먼저 만든다.
+
+        인자:
+            address: 바인드할 (주소, 포트).
+            handler: 요청 핸들러 클래스.
+
+        반환:
+            없음.
+
+        예외:
+            OSError: 포트를 열 수 없을 때.
+        """
+        self.graph_lock = threading.Lock()
+        self.closing = False
+        super().__init__(address, handler)
+
+    def _mark_closing(self) -> None:
+        """그래프 잠금 안에서 종료 표시를 세운다. 이 뒤로는 어떤 요청도 그래프를 건드리지 못한다."""
+        with self.graph_lock:
+            self.closing = True
+
+    def shutdown(self) -> None:
+        """종료 표시를 세우고 serve_forever를 멈춘다."""
+        self._mark_closing()
+        super().shutdown()
+
+    def server_close(self) -> None:
+        """종료 표시를 세우고 듣기 소켓을 닫는다. 데몬 스레드의 남은 연결은 기다리지 않는다."""
+        self._mark_closing()
+        super().server_close()
+
 
 def create_server(g: ShopGraph, port: int = 8000) -> HTTPServer:
     """127.0.0.1에 ShopGraph API 서버를 만든다.
@@ -827,5 +906,4 @@ def create_server(g: ShopGraph, port: int = 8000) -> HTTPServer:
         raise TypeError("port는 정수여야 합니다")
     server = _ShopGraphHTTPServer(("127.0.0.1", port), _RequestHandler)
     server.graph = g
-    server.graph_lock = threading.Lock()
     return server

@@ -411,7 +411,7 @@
       "started_utc": "2026-11-07T09:39:03.068344+00:00",
       "finished_utc": "2026-11-07T09:39:38.261177+00:00",
       "argv": [
-        "tools/bench.py",
+        "docs/verification/x0_bench.py",
         "time",
         "10000",
         "1000",
@@ -486,7 +486,7 @@
       "started_utc": "2026-11-07T09:40:09.340463+00:00",
       "finished_utc": "2026-11-07T09:40:16.810173+00:00",
       "argv": [
-        "tools/bench.py",
+        "docs/verification/x0_bench.py",
         "mem",
         "10000",
         "1000",
@@ -552,7 +552,7 @@
       "started_utc": "2026-11-07T09:40:35.776102+00:00",
       "finished_utc": "2026-11-07T09:40:37.663426+00:00",
       "argv": [
-        "tools/bench.py",
+        "docs/verification/x0_bench.py",
         "rss",
         "10000",
         "1000",
@@ -948,7 +948,7 @@
       "started_utc": "2026-11-07T09:40:44.342427+00:00",
       "finished_utc": "2026-11-07T09:40:46.256882+00:00",
       "argv": [
-        "tools/bench.py",
+        "docs/verification/x0_bench.py",
         "time",
         "1000",
         "100",
@@ -1344,7 +1344,7 @@
       "started_utc": "2026-11-07T09:41:06.086513+00:00",
       "finished_utc": "2026-11-07T09:41:14.339602+00:00",
       "argv": [
-        "tools/bench.py",
+        "docs/verification/x0_bench.py",
         "time",
         "3000",
         "300",
@@ -1740,7 +1740,7 @@
       "started_utc": "2026-11-07T09:41:31.814741+00:00",
       "finished_utc": "2026-11-07T09:42:06.874757+00:00",
       "argv": [
-        "tools/bench.py",
+        "docs/verification/x0_bench.py",
         "time",
         "10000",
         "1000",
@@ -1834,5 +1834,6 @@
         "change_percent": 1.2679245283018892
       }
     }
-  }
+  },
+  "path_revision_note": "X0 보완에서 runs의 argv 스크립트 경로만 현재 진단 위치로 정정했다. 기존 실측은 이동 전 위치에서 실행했으며 이번에는 재측정하지 않았다. 수치·표본·시각·환경·bench_sha256은 기존 실측 기록 그대로다. 당시 명령 원문은 1ba19bd 커밋에 있다."
 }

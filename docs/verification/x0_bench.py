@@ -1,6 +1,8 @@
-"""X0 기준 측정(v3 부록 A bench2.py 기반), 표준 라이브러리 전용 개발 도구.
+"""진단 전용: 측정 프로세스 안에서만 graph 내부 ID 상수를 바꿔 끼우므로 CLAUDE.md 운영 모듈 규칙에 따라 tools/가 아닌 docs/verification/에 둔다. X1에서 ID 제한이 풀리면 내부를 건드리지 않는 측정 도구를 tools/에 둔다.
 
-실행: python3 -B tools/bench.py time|mem|rss [C P T] [--seed 1] [--json 경로]
+X0 기준 측정(v3 부록 A bench2.py 기반), 표준 라이브러리 전용 개발 도구.
+
+실행: python3 -B docs/verification/x0_bench.py time|mem|rss [C P T] [--seed 1] [--json 경로]
 기본 규모: 고객 10,000명·상품 1,000개·구매 300,000건. 모드마다 별도
 프로세스로 실행한다. time/RSS에는 tracemalloc을 켜지 않으며 mem의 RSS는 재지 않는다.
 생성 시간은 입력 생성이 아닌 ShopGraph 생성자(검증·복사·그래프 구성) 시간이다.
@@ -37,7 +39,7 @@ from datetime import datetime, timezone
 from functools import partial
 from types import MappingProxyType
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 import graph
 import search
 
@@ -324,7 +326,7 @@ def run_mode(mode: str, c: int, p: int, t: int, seed: int = 1, repeat: int | Non
 
 def environment() -> dict:
     """목적: 실제 실행 환경 수집. 인자: 없음. 반환: 환경. 예외: 환경 명령 실패 전파."""
-    root = pathlib.Path(__file__).resolve().parent.parent
+    root = pathlib.Path(__file__).resolve().parents[2]
     cpu = platform.processor()
     if sys.platform == "darwin":
         cpu = subprocess.check_output(["sysctl", "-n", "machdep.cpu.brand_string"], text=True).strip()

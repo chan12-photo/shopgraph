@@ -8,7 +8,7 @@ import tempfile
 import unittest
 
 import graph
-from tools import bench
+from docs.verification import x0_bench as bench
 
 
 class BenchTests(unittest.TestCase):

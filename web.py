@@ -9,6 +9,7 @@ import json
 import logging
 import mimetypes
 import re
+import sys
 import threading
 from collections.abc import Callable
 from email.errors import (CloseBoundaryNotFoundDefect, InvalidMultipartContentTransferEncodingDefect,
@@ -569,9 +570,9 @@ def _require_keys(payload: dict, required: set[str]) -> None:
 def _json_int(value: object, label: str) -> int:
     """JSON 정수 형식과 9자리 전송 제한만 확인하고 범위는 graph.py에 맡긴다."""
     if isinstance(value, bool) or not isinstance(value, int):
-        raise ValueError(f"요청 JSON: {label}은 JSON 정수여야 합니다 (입력: {value!r})")
+        raise ValueError(f"요청 JSON: {label} 값은 JSON 정수여야 합니다 (입력: {value!r})")
     if len(str(abs(value))) > _MAX_DIGITS:
-        raise ValueError(f"요청 JSON: {label}은 {_MAX_DIGITS}자리 이하 정수여야 합니다 (입력: {value})")
+        raise ValueError(f"요청 JSON: {label} 값은 {_MAX_DIGITS}자리 이하 정수여야 합니다 (입력: {value})")
     return value
 
 
@@ -810,6 +811,8 @@ class _RequestHandler(BaseHTTPRequestHandler):
             status, body, extra_headers = error.status, _error_bytes(str(error)), error.headers
         except ValueError as error:
             status, body = 400, _error_bytes(str(error))
+        except (ConnectionResetError, BrokenPipeError):
+            raise  # 상대가 끊은 연결이다. 응답을 보낼 곳이 없으므로 서버의 handle_error가 한 줄로 남긴다.
         except Exception:
             _LOGGER.exception("웹 요청 처리 중 예외")
             message = ("변경이 반영됐을 수 있습니다. 다시 조회해 확인하세요"
@@ -893,6 +896,26 @@ class _ShopGraphHTTPServer(ThreadingHTTPServer):
         self.graph_lock = threading.Lock()
         self.closing = False
         super().__init__(address, handler)
+
+    def handle_error(self, request: object, client_address: tuple[str, int]) -> None:
+        """클라이언트가 먼저 끊은 연결만 한 줄로 남기고 다른 예외는 기본 기록을 유지한다.
+
+        인자:
+            request: 처리 중이던 연결.
+            client_address: 상대 주소.
+
+        반환:
+            없음.
+
+        예외:
+            없음.
+        """
+        error = sys.exc_info()[1]
+        if isinstance(error, (ConnectionResetError, BrokenPipeError)):
+            _LOGGER.warning("클라이언트가 응답 전에 연결을 끊었습니다: %s (%s)",
+                            client_address, type(error).__name__)
+            return
+        super().handle_error(request, client_address)
 
     def _mark_closing(self) -> None:
         """그래프 잠금 안에서 종료 표시를 세운다. 이 뒤로는 어떤 요청도 그래프를 건드리지 못한다."""

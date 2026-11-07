@@ -117,7 +117,7 @@ ul { padding-left: 1.2rem; }
 .customer-meta, .product-meta { margin: 0; color: var(--ink-soft); }
 .ledger-list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--rule); }
 .ledger-list li { padding: .5rem 0; border-bottom: 1px dashed var(--rule); }
-.purchase-meta { display: block; color: var(--ink-soft); font-size: .95rem; font-variant-numeric: tabular-nums; }
+.purchase-meta, .purchase-facts { display: block; color: var(--ink-soft); font-size: .95rem; font-variant-numeric: tabular-nums; }
 .recommendation-panel { min-width: 0; }
 .recommendation-panel > h3 { line-height: 1.5; padding-bottom: .5rem; border-bottom: 2px solid var(--ink); }
 .recommendation-card { --scope: var(--ink); display: grid; grid-template-columns: 2.6rem minmax(0, 1fr); gap: .7rem; margin: .75rem 0 0; padding: .8rem .9rem .8rem 0; border: 1px solid var(--rule); border-left: 6px solid var(--scope); border-radius: 6px; background: var(--card); }

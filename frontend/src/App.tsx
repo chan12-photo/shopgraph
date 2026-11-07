@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
 type Screen = "graph" | "customer" | "mutations" | "popular" | "product" | "integrity";
 type Customer = { id: string; name: string; gender: string; age: number };
 type Group = { id: string; label: string };
-type Purchase = { product_id: string; name: string; colors: string[]; weight: number };
+type Purchase = { product_id: string; name: string; colors: string[]; weight: number; count: number; total_qty: number; last_date: string };
 type Product = { id: string; name: string; kind: string; style: string; price: number; stock: Record<string, number> };
 type Buyer = { customer_id: string; name: string; group_id: string; colors: string[] };
 type CustomerDetail = { customer: Customer; group: Group; purchases: Purchase[] };
@@ -41,6 +41,13 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 
 function jsonRequest(method: string, body: object): RequestInit {
   return { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+}
+
+/** 입력 문자열이 정수 표기인지만 확인한다. 범위 판단은 서버가 한다. */
+function integerText(text: string, label: string): number {
+  const trimmed = text.trim();
+  if (!/^[0-9]+$/.test(trimmed)) throw new Error(`${label}: 숫자만 입력하세요 (입력: ${text})`);
+  return Number(trimmed);
 }
 
 function errorMessage(reason: unknown): string {
@@ -84,12 +91,26 @@ const GRAPH_WIDTH = 1180;
 const GRAPH_HEIGHT = 740;
 const GRAPH_TOP = 44;
 const GRAPH_BOTTOM = 6;
+const GROUP_MIN_GAP = 40;
 const GRAPH_COLUMNS = [
   { kind: "group", label: "그룹", x: 6, width: 176, fontSize: 14, maxHeight: 32, nameLength: 10 },
   { kind: "customer", label: "고객", x: 326, width: 138, fontSize: 13, maxHeight: 26, nameLength: 6 },
   { kind: "product", label: "상품", x: 884, width: 290, fontSize: 14, maxHeight: 26, nameLength: 14 },
 ] as const;
 type NodeBox = { x: number; y: number; width: number; height: number; fontSize: number; nameLength: number };
+
+/** 소속 고객이 있는 그룹 칩을 위에서 아래로 훑어 최소 간격을 확보하고, 아래 끝을 넘으면 위로 되민다. */
+function spreadGroups(rows: NodeBox[]) {
+  const sorted = [...rows].sort((a, b) => a.y - b.y);
+  sorted.forEach((box, index) => {
+    if (index > 0) box.y = Math.max(box.y, sorted[index - 1].y + GROUP_MIN_GAP);
+  });
+  let limit = GRAPH_HEIGHT - GRAPH_COLUMNS[0].maxHeight / 2;
+  [...sorted].reverse().forEach((box) => {
+    box.y = Math.min(box.y, limit);
+    limit = box.y - GROUP_MIN_GAP;
+  });
+}
 
 /** 노드 칩의 SVG 좌표만 만든다. 서버 배열 순서를 그대로 두고 그룹 칩은 소속 고객 좌표의 가운데에 놓는다. */
 function graphLayout(nodes: GraphNode[]): Record<string, NodeBox> {
@@ -102,19 +123,21 @@ function graphLayout(nodes: GraphNode[]): Record<string, NodeBox> {
         height: Math.min(column.maxHeight, gap - 4), fontSize: column.fontSize, nameLength: column.nameLength };
     });
   });
-  const occupied: number[] = [];
+  const placed: NodeBox[] = [];
   const empty: GraphNode[] = [];
   nodes.filter((node) => node.kind === "group").forEach((node) => {
     const members = node.neighbor_ids.map((id) => boxes[id]).filter(Boolean);
     if (members.length) {
       boxes[node.id].y = members.reduce((sum, box) => sum + box.y, 0) / members.length;
-      occupied.push(boxes[node.id].y);
+      placed.push(boxes[node.id]);
     } else empty.push(node);
   });
+  spreadGroups(placed);
+  const occupied = placed.map((box) => box.y);
   // 빈 그룹만 다른 그룹 칩과 겹치지 않는 여유 좌표에 서버 순서대로 놓는다. 배열은 재정렬하지 않는다.
   empty.forEach((node) => {
     const spare = Array.from({ length: 42 }, (_, index) => GRAPH_TOP + 20 + index * 16)
-      .find((y) => occupied.every((used) => Math.abs(used - y) >= 40));
+      .find((y) => occupied.every((used) => Math.abs(used - y) >= GROUP_MIN_GAP));
     boxes[node.id].y = spare ?? boxes[node.id].y;
     occupied.push(boxes[node.id].y);
   });
@@ -236,6 +259,7 @@ function CustomerScreen({ customerId, customers, refreshKey, onCustomer, onProdu
         <ul className="ledger-list">{detail.data.purchases.map((purchase) => <li key={purchase.product_id}>
           <button className="link-button" onClick={() => onProduct(purchase.product_id)}>{purchase.name} ({purchase.product_id})</button>
           <span className="purchase-meta">가중치 {purchase.weight} · {purchase.colors.join(", ")}</span>
+          <span className="purchase-facts">기록 {purchase.count}건 · 총수량 {purchase.total_qty}개 · 최근 구매일 {purchase.last_date}</span>
         </li>)}</ul>{detail.data.purchases.length === 0 && <p className="muted">구매 기록이 없습니다.</p>}
       </article>
       <article className="panel recommendation-panel"><h3>{recommendations.data?.header_line ?? "추천을 불러오는 중입니다…"}</h3>
@@ -263,7 +287,7 @@ function CustomerScreen({ customerId, customers, refreshKey, onCustomer, onProdu
 
 function MutationScreen({ customers, products, lastRegisteredId, onCustomerCreated, onChanged }: {
   customers: GraphNode[]; products: GraphNode[]; lastRegisteredId: string | null;
-  onCustomerCreated: (id: string) => void; onChanged: () => void;
+  onCustomerCreated: (id: string, stayed: boolean) => void; onChanged: () => void;
 }) {
   const [customerForm, setCustomerForm] = useState({ name: "", gender: "여", age: "" });
   const [purchaseForm, setPurchaseForm] = useState({ customer_id: lastRegisteredId ?? customers[0]?.id ?? "", product_id: products[0]?.id ?? "", qty: "1", date: "2026-11-03" });
@@ -273,13 +297,15 @@ function MutationScreen({ customers, products, lastRegisteredId, onCustomerCreat
   const [busy, setBusy] = useState(false);
   const product = useApi<ProductDetail>(`/api/products/${encodeURIComponent(purchaseForm.product_id)}`, 0);
   const colors = product.data ? Object.keys(product.data.product.stock) : [];
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   useEffect(() => { setColor(""); }, [purchaseForm.product_id]);
   async function register(event: FormEvent) {
     event.preventDefault(); if (busy) return;
     setBusy(true); setError(null); setMessage(null);
     try {
-      const result = await api<{ customer: Customer; group: Group }>("/api/customers", jsonRequest("POST", { ...customerForm, age: Number(customerForm.age) }));
-      onChanged(); onCustomerCreated(result.customer.id);
+      const result = await api<{ customer: Customer; group: Group }>("/api/customers", jsonRequest("POST", { ...customerForm, age: integerText(customerForm.age, "나이") }));
+      onChanged(); onCustomerCreated(result.customer.id, mounted.current);
     } catch (reason: unknown) { setError(errorMessage(reason)); } finally { setBusy(false); }
   }
   async function purchase(event: FormEvent) {
@@ -287,7 +313,7 @@ function MutationScreen({ customers, products, lastRegisteredId, onCustomerCreat
     setBusy(true); setError(null); setMessage(null);
     try {
       const result = await api<{ purchase_id: string; weight: number }>("/api/purchases", jsonRequest("POST", {
-        ...purchaseForm, color: color || colors[0], qty: Number(purchaseForm.qty),
+        ...purchaseForm, color: color || colors[0], qty: integerText(purchaseForm.qty, "수량"),
       }));
       setMessage(`${result.purchase_id} 구매 등록 · 가중치 ${result.weight}`); onChanged();
     } catch (reason: unknown) { setError(errorMessage(reason)); } finally { setBusy(false); }
@@ -297,7 +323,7 @@ function MutationScreen({ customers, products, lastRegisteredId, onCustomerCreat
     <div className="form-grid"><form className="panel form-panel" onSubmit={register}><h3>고객 등록</h3>
       <label>이름<input value={customerForm.name} onChange={(event) => setCustomerForm({ ...customerForm, name: event.target.value })} required /></label>
       <label>성별<select value={customerForm.gender} onChange={(event) => setCustomerForm({ ...customerForm, gender: event.target.value })}><option value="여">여</option><option value="남">남</option></select></label>
-      <label>나이<input type="number" value={customerForm.age} onChange={(event) => setCustomerForm({ ...customerForm, age: event.target.value })} required /></label>
+      <label>나이<input inputMode="numeric" value={customerForm.age} onChange={(event) => setCustomerForm({ ...customerForm, age: event.target.value })} required /></label>
       <button disabled={busy} type="submit">등록 후 고객 상세 보기</button>
     </form><form className="panel form-panel" onSubmit={purchase}><h3>구매 등록</h3>
       <NodeSelect label="고객" nodes={customers} value={purchaseForm.customer_id} onChange={(id) => setPurchaseForm({ ...purchaseForm, customer_id: id })} />
@@ -305,7 +331,7 @@ function MutationScreen({ customers, products, lastRegisteredId, onCustomerCreat
       <label>색상<select value={color || colors[0] || ""} disabled={product.loading} required onChange={(event) => setColor(event.target.value)}>
         {product.loading && <option value="">색상을 불러오는 중…</option>}{colors.map((name) => <option key={name} value={name}>{name}</option>)}
       </select></label>
-      <label>수량<input type="number" value={purchaseForm.qty} onChange={(event) => setPurchaseForm({ ...purchaseForm, qty: event.target.value })} required /></label>
+      <label>수량<input inputMode="numeric" value={purchaseForm.qty} onChange={(event) => setPurchaseForm({ ...purchaseForm, qty: event.target.value })} required /></label>
       <label>구매일<input type="date" value={purchaseForm.date} onChange={(event) => setPurchaseForm({ ...purchaseForm, date: event.target.value })} required /></label>
       <button disabled={busy || product.loading || !product.data} type="submit">구매 등록</button>
     </form></div>
@@ -379,32 +405,36 @@ function ProductScreen({ productId, products, refreshKey, onChanged, onProduct, 
   const detail = useApi<ProductDetail>(`/api/products/${encodeURIComponent(productId)}`, refreshKey);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [savedId, setSavedId] = useState<string | null>(null);
+  const currentId = useRef(productId);
+  currentId.current = productId;
   const [busy, setBusy] = useState(false);
   useEffect(() => { if (detail.data) setDraft(Object.fromEntries(Object.entries(detail.data.product.stock).map(([color, count]) => [color, String(count)]))); }, [detail.data]);
-  useEffect(() => { setSaved(false); setError(null); }, [productId]);
+  useEffect(() => { setSavedId(null); setError(null); }, [productId]);
   async function updateStock(event: FormEvent) {
     event.preventDefault(); if (busy) return;
-    setBusy(true); setError(null); setSaved(false);
-    const stock = Object.fromEntries(Object.entries(draft).map(([color, count]) => [color, Number(count)]));
+    setBusy(true); setError(null); setSavedId(null);
+    const submittedId = productId;
     try {
+      const stock = Object.fromEntries(Object.entries(draft).map(([color, count]) => [color, integerText(count, `재고(${color})`)]));
       await api<Pick<ProductDetail, "product" | "sold_out" | "available_colors" | "status_label">>(
-        `/api/products/${encodeURIComponent(productId)}/stock`, jsonRequest("PUT", { stock }));
-      setSaved(true); onChanged(); // S2를 포함한 전체 상품 상세는 GET으로 다시 읽는다.
+        `/api/products/${encodeURIComponent(submittedId)}/stock`, jsonRequest("PUT", { stock }));
+      if (currentId.current === submittedId) setSavedId(submittedId);
+      onChanged(); // S2를 포함한 전체 상품 상세는 GET으로 다시 읽는다.
     } catch (reason: unknown) { setError(errorMessage(reason)); } finally { setBusy(false); }
   }
   return <section><div className="section-heading"><div><h2>상품 상세</h2><p>S2 구매 고객 · 재고와 구매 가능 색상</p></div>
     <NodeSelect label="상품" nodes={products} value={productId} onChange={onProduct} /></div>
-    <ErrorBox error={error ?? detail.error} />{saved && <div className="success-box" role="status"><span>재고를 수정했습니다.</span>
+    <ErrorBox error={error ?? detail.error} />{savedId && <div className="success-box" role="status"><span>{savedId} 재고를 수정했습니다.</span>
       {lastCustomer && <button onClick={onRecommendations}>{lastCustomer.label}({lastCustomer.id}) 고객 추천 다시 보기</button>}
     </div>}{detail.loading && <p>상품을 불러오는 중입니다…</p>}
     {detail.data && <div className="detail-grid"><article className="panel"><h3>{detail.data.product.name} ({detail.data.product.id})</h3>
       <p className="product-meta">{detail.data.product.kind} · {detail.data.product.style} · {detail.data.product.price.toLocaleString()}원</p>
       <p className={`status-pill ${detail.data.sold_out ? "sold-out" : "on-sale"}`}>{detail.data.status_label}</p>
-      <h4>S2 구매 고객</h4><ul className="ledger-list">{detail.data.buyers.map((buyer) => <li key={buyer.customer_id}>{buyer.name} ({buyer.customer_id}) · {buyer.colors.join(", ")}</li>)}</ul>
+      <h4>S2 구매 고객</h4><ul className="ledger-list">{detail.data.buyers.map((buyer) => <li key={buyer.customer_id}>{buyer.name} ({buyer.customer_id}) · 그룹 {buyer.group_id} · {buyer.colors.join(", ")}</li>)}</ul>
       <p className="color-line">구매 가능 색상: {detail.data.available_colors.join(", ") || "없음"}</p>
     </article><form className="panel form-panel" onSubmit={updateStock}><h3>재고 수정</h3>
-      {Object.entries(draft).map(([color, count]) => <label key={color}>{color}<input type="number" required value={count} onChange={(event) => setDraft({ ...draft, [color]: event.target.value })} /></label>)}
+      {Object.entries(draft).map(([color, count]) => <label key={color}>{color}<input inputMode="numeric" required value={count} onChange={(event) => setDraft({ ...draft, [color]: event.target.value })} /></label>)}
       <button disabled={busy} type="submit">색상별 재고 전체 저장</button>
     </form></div>}
   </section>;
@@ -416,10 +446,12 @@ const STAT_LABELS: [keyof Stats, string][] = [
 ];
 
 function IntegrityScreen({ refreshKey }: { refreshKey: number }) {
-  const stats = useApi<{ stats: Stats }>("/api/stats", refreshKey);
-  const integrity = useApi<Integrity>("/api/integrity", refreshKey);
+  const [recheck, setRecheck] = useState(0);
+  const stats = useApi<{ stats: Stats }>("/api/stats", refreshKey + recheck);
+  const integrity = useApi<Integrity>("/api/integrity", refreshKey + recheck);
   const values = stats.data?.stats;
-  return <section><div className="section-heading"><div><h2>무결성 검사</h2><p>원본과 그래프의 일관성을 확인합니다.</p></div></div>
+  return <section><div className="section-heading"><div><h2>무결성 검사</h2><p>원본과 그래프의 일관성을 확인합니다.</p></div>
+      <button className="secondary-button" disabled={stats.loading || integrity.loading} onClick={() => setRecheck((value) => value + 1)}>다시 검사</button></div>
     <ErrorBox error={stats.error ?? integrity.error} />
     {values && <div className="stats-grid">{STAT_LABELS.map(([key, label]) => <div className="stat-card" key={key}><span>{label}</span><strong>{values[key]}</strong></div>)}</div>}
     {integrity.data && <div className={integrity.data.violation_count ? "panel integrity-bad" : "panel integrity-good"}>
@@ -469,7 +501,7 @@ export default function App() {
       {screen === "graph" && <GraphScreen data={graph.data} groups={groups} onCustomer={showCustomer} onProduct={showProduct} />}
       {screen === "customer" && <CustomerScreen customerId={customerId} customers={customers} refreshKey={refreshKey} onCustomer={showCustomer} onProduct={showProduct} />}
       {screen === "mutations" && graph.data && <MutationScreen customers={customers} products={products} lastRegisteredId={lastRegisteredId} onChanged={refresh}
-        onCustomerCreated={(id) => { setLastRegisteredId(id); showCustomer(id); }} />}
+        onCustomerCreated={(id, stayed) => { setLastRegisteredId(id); if (stayed) showCustomer(id); }} />}
       {/* 비교용 '전'은 탭을 옮겨도 보존한다. 조회는 화면이 보일 때만 한다. */}
       <div hidden={screen !== "popular"}><PopularScreen groups={groups} refreshKey={refreshKey} visible={screen === "popular"} meta={meta.data} /></div>
       {screen === "product" && <ProductScreen productId={productId} products={products} refreshKey={refreshKey} onChanged={refresh} onProduct={setProductId}

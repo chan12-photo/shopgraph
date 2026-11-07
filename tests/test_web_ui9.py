@@ -4,6 +4,8 @@
 docs/verification/bug_review_1107.md의 재현 입력에서 가져온다.
 """
 
+import contextlib
+import io
 import json
 import random
 import socket
@@ -893,6 +895,62 @@ class TestUI9MalformedHeaders(_WireCase):
             status = self.reply_status(request)
             self.assertFalse(status is not None and 200 <= status < 300, msg=repr(request))
             self.assertEqual(snapshot(self.harness.graph), before, msg=repr(request))
+
+
+class TestUI9bMessagesAndLogs(_WireCase):
+    """UI9b: 정수 오류 조사와 클라이언트 연결 끊김 기록을 확인한다."""
+
+    def test_integer_errors_have_no_wrong_particle(self) -> None:
+        """받침 없는 항목에도 틀린 조사가 붙지 않는다."""
+        for value, text in (("x", "요청 JSON: 나이 값은 JSON 정수여야 합니다 (입력: 'x')"),
+                            (1234567890, "요청 JSON: 나이 값은 9자리 이하 정수여야 합니다 (입력: 1234567890)")):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError) as caught:
+                    web._json_int(value, "나이")
+                self.assertEqual(str(caught.exception), text)
+
+    def test_client_disconnect_is_one_short_log(self) -> None:
+        """연결 재설정과 끊긴 파이프는 트레이스백 없이 경고 한 줄만 남긴다."""
+        server = web.create_server(make_graph(), 0)
+        self.addCleanup(server.server_close)
+        for error in (ConnectionResetError(), BrokenPipeError()):
+            stderr = io.StringIO()
+            with self.subTest(error=type(error).__name__), contextlib.redirect_stderr(stderr):
+                with self.assertLogs("web", "WARNING") as logs:
+                    try:
+                        raise error
+                    except OSError:
+                        server.handle_error(None, ("127.0.0.1", 1))
+                self.assertEqual(len(logs.output), 1)
+                self.assertIn(type(error).__name__, logs.output[0])
+                self.assertNotIn("Traceback", logs.output[0])
+                self.assertEqual(stderr.getvalue(), "")
+
+    def test_other_server_errors_keep_traceback(self) -> None:
+        """두 종류 밖의 예외는 기본 트레이스백을 그대로 남긴다."""
+        server = web.create_server(make_graph(), 0)
+        self.addCleanup(server.server_close)
+        for error in (RuntimeError("고장"), ConnectionAbortedError()):
+            stderr = io.StringIO()
+            with self.subTest(error=type(error).__name__), contextlib.redirect_stderr(stderr):
+                try:
+                    raise error
+                except (RuntimeError, OSError):
+                    server.handle_error(None, ("127.0.0.1", 1))
+                self.assertIn("Traceback", stderr.getvalue())
+
+    def test_disconnect_while_reading_is_not_a_request_exception(self) -> None:
+        """본문을 읽다 끊겨도 요청 처리 예외 기록을 남기지 않고 handle_error로 넘긴다."""
+        handler = web._RequestHandler.__new__(web._RequestHandler)
+        handler.path, handler.command = "/api/customers", "POST"
+        with mock.patch.object(web, "_check_header_lines"), \
+                mock.patch.object(web, "_valid_host", return_value=True), \
+                mock.patch.object(web, "_valid_origin", return_value=True), \
+                mock.patch.object(web, "_read_json_object", side_effect=ConnectionResetError()), \
+                mock.patch.object(web._LOGGER, "exception") as logged:
+            with self.assertRaises(ConnectionResetError):
+                handler._dispatch("POST")
+        logged.assert_not_called()
 
 
 if __name__ == "__main__":

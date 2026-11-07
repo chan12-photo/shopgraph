@@ -1,0 +1,1838 @@
+{
+  "schema_version": 1,
+  "verification": "Codex 자체 확인",
+  "approval": "찬일 판정·승인 대기",
+  "base_head": "a75d130dc02e13f40f559f3e8d702aaf02e89021",
+  "branch": "x0",
+  "bench_sha256": "6f543ab25b6b552aa30e0fd8176f700e8dcc3ebd1b4f2d29fe55b8e48d1d3b05",
+  "units": {
+    "time": "ms",
+    "traced_memory": "MB = 10^6 bytes",
+    "rss": "MiB = 2^20 bytes"
+  },
+  "notes": [
+    "graph ID 상수만 측정 중 6/6/7자리로 바꿔 끼움. 운영 코드 불변.",
+    "X2에서 검증이 분리되면 이 방식이 바뀔 수 있다(v3 5.5).",
+    "time/mem/rss 각각 별도 프로세스. mem의 RSS는 측정하지 않음.",
+    "웹 계층·브라우저 렌더링 미포함. 품절 스트레스는 최악 시간 증명이 아님.",
+    "RSS는 누적 최대 상주량이며 객체 크기가 아님. macOS bytes, Linux KiB."
+  ],
+  "execution_order": [
+    "time_baseline",
+    "mem_baseline",
+    "rss_baseline",
+    "time_small",
+    "time_medium",
+    "time_reproduction"
+  ],
+  "runs": {
+    "time_baseline": {
+      "mode": "time",
+      "size": {
+        "customers": 10000,
+        "products": 1000,
+        "purchases": 300000
+      },
+      "seed": 1,
+      "pid": 90327,
+      "verification": "Codex 자체 확인",
+      "id_note": "측정 프로세스 안에서만 graph의 ID 패턴·자릿수를 6/6/7로 바꿔 끼움. 운영 코드 불변. X2에서 검증이 분리되면 이 방식이 바뀔 수 있다(v3 5.5).",
+      "tracing_enabled": false,
+      "id_constants_restored": true,
+      "metrics": {
+        "initialize": {
+          "median": 598.532958,
+          "max": 611.4915,
+          "repeat": 3,
+          "unit": "ms",
+          "samples": [
+            611.4915,
+            598.532958,
+            593.978917
+          ]
+        },
+        "recommend_k3": {
+          "median": 19.139042,
+          "max": 19.435833,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            19.139042,
+            19.435833,
+            18.901458,
+            19.151792,
+            18.995209
+          ]
+        },
+        "recommend_k10": {
+          "median": 18.607875,
+          "max": 19.106041,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            18.607875,
+            19.106041,
+            18.896625,
+            18.38125,
+            18.317917
+          ]
+        },
+        "s4": {
+          "median": 18.129125,
+          "max": 18.574667,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            18.129125,
+            18.574667,
+            18.035,
+            17.761625,
+            18.526458
+          ]
+        },
+        "add_purchase": {
+          "median": 273.176959,
+          "max": 274.953625,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            272.907209,
+            274.953625,
+            273.176959,
+            274.558,
+            268.286666
+          ]
+        },
+        "update_purchase": {
+          "median": 278.551583,
+          "max": 286.421958,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            278.623375,
+            273.371458,
+            270.238542,
+            286.421958,
+            278.551583
+          ]
+        },
+        "get_purchase": {
+          "median": 0.006625,
+          "max": 0.008083,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            0.006708,
+            0.008083,
+            0.005459,
+            0.003167,
+            0.006625
+          ]
+        },
+        "delete_purchase": {
+          "median": 270.812958,
+          "max": 282.792333,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            269.710042,
+            270.812958,
+            267.941667,
+            282.619959,
+            282.792333
+          ]
+        },
+        "add_customer": {
+          "median": 271.996375,
+          "max": 277.224667,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            272.00125,
+            268.215833,
+            269.08375,
+            271.996375,
+            277.224667
+          ]
+        },
+        "move_group": {
+          "median": 273.188,
+          "max": 276.816958,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            276.4065,
+            270.294958,
+            276.816958,
+            269.408125,
+            273.188
+          ]
+        },
+        "update_stock": {
+          "median": 280.544542,
+          "max": 283.988833,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            282.740875,
+            277.304584,
+            283.988833,
+            274.206584,
+            280.544542
+          ]
+        },
+        "delete_customer": {
+          "median": 278.461417,
+          "max": 280.992042,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            274.853458,
+            280.992042,
+            274.521792,
+            278.461417,
+            279.352416
+          ]
+        },
+        "integrity": {
+          "median": 857.848042,
+          "max": 876.871959,
+          "repeat": 3,
+          "unit": "ms",
+          "samples": [
+            876.871959,
+            857.848042,
+            846.0335
+          ]
+        },
+        "sold_out_recommend": {
+          "median": 259.950167,
+          "max": 267.19525,
+          "repeat": 3,
+          "unit": "ms",
+          "samples": [
+            258.067292,
+            259.950167,
+            267.19525
+          ]
+        },
+        "delete_popular_product": {
+          "median": 268.202,
+          "max": 268.667458,
+          "repeat": 3,
+          "unit": "ms",
+          "samples": [
+            268.202,
+            268.667458,
+            264.3725
+          ]
+        }
+      },
+      "conditions": {
+        "recommendation": {
+          "customer_id": "C010001",
+          "gender": "여",
+          "age": 25,
+          "group_id": "G-F-20",
+          "group_members": 1055,
+          "s4_k": null,
+          "k10_returned": 10,
+          "k10_scopes": [
+            "group",
+            "group",
+            "group",
+            "group",
+            "group",
+            "group",
+            "group",
+            "group",
+            "group",
+            "group"
+          ]
+        },
+        "purchases": {
+          "targets": [
+            {
+              "id": "T0000001",
+              "customer_id": "C005060",
+              "product_id": "P000002",
+              "color": "브라운",
+              "qty": 3,
+              "date": "2026-06-05",
+              "pair_records_before_add": 3
+            },
+            {
+              "id": "T0000002",
+              "customer_id": "C008486",
+              "product_id": "P000780",
+              "color": "브라운",
+              "qty": 3,
+              "date": "2026-04-08",
+              "pair_records_before_add": 1
+            },
+            {
+              "id": "T0000003",
+              "customer_id": "C000023",
+              "product_id": "P000001",
+              "color": "네이비",
+              "qty": 1,
+              "date": "2026-01-28",
+              "pair_records_before_add": 8
+            },
+            {
+              "id": "T0000004",
+              "customer_id": "C009525",
+              "product_id": "P000001",
+              "color": "아이보리",
+              "qty": 2,
+              "date": "2026-08-28",
+              "pair_records_before_add": 11
+            },
+            {
+              "id": "T0000005",
+              "customer_id": "C003923",
+              "product_id": "P000029",
+              "color": "블랙",
+              "qty": 3,
+              "date": "2026-06-07",
+              "pair_records_before_add": 1
+            }
+          ],
+          "added_ids": [
+            "T0300001",
+            "T0300002",
+            "T0300003",
+            "T0300004",
+            "T0300005"
+          ],
+          "updated_qty": 2,
+          "sequence": "같은 대상의 등록→수정→단건 조회→추가분 삭제"
+        },
+        "changes": {
+          "added_customer_ids": [
+            "C010002",
+            "C010003",
+            "C010004",
+            "C010005",
+            "C010006"
+          ],
+          "delete_targets": [
+            {
+              "id": "C000001",
+              "purchase_records": 26,
+              "purchase_edges": 15
+            },
+            {
+              "id": "C000002",
+              "purchase_records": 36,
+              "purchase_edges": 26
+            },
+            {
+              "id": "C000003",
+              "purchase_records": 31,
+              "purchase_edges": 20
+            },
+            {
+              "id": "C000004",
+              "purchase_records": 36,
+              "purchase_edges": 23
+            },
+            {
+              "id": "C000005",
+              "purchase_records": 29,
+              "purchase_edges": 20
+            }
+          ],
+          "group_moves": [
+            {
+              "id": "C000001",
+              "from_gender": "여",
+              "to_gender": "남"
+            },
+            {
+              "id": "C000002",
+              "from_gender": "여",
+              "to_gender": "남"
+            },
+            {
+              "id": "C000003",
+              "from_gender": "여",
+              "to_gender": "남"
+            },
+            {
+              "id": "C000004",
+              "from_gender": "남",
+              "to_gender": "여"
+            },
+            {
+              "id": "C000005",
+              "from_gender": "남",
+              "to_gender": "여"
+            }
+          ],
+          "stock_products": [
+            "P000001",
+            "P000002",
+            "P000003",
+            "P000004",
+            "P000005"
+          ],
+          "stock_change": "모든 기존 색상 +1"
+        },
+        "integrity_state": {
+          "groups": 8,
+          "customers": 10001,
+          "products": 1000,
+          "membership_edges": 10001,
+          "purchase_edges": 198649,
+          "purchases": 299842
+        },
+        "stress": {
+          "sold_out_k": 3,
+          "sold_out_customer_id": "C010001",
+          "sold_out_result": [],
+          "popular_product_id": "P000001",
+          "deleted_purchase_records": 84793,
+          "deleted_purchase_edges": 9994,
+          "popular_delete_fresh_graph_each_sample": true
+        }
+      },
+      "input_sha256": "b2cdbad8fb09ff94f451b02c98ed017fa1b662086d12037d2f1da1e4c2f5b530",
+      "integrity_verified": true,
+      "environment": {
+        "os": "macOS-27.3-arm64-arm-64bit-Mach-O",
+        "macos": "27.3",
+        "cpu": "Apple M5 Pro",
+        "python": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 21.0.0 (clang-2100.3.34.2)]",
+        "executable": "/opt/homebrew/opt/python@3.14/bin/python3.14",
+        "head": "a75d130dc02e13f40f559f3e8d702aaf02e89021",
+        "branch": "x0"
+      },
+      "started_utc": "2026-11-07T09:39:03.068344+00:00",
+      "finished_utc": "2026-11-07T09:39:38.261177+00:00",
+      "argv": [
+        "tools/bench.py",
+        "time",
+        "10000",
+        "1000",
+        "300000",
+        "--seed",
+        "1",
+        "--json",
+        "/Users/chan12/Documents/Codex/2026-11-07/shopgraph-dsc2013-python-x0-main-a75d130/work/x0_time.json"
+      ]
+    },
+    "mem_baseline": {
+      "mode": "mem",
+      "size": {
+        "customers": 10000,
+        "products": 1000,
+        "purchases": 300000
+      },
+      "seed": 1,
+      "pid": 90523,
+      "verification": "Codex 자체 확인",
+      "id_note": "측정 프로세스 안에서만 graph의 ID 패턴·자릿수를 6/6/7로 바꿔 끼움. 운영 코드 불변. X2에서 검증이 분리되면 이 방식이 바뀔 수 있다(v3 5.5).",
+      "tracing_enabled": true,
+      "id_constants_restored": true,
+      "metrics": {
+        "input": {
+          "median": 132.92203,
+          "max": 132.92203,
+          "repeat": 1,
+          "unit": "MB",
+          "samples": [
+            132.92203
+          ]
+        },
+        "retained": {
+          "median": 271.409962,
+          "max": 271.409962,
+          "repeat": 1,
+          "unit": "MB",
+          "samples": [
+            271.409962
+          ]
+        },
+        "initialization_peak": {
+          "median": 358.002158,
+          "max": 358.002158,
+          "repeat": 1,
+          "unit": "MB",
+          "samples": [
+            358.002158
+          ]
+        },
+        "integrity_peak": {
+          "median": 446.616834,
+          "max": 446.616834,
+          "repeat": 1,
+          "unit": "MB",
+          "samples": [
+            446.616834
+          ]
+        }
+      },
+      "integrity_verified": true,
+      "environment": {
+        "os": "macOS-27.3-arm64-arm-64bit-Mach-O",
+        "macos": "27.3",
+        "cpu": "Apple M5 Pro",
+        "python": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 21.0.0 (clang-2100.3.34.2)]",
+        "executable": "/opt/homebrew/opt/python@3.14/bin/python3.14",
+        "head": "a75d130dc02e13f40f559f3e8d702aaf02e89021",
+        "branch": "x0"
+      },
+      "started_utc": "2026-11-07T09:40:09.340463+00:00",
+      "finished_utc": "2026-11-07T09:40:16.810173+00:00",
+      "argv": [
+        "tools/bench.py",
+        "mem",
+        "10000",
+        "1000",
+        "300000",
+        "--seed",
+        "1",
+        "--json",
+        "/Users/chan12/Documents/Codex/2026-11-07/shopgraph-dsc2013-python-x0-main-a75d130/work/x0_mem.json"
+      ]
+    },
+    "rss_baseline": {
+      "mode": "rss",
+      "size": {
+        "customers": 10000,
+        "products": 1000,
+        "purchases": 300000
+      },
+      "seed": 1,
+      "pid": 90622,
+      "verification": "Codex 자체 확인",
+      "id_note": "측정 프로세스 안에서만 graph의 ID 패턴·자릿수를 6/6/7로 바꿔 끼움. 운영 코드 불변. X2에서 검증이 분리되면 이 방식이 바뀔 수 있다(v3 5.5).",
+      "tracing_enabled": false,
+      "id_constants_restored": true,
+      "metrics": {
+        "after_input": {
+          "median": 165.765625,
+          "max": 165.765625,
+          "repeat": 1,
+          "unit": "MiB",
+          "samples": [
+            165.765625
+          ]
+        },
+        "after_graph": {
+          "median": 396.328125,
+          "max": 396.328125,
+          "repeat": 1,
+          "unit": "MiB",
+          "samples": [
+            396.328125
+          ]
+        },
+        "after_integrity": {
+          "median": 489.28125,
+          "max": 489.28125,
+          "repeat": 1,
+          "unit": "MiB",
+          "samples": [
+            489.28125
+          ]
+        }
+      },
+      "integrity_verified": true,
+      "environment": {
+        "os": "macOS-27.3-arm64-arm-64bit-Mach-O",
+        "macos": "27.3",
+        "cpu": "Apple M5 Pro",
+        "python": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 21.0.0 (clang-2100.3.34.2)]",
+        "executable": "/opt/homebrew/opt/python@3.14/bin/python3.14",
+        "head": "a75d130dc02e13f40f559f3e8d702aaf02e89021",
+        "branch": "x0"
+      },
+      "started_utc": "2026-11-07T09:40:35.776102+00:00",
+      "finished_utc": "2026-11-07T09:40:37.663426+00:00",
+      "argv": [
+        "tools/bench.py",
+        "rss",
+        "10000",
+        "1000",
+        "300000",
+        "--seed",
+        "1",
+        "--json",
+        "/Users/chan12/Documents/Codex/2026-11-07/shopgraph-dsc2013-python-x0-main-a75d130/work/x0_rss.json"
+      ]
+    },
+    "time_small": {
+      "mode": "time",
+      "size": {
+        "customers": 1000,
+        "products": 100,
+        "purchases": 30000
+      },
+      "seed": 1,
+      "pid": 90651,
+      "verification": "Codex 자체 확인",
+      "id_note": "측정 프로세스 안에서만 graph의 ID 패턴·자릿수를 6/6/7로 바꿔 끼움. 운영 코드 불변. X2에서 검증이 분리되면 이 방식이 바뀔 수 있다(v3 5.5).",
+      "tracing_enabled": false,
+      "id_constants_restored": true,
+      "metrics": {
+        "initialize": {
+          "median": 38.656125,
+          "max": 39.020916,
+          "repeat": 3,
+          "unit": "ms",
+          "samples": [
+            39.020916,
+            38.656125,
+            36.855166
+          ]
+        },
+        "recommend_k3": {
+          "median": 0.870958,
+          "max": 1.142625,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            1.142625,
+            0.889958,
+            0.870958,
+            0.826375,
+            0.839
+          ]
+        },
+        "recommend_k10": {
+          "median": 0.853375,
+          "max": 0.952916,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            0.853375,
+            0.952916,
+            0.862125,
+            0.833958,
+            0.820833
+          ]
+        },
+        "s4": {
+          "median": 0.7865,
+          "max": 0.89175,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            0.867375,
+            0.89175,
+            0.778292,
+            0.760542,
+            0.7865
+          ]
+        },
+        "add_purchase": {
+          "median": 12.374667,
+          "max": 12.755042,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            12.755042,
+            12.439666,
+            12.374667,
+            12.09425,
+            12.114292
+          ]
+        },
+        "update_purchase": {
+          "median": 11.963542,
+          "max": 12.00825,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            12.005375,
+            11.963542,
+            12.00825,
+            11.787083,
+            11.843417
+          ]
+        },
+        "get_purchase": {
+          "median": 0.004417,
+          "max": 0.006958,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            0.00375,
+            0.006958,
+            0.004958,
+            0.004417,
+            0.002083
+          ]
+        },
+        "delete_purchase": {
+          "median": 12.076709,
+          "max": 12.647583,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            12.647583,
+            12.076709,
+            12.329458,
+            11.777042,
+            11.759167
+          ]
+        },
+        "add_customer": {
+          "median": 12.142792,
+          "max": 12.430208,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            12.430208,
+            12.038209,
+            11.7785,
+            12.142792,
+            12.312833
+          ]
+        },
+        "move_group": {
+          "median": 11.946625,
+          "max": 13.400208,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            12.333083,
+            11.946625,
+            11.818583,
+            11.892167,
+            13.400208
+          ]
+        },
+        "update_stock": {
+          "median": 12.10675,
+          "max": 12.465416,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            12.137084,
+            12.465416,
+            11.949792,
+            12.03125,
+            12.10675
+          ]
+        },
+        "delete_customer": {
+          "median": 12.428916,
+          "max": 12.509125,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            12.405125,
+            12.459292,
+            12.203583,
+            12.428916,
+            12.509125
+          ]
+        },
+        "integrity": {
+          "median": 38.177917,
+          "max": 38.447167,
+          "repeat": 3,
+          "unit": "ms",
+          "samples": [
+            37.770208,
+            38.177917,
+            38.447167
+          ]
+        },
+        "sold_out_recommend": {
+          "median": 12.398166,
+          "max": 13.482125,
+          "repeat": 3,
+          "unit": "ms",
+          "samples": [
+            13.482125,
+            12.398166,
+            11.440208
+          ]
+        },
+        "delete_popular_product": {
+          "median": 11.86525,
+          "max": 11.897416,
+          "repeat": 3,
+          "unit": "ms",
+          "samples": [
+            11.86525,
+            11.897416,
+            11.6935
+          ]
+        }
+      },
+      "conditions": {
+        "recommendation": {
+          "customer_id": "C001001",
+          "gender": "여",
+          "age": 25,
+          "group_id": "G-F-20",
+          "group_members": 99,
+          "s4_k": null,
+          "k10_returned": 10,
+          "k10_scopes": [
+            "group",
+            "group",
+            "group",
+            "group",
+            "group",
+            "group",
+            "group",
+            "group",
+            "group",
+            "group"
+          ]
+        },
+        "purchases": {
+          "targets": [
+            {
+              "id": "T0000001",
+              "customer_id": "C000794",
+              "product_id": "P000002",
+              "color": "브라운",
+              "qty": 2,
+              "date": "2026-04-17",
+              "pair_records_before_add": 6
+            },
+            {
+              "id": "T0000002",
+              "customer_id": "C000421",
+              "product_id": "P000003",
+              "color": "블랙",
+              "qty": 1,
+              "date": "2026-11-02",
+              "pair_records_before_add": 1
+            },
+            {
+              "id": "T0000003",
+              "customer_id": "C000301",
+              "product_id": "P000011",
+              "color": "아이보리",
+              "qty": 2,
+              "date": "2026-01-03",
+              "pair_records_before_add": 1
+            },
+            {
+              "id": "T0000004",
+              "customer_id": "C000315",
+              "product_id": "P000001",
+              "color": "화이트",
+              "qty": 2,
+              "date": "2026-02-18",
+              "pair_records_before_add": 9
+            },
+            {
+              "id": "T0000005",
+              "customer_id": "C000335",
+              "product_id": "P000001",
+              "color": "그레이",
+              "qty": 3,
+              "date": "2026-06-17",
+              "pair_records_before_add": 6
+            }
+          ],
+          "added_ids": [
+            "T0030001",
+            "T0030002",
+            "T0030003",
+            "T0030004",
+            "T0030005"
+          ],
+          "updated_qty": 2,
+          "sequence": "같은 대상의 등록→수정→단건 조회→추가분 삭제"
+        },
+        "changes": {
+          "added_customer_ids": [
+            "C001002",
+            "C001003",
+            "C001004",
+            "C001005",
+            "C001006"
+          ],
+          "delete_targets": [
+            {
+              "id": "C000001",
+              "purchase_records": 25,
+              "purchase_edges": 11
+            },
+            {
+              "id": "C000002",
+              "purchase_records": 27,
+              "purchase_edges": 15
+            },
+            {
+              "id": "C000003",
+              "purchase_records": 33,
+              "purchase_edges": 22
+            },
+            {
+              "id": "C000004",
+              "purchase_records": 27,
+              "purchase_edges": 15
+            },
+            {
+              "id": "C000005",
+              "purchase_records": 24,
+              "purchase_edges": 16
+            }
+          ],
+          "group_moves": [
+            {
+              "id": "C000001",
+              "from_gender": "여",
+              "to_gender": "남"
+            },
+            {
+              "id": "C000002",
+              "from_gender": "여",
+              "to_gender": "남"
+            },
+            {
+              "id": "C000003",
+              "from_gender": "여",
+              "to_gender": "남"
+            },
+            {
+              "id": "C000004",
+              "from_gender": "남",
+              "to_gender": "여"
+            },
+            {
+              "id": "C000005",
+              "from_gender": "남",
+              "to_gender": "여"
+            }
+          ],
+          "stock_products": [
+            "P000001",
+            "P000002",
+            "P000003",
+            "P000004",
+            "P000005"
+          ],
+          "stock_change": "모든 기존 색상 +1"
+        },
+        "integrity_state": {
+          "groups": 8,
+          "customers": 1001,
+          "products": 100,
+          "membership_edges": 1001,
+          "purchase_edges": 18301,
+          "purchases": 29864
+        },
+        "stress": {
+          "sold_out_k": 3,
+          "sold_out_customer_id": "C001001",
+          "sold_out_result": [],
+          "popular_product_id": "P000001",
+          "deleted_purchase_records": 8504,
+          "deleted_purchase_edges": 999,
+          "popular_delete_fresh_graph_each_sample": true
+        }
+      },
+      "input_sha256": "1e5fab05a8138c81aed31e268824920d87cde2e5a982d17179cd1d7a1e80939d",
+      "integrity_verified": true,
+      "environment": {
+        "os": "macOS-27.3-arm64-arm-64bit-Mach-O",
+        "macos": "27.3",
+        "cpu": "Apple M5 Pro",
+        "python": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 21.0.0 (clang-2100.3.34.2)]",
+        "executable": "/opt/homebrew/opt/python@3.14/bin/python3.14",
+        "head": "a75d130dc02e13f40f559f3e8d702aaf02e89021",
+        "branch": "x0"
+      },
+      "started_utc": "2026-11-07T09:40:44.342427+00:00",
+      "finished_utc": "2026-11-07T09:40:46.256882+00:00",
+      "argv": [
+        "tools/bench.py",
+        "time",
+        "1000",
+        "100",
+        "30000",
+        "--seed",
+        "1",
+        "--json",
+        "/Users/chan12/Documents/Codex/2026-11-07/shopgraph-dsc2013-python-x0-main-a75d130/work/x0_time_small.json"
+      ]
+    },
+    "time_medium": {
+      "mode": "time",
+      "size": {
+        "customers": 3000,
+        "products": 300,
+        "purchases": 100000
+      },
+      "seed": 1,
+      "pid": 90720,
+      "verification": "Codex 자체 확인",
+      "id_note": "측정 프로세스 안에서만 graph의 ID 패턴·자릿수를 6/6/7로 바꿔 끼움. 운영 코드 불변. X2에서 검증이 분리되면 이 방식이 바뀔 수 있다(v3 5.5).",
+      "tracing_enabled": false,
+      "id_constants_restored": true,
+      "metrics": {
+        "initialize": {
+          "median": 156.819208,
+          "max": 159.095834,
+          "repeat": 3,
+          "unit": "ms",
+          "samples": [
+            159.095834,
+            154.959,
+            156.819208
+          ]
+        },
+        "recommend_k3": {
+          "median": 5.380208,
+          "max": 5.528584,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            5.528584,
+            5.501375,
+            5.293166,
+            5.380208,
+            5.071833
+          ]
+        },
+        "recommend_k10": {
+          "median": 5.438875,
+          "max": 5.557,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            5.438875,
+            5.557,
+            5.46025,
+            4.9075,
+            4.896459
+          ]
+        },
+        "s4": {
+          "median": 5.257625,
+          "max": 5.742958,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            5.290916,
+            5.742958,
+            5.2215,
+            5.257625,
+            4.859125
+          ]
+        },
+        "add_purchase": {
+          "median": 50.314083,
+          "max": 50.798667,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            50.798667,
+            49.774583,
+            50.316167,
+            49.986292,
+            50.314083
+          ]
+        },
+        "update_purchase": {
+          "median": 51.973583,
+          "max": 53.01925,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            49.461458,
+            49.9575,
+            53.01925,
+            52.763,
+            51.973583
+          ]
+        },
+        "get_purchase": {
+          "median": 0.005708,
+          "max": 0.007875,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            0.006375,
+            0.005708,
+            0.005167,
+            0.003458,
+            0.007875
+          ]
+        },
+        "delete_purchase": {
+          "median": 49.196709,
+          "max": 50.002709,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            49.459208,
+            49.129667,
+            48.884667,
+            50.002709,
+            49.196709
+          ]
+        },
+        "add_customer": {
+          "median": 49.316084,
+          "max": 49.557583,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            48.573417,
+            48.028792,
+            49.557583,
+            49.316084,
+            49.37875
+          ]
+        },
+        "move_group": {
+          "median": 48.997916,
+          "max": 49.722833,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            48.64125,
+            48.175375,
+            49.722833,
+            49.294375,
+            48.997916
+          ]
+        },
+        "update_stock": {
+          "median": 50.720792,
+          "max": 52.051916,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            49.46075,
+            50.462167,
+            51.031959,
+            50.720792,
+            52.051916
+          ]
+        },
+        "delete_customer": {
+          "median": 50.593833,
+          "max": 50.947667,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            50.556708,
+            49.802375,
+            50.593833,
+            50.947667,
+            50.85925
+          ]
+        },
+        "integrity": {
+          "median": 178.547083,
+          "max": 184.173542,
+          "repeat": 3,
+          "unit": "ms",
+          "samples": [
+            184.173542,
+            178.547083,
+            177.616833
+          ]
+        },
+        "sold_out_recommend": {
+          "median": 64.447125,
+          "max": 66.026333,
+          "repeat": 3,
+          "unit": "ms",
+          "samples": [
+            66.026333,
+            63.862375,
+            64.447125
+          ]
+        },
+        "delete_popular_product": {
+          "median": 46.98425,
+          "max": 48.866667,
+          "repeat": 3,
+          "unit": "ms",
+          "samples": [
+            46.931875,
+            46.98425,
+            48.866667
+          ]
+        }
+      },
+      "conditions": {
+        "recommendation": {
+          "customer_id": "C003001",
+          "gender": "여",
+          "age": 25,
+          "group_id": "G-F-20",
+          "group_members": 331,
+          "s4_k": null,
+          "k10_returned": 10,
+          "k10_scopes": [
+            "group",
+            "group",
+            "group",
+            "group",
+            "group",
+            "group",
+            "group",
+            "group",
+            "group",
+            "group"
+          ]
+        },
+        "purchases": {
+          "targets": [
+            {
+              "id": "T0000001",
+              "customer_id": "C000907",
+              "product_id": "P000213",
+              "color": "화이트",
+              "qty": 3,
+              "date": "2026-02-01",
+              "pair_records_before_add": 1
+            },
+            {
+              "id": "T0000002",
+              "customer_id": "C002471",
+              "product_id": "P000254",
+              "color": "브라운",
+              "qty": 2,
+              "date": "2026-05-13",
+              "pair_records_before_add": 1
+            },
+            {
+              "id": "T0000003",
+              "customer_id": "C001421",
+              "product_id": "P000001",
+              "color": "베이지",
+              "qty": 1,
+              "date": "2026-11-14",
+              "pair_records_before_add": 11
+            },
+            {
+              "id": "T0000004",
+              "customer_id": "C002129",
+              "product_id": "P000008",
+              "color": "아이보리",
+              "qty": 2,
+              "date": "2026-07-02",
+              "pair_records_before_add": 1
+            },
+            {
+              "id": "T0000005",
+              "customer_id": "C001525",
+              "product_id": "P000002",
+              "color": "블랙",
+              "qty": 2,
+              "date": "2026-07-09",
+              "pair_records_before_add": 4
+            }
+          ],
+          "added_ids": [
+            "T0100001",
+            "T0100002",
+            "T0100003",
+            "T0100004",
+            "T0100005"
+          ],
+          "updated_qty": 2,
+          "sequence": "같은 대상의 등록→수정→단건 조회→추가분 삭제"
+        },
+        "changes": {
+          "added_customer_ids": [
+            "C003002",
+            "C003003",
+            "C003004",
+            "C003005",
+            "C003006"
+          ],
+          "delete_targets": [
+            {
+              "id": "C000001",
+              "purchase_records": 25,
+              "purchase_edges": 15
+            },
+            {
+              "id": "C000002",
+              "purchase_records": 38,
+              "purchase_edges": 27
+            },
+            {
+              "id": "C000003",
+              "purchase_records": 37,
+              "purchase_edges": 25
+            },
+            {
+              "id": "C000004",
+              "purchase_records": 41,
+              "purchase_edges": 27
+            },
+            {
+              "id": "C000005",
+              "purchase_records": 34,
+              "purchase_edges": 20
+            }
+          ],
+          "group_moves": [
+            {
+              "id": "C000001",
+              "from_gender": "여",
+              "to_gender": "남"
+            },
+            {
+              "id": "C000002",
+              "from_gender": "여",
+              "to_gender": "남"
+            },
+            {
+              "id": "C000003",
+              "from_gender": "여",
+              "to_gender": "남"
+            },
+            {
+              "id": "C000004",
+              "from_gender": "남",
+              "to_gender": "여"
+            },
+            {
+              "id": "C000005",
+              "from_gender": "남",
+              "to_gender": "여"
+            }
+          ],
+          "stock_products": [
+            "P000001",
+            "P000002",
+            "P000003",
+            "P000004",
+            "P000005"
+          ],
+          "stock_change": "모든 기존 색상 +1"
+        },
+        "integrity_state": {
+          "groups": 8,
+          "customers": 3001,
+          "products": 300,
+          "membership_edges": 3001,
+          "purchase_edges": 63704,
+          "purchases": 99825
+        },
+        "stress": {
+          "sold_out_k": 3,
+          "sold_out_customer_id": "C003001",
+          "sold_out_result": [],
+          "popular_product_id": "P000001",
+          "deleted_purchase_records": 28382,
+          "deleted_purchase_edges": 2999,
+          "popular_delete_fresh_graph_each_sample": true
+        }
+      },
+      "input_sha256": "a0254903cd3ae2478c4e8971e907b4fa3651b5ac124e796d16221c2d770827d6",
+      "integrity_verified": true,
+      "environment": {
+        "os": "macOS-27.3-arm64-arm-64bit-Mach-O",
+        "macos": "27.3",
+        "cpu": "Apple M5 Pro",
+        "python": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 21.0.0 (clang-2100.3.34.2)]",
+        "executable": "/opt/homebrew/opt/python@3.14/bin/python3.14",
+        "head": "a75d130dc02e13f40f559f3e8d702aaf02e89021",
+        "branch": "x0"
+      },
+      "started_utc": "2026-11-07T09:41:06.086513+00:00",
+      "finished_utc": "2026-11-07T09:41:14.339602+00:00",
+      "argv": [
+        "tools/bench.py",
+        "time",
+        "3000",
+        "300",
+        "100000",
+        "--seed",
+        "1",
+        "--json",
+        "/Users/chan12/Documents/Codex/2026-11-07/shopgraph-dsc2013-python-x0-main-a75d130/work/x0_time_medium.json"
+      ]
+    },
+    "time_reproduction": {
+      "mode": "time",
+      "size": {
+        "customers": 10000,
+        "products": 1000,
+        "purchases": 300000
+      },
+      "seed": 1,
+      "pid": 90819,
+      "verification": "Codex 자체 확인",
+      "id_note": "측정 프로세스 안에서만 graph의 ID 패턴·자릿수를 6/6/7로 바꿔 끼움. 운영 코드 불변. X2에서 검증이 분리되면 이 방식이 바뀔 수 있다(v3 5.5).",
+      "tracing_enabled": false,
+      "id_constants_restored": true,
+      "metrics": {
+        "initialize": {
+          "median": 596.567791,
+          "max": 604.659541,
+          "repeat": 3,
+          "unit": "ms",
+          "samples": [
+            604.659541,
+            596.567791,
+            587.696292
+          ]
+        },
+        "recommend_k3": {
+          "median": 19.203333,
+          "max": 20.530292,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            20.530292,
+            19.275041,
+            19.12225,
+            19.203333,
+            19.013416
+          ]
+        },
+        "recommend_k10": {
+          "median": 18.769875,
+          "max": 19.04525,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            19.023458,
+            18.769875,
+            19.04525,
+            18.393417,
+            18.178667
+          ]
+        },
+        "s4": {
+          "median": 18.175208,
+          "max": 18.495833,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            18.175208,
+            18.495833,
+            18.174916,
+            17.95975,
+            18.240084
+          ]
+        },
+        "add_purchase": {
+          "median": 269.1245,
+          "max": 275.30325,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            266.56075,
+            269.1245,
+            267.996416,
+            271.520833,
+            275.30325
+          ]
+        },
+        "update_purchase": {
+          "median": 276.3265,
+          "max": 277.704083,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            272.462875,
+            277.704083,
+            268.892958,
+            276.3265,
+            276.9545
+          ]
+        },
+        "get_purchase": {
+          "median": 0.006709,
+          "max": 0.008875,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            0.006417,
+            0.008875,
+            0.006042,
+            0.007208,
+            0.006709
+          ]
+        },
+        "delete_purchase": {
+          "median": 268.850125,
+          "max": 280.068625,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            268.850125,
+            268.09475,
+            266.675125,
+            280.068625,
+            274.413458
+          ]
+        },
+        "add_customer": {
+          "median": 271.860125,
+          "max": 278.5065,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            278.5065,
+            267.514708,
+            276.385,
+            271.860125,
+            266.948459
+          ]
+        },
+        "move_group": {
+          "median": 268.684875,
+          "max": 275.54625,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            275.54625,
+            269.539958,
+            265.878042,
+            268.684875,
+            266.007584
+          ]
+        },
+        "update_stock": {
+          "median": 281.695709,
+          "max": 283.493916,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            281.695709,
+            278.376958,
+            278.590834,
+            283.493916,
+            282.906125
+          ]
+        },
+        "delete_customer": {
+          "median": 277.7505,
+          "max": 283.210834,
+          "repeat": 5,
+          "unit": "ms",
+          "samples": [
+            275.15475,
+            277.7505,
+            283.210834,
+            278.654333,
+            274.53525
+          ]
+        },
+        "integrity": {
+          "median": 861.729958,
+          "max": 865.5445,
+          "repeat": 3,
+          "unit": "ms",
+          "samples": [
+            865.5445,
+            861.729958,
+            846.608959
+          ]
+        },
+        "sold_out_recommend": {
+          "median": 255.847167,
+          "max": 272.768458,
+          "repeat": 3,
+          "unit": "ms",
+          "samples": [
+            255.847167,
+            254.66225,
+            272.768458
+          ]
+        },
+        "delete_popular_product": {
+          "median": 273.738917,
+          "max": 275.78025,
+          "repeat": 3,
+          "unit": "ms",
+          "samples": [
+            263.216,
+            273.738917,
+            275.78025
+          ]
+        }
+      },
+      "conditions": {
+        "recommendation": {
+          "customer_id": "C010001",
+          "gender": "여",
+          "age": 25,
+          "group_id": "G-F-20",
+          "group_members": 1055,
+          "s4_k": null,
+          "k10_returned": 10,
+          "k10_scopes": [
+            "group",
+            "group",
+            "group",
+            "group",
+            "group",
+            "group",
+            "group",
+            "group",
+            "group",
+            "group"
+          ]
+        },
+        "purchases": {
+          "targets": [
+            {
+              "id": "T0000001",
+              "customer_id": "C005060",
+              "product_id": "P000002",
+              "color": "브라운",
+              "qty": 3,
+              "date": "2026-06-05",
+              "pair_records_before_add": 3
+            },
+            {
+              "id": "T0000002",
+              "customer_id": "C008486",
+              "product_id": "P000780",
+              "color": "브라운",
+              "qty": 3,
+              "date": "2026-04-08",
+              "pair_records_before_add": 1
+            },
+            {
+              "id": "T0000003",
+              "customer_id": "C000023",
+              "product_id": "P000001",
+              "color": "네이비",
+              "qty": 1,
+              "date": "2026-01-28",
+              "pair_records_before_add": 8
+            },
+            {
+              "id": "T0000004",
+              "customer_id": "C009525",
+              "product_id": "P000001",
+              "color": "아이보리",
+              "qty": 2,
+              "date": "2026-08-28",
+              "pair_records_before_add": 11
+            },
+            {
+              "id": "T0000005",
+              "customer_id": "C003923",
+              "product_id": "P000029",
+              "color": "블랙",
+              "qty": 3,
+              "date": "2026-06-07",
+              "pair_records_before_add": 1
+            }
+          ],
+          "added_ids": [
+            "T0300001",
+            "T0300002",
+            "T0300003",
+            "T0300004",
+            "T0300005"
+          ],
+          "updated_qty": 2,
+          "sequence": "같은 대상의 등록→수정→단건 조회→추가분 삭제"
+        },
+        "changes": {
+          "added_customer_ids": [
+            "C010002",
+            "C010003",
+            "C010004",
+            "C010005",
+            "C010006"
+          ],
+          "delete_targets": [
+            {
+              "id": "C000001",
+              "purchase_records": 26,
+              "purchase_edges": 15
+            },
+            {
+              "id": "C000002",
+              "purchase_records": 36,
+              "purchase_edges": 26
+            },
+            {
+              "id": "C000003",
+              "purchase_records": 31,
+              "purchase_edges": 20
+            },
+            {
+              "id": "C000004",
+              "purchase_records": 36,
+              "purchase_edges": 23
+            },
+            {
+              "id": "C000005",
+              "purchase_records": 29,
+              "purchase_edges": 20
+            }
+          ],
+          "group_moves": [
+            {
+              "id": "C000001",
+              "from_gender": "여",
+              "to_gender": "남"
+            },
+            {
+              "id": "C000002",
+              "from_gender": "여",
+              "to_gender": "남"
+            },
+            {
+              "id": "C000003",
+              "from_gender": "여",
+              "to_gender": "남"
+            },
+            {
+              "id": "C000004",
+              "from_gender": "남",
+              "to_gender": "여"
+            },
+            {
+              "id": "C000005",
+              "from_gender": "남",
+              "to_gender": "여"
+            }
+          ],
+          "stock_products": [
+            "P000001",
+            "P000002",
+            "P000003",
+            "P000004",
+            "P000005"
+          ],
+          "stock_change": "모든 기존 색상 +1"
+        },
+        "integrity_state": {
+          "groups": 8,
+          "customers": 10001,
+          "products": 1000,
+          "membership_edges": 10001,
+          "purchase_edges": 198649,
+          "purchases": 299842
+        },
+        "stress": {
+          "sold_out_k": 3,
+          "sold_out_customer_id": "C010001",
+          "sold_out_result": [],
+          "popular_product_id": "P000001",
+          "deleted_purchase_records": 84793,
+          "deleted_purchase_edges": 9994,
+          "popular_delete_fresh_graph_each_sample": true
+        }
+      },
+      "input_sha256": "b2cdbad8fb09ff94f451b02c98ed017fa1b662086d12037d2f1da1e4c2f5b530",
+      "integrity_verified": true,
+      "environment": {
+        "os": "macOS-27.3-arm64-arm-64bit-Mach-O",
+        "macos": "27.3",
+        "cpu": "Apple M5 Pro",
+        "python": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 21.0.0 (clang-2100.3.34.2)]",
+        "executable": "/opt/homebrew/opt/python@3.14/bin/python3.14",
+        "head": "a75d130dc02e13f40f559f3e8d702aaf02e89021",
+        "branch": "x0"
+      },
+      "started_utc": "2026-11-07T09:41:31.814741+00:00",
+      "finished_utc": "2026-11-07T09:42:06.874757+00:00",
+      "argv": [
+        "tools/bench.py",
+        "time",
+        "10000",
+        "1000",
+        "300000",
+        "--seed",
+        "1",
+        "--json",
+        "/Users/chan12/Documents/Codex/2026-11-07/shopgraph-dsc2013-python-x0-main-a75d130/work/x0_time.json"
+      ]
+    }
+  },
+  "reproducibility": {
+    "same_command": true,
+    "same_input_sha256": true,
+    "same_conditions": true,
+    "formula": "(second / first - 1) * 100",
+    "metrics": {
+      "initialize": {
+        "first_median_ms": 598.532958,
+        "second_median_ms": 596.567791,
+        "change_percent": -0.32833062469384
+      },
+      "add_customer": {
+        "first_median_ms": 271.996375,
+        "second_median_ms": 271.860125,
+        "change_percent": -0.05009257935882916
+      },
+      "add_purchase": {
+        "first_median_ms": 273.176959,
+        "second_median_ms": 269.1245,
+        "change_percent": -1.4834556379990982
+      },
+      "update_purchase": {
+        "first_median_ms": 278.551583,
+        "second_median_ms": 276.3265,
+        "change_percent": -0.7988046508427105
+      },
+      "delete_purchase": {
+        "first_median_ms": 270.812958,
+        "second_median_ms": 268.850125,
+        "change_percent": -0.7247928660784386
+      },
+      "delete_customer": {
+        "first_median_ms": 278.461417,
+        "second_median_ms": 277.7505,
+        "change_percent": -0.2553017964424087
+      },
+      "recommend_k3": {
+        "first_median_ms": 19.139042,
+        "second_median_ms": 19.203333,
+        "change_percent": 0.3359154549114951
+      },
+      "recommend_k10": {
+        "first_median_ms": 18.607875,
+        "second_median_ms": 18.769875,
+        "change_percent": 0.8705991414925007
+      },
+      "sold_out_recommend": {
+        "first_median_ms": 259.950167,
+        "second_median_ms": 255.847167,
+        "change_percent": -1.5783794437800869
+      },
+      "s4": {
+        "first_median_ms": 18.129125,
+        "second_median_ms": 18.175208,
+        "change_percent": 0.2541931836202993
+      },
+      "integrity": {
+        "first_median_ms": 857.848042,
+        "second_median_ms": 861.729958,
+        "change_percent": 0.45251790642892864
+      },
+      "delete_popular_product": {
+        "first_median_ms": 268.202,
+        "second_median_ms": 273.738917,
+        "change_percent": 2.064457759449967
+      },
+      "update_stock": {
+        "first_median_ms": 280.544542,
+        "second_median_ms": 281.695709,
+        "change_percent": 0.41033305862712144
+      },
+      "move_group": {
+        "first_median_ms": 273.188,
+        "second_median_ms": 268.684875,
+        "change_percent": -1.6483612018097449
+      },
+      "get_purchase": {
+        "first_median_ms": 0.006625,
+        "second_median_ms": 0.006709,
+        "change_percent": 1.2679245283018892
+      }
+    }
+  }
+}

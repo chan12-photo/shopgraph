@@ -14,6 +14,7 @@ from collections.abc import Callable
 from email.errors import (CloseBoundaryNotFoundDefect, InvalidMultipartContentTransferEncodingDefect,
                           MultipartInvariantViolationDefect, NoBoundaryInMultipartDefect,
                           StartBoundaryNotFoundDefect)
+from email.message import Message
 from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import SplitResult, parse_qs, unquote, urlsplit
@@ -252,12 +253,34 @@ def _query_k(query: str, default: int | None, *, allow_k: bool = True) -> int | 
     return int(raw)
 
 
+def _has_leftover(message: Message) -> bool:
+    """헤더 해석 결과에 본문이 남았는지 확인한다.
+
+    헤더 블록만 넘겨 해석하므로 정상 요청의 본문은 비어 있다. message 내용 형식은 빈 부분 메시지를
+    목록으로 돌려주므로 부분 메시지의 헤더와 본문까지 본다.
+
+    인자:
+        message: 해석한 헤더 객체 또는 부분 메시지.
+
+    반환:
+        남은 내용이 있으면 True.
+
+    예외:
+        없음.
+    """
+    payload = message.get_payload()
+    if isinstance(payload, list):
+        return any(part.items() or _has_leftover(part) for part in payload)
+    return bool(payload)
+
+
 def _check_header_lines(handler: BaseHTTPRequestHandler) -> None:
     """헤더 줄이 모두 헤더로 읽혔는지 확인한다.
 
-    콜론 없는 줄을 만나면 파서가 그 뒤의 헤더를 headers에 넣지 않고 defects에만 남긴다. 숨은 헤더는
-    Host·Origin·길이 검사가 볼 수 없으므로 먼저 거절한다. multipart 내용 형식은 헤더 줄이 정상이어도
-    본문이 없다는 결함을 남기므로 제외한다. 그 요청은 내용 형식 검사에서 415가 된다.
+    파서가 헤더 블록 중간에서 읽기를 멈추면 그 뒤의 헤더는 headers에 없다. 콜론 없는 줄은 defects에
+    남고, 줄 끝의 CR 하나가 빈 줄로 읽히면 defects 없이 본문으로 남는다. 숨은 헤더는 Host·Origin·길이
+    검사가 볼 수 없으므로 먼저 거절한다. multipart 내용 형식은 헤더 줄이 정상이어도 본문이 없다는
+    결함을 남기므로 제외한다. 그 요청은 내용 형식 검사에서 415가 된다.
 
     인자:
         handler: 헤더를 읽은 요청 핸들러.
@@ -266,9 +289,10 @@ def _check_header_lines(handler: BaseHTTPRequestHandler) -> None:
         없음.
 
     예외:
-        _RequestError: multipart 본문 결함이 아닌 결함이 하나라도 있을 때 (400).
+        _RequestError: multipart 본문 결함이 아닌 결함이 있거나 본문이 남았을 때 (400).
     """
-    if any(not isinstance(defect, _MULTIPART_BODY_DEFECTS) for defect in handler.headers.defects):
+    line_defect = any(not isinstance(defect, _MULTIPART_BODY_DEFECTS) for defect in handler.headers.defects)
+    if line_defect or _has_leftover(handler.headers):
         raise _RequestError(400, "요청 헤더 형식이 올바르지 않습니다")
 
 

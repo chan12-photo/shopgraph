@@ -5,6 +5,7 @@ docs/verification/bug_review_1107.md의 재현 입력에서 가져온다.
 """
 
 import json
+import random
 import socket
 import tempfile
 import threading
@@ -32,6 +33,7 @@ _MISSING = "없는 경로입니다"
 _CLOSING = "서버가 종료 중입니다"
 _BAD_HEADER = "요청 헤더 형식이 올바르지 않습니다"
 _TWO_TYPES = "요청 헤더가 중복됐습니다 (Content-Type)"
+_HIDDEN_HEADERS = ("Origin: http://evil.example", "Transfer-Encoding: chunked", "Host: evil.example")
 
 
 def _customer_body(**changes: object) -> bytes:
@@ -806,6 +808,91 @@ class TestUI9MalformedHeaders(_WireCase):
                              (("Host", self.host),))
         self.assert_rejected((403, {"error": _FORBIDDEN}), "POST", "/api/customers", _customer_body(),
                              (("Origin", origin), ("Origin", origin)))
+
+    def test_headers_hidden_after_extra_cr_are_rejected(self) -> None:
+        """헤더 줄 끝의 CR 하나로 헤더 블록이 끝나도 뒤에 숨은 헤더가 있으면 400이다."""
+        raw = _customer_body()
+        valid = ("Content-Type: application/json", f"Content-Length: {len(raw)}")
+        for hidden in _HIDDEN_HEADERS:
+            with self.subTest(hidden=hidden):
+                self.assert_raw_rejected((400, {"error": _BAD_HEADER}), self.raw_request(
+                    "POST", "/api/customers", raw, (*valid, "X-Test: ok\r", hidden)))
+
+    def test_extra_cr_on_last_header_is_rejected(self) -> None:
+        """숨은 헤더가 없어도 헤더 블록이 중간에 끝난 요청은 400이다."""
+        raw = _customer_body()
+        self.assert_raw_rejected((400, {"error": _BAD_HEADER}), self.raw_request(
+            "POST", "/api/customers", raw,
+            ("Content-Type: application/json", f"Content-Length: {len(raw)}", "X-Test: ok\r")))
+
+    def test_message_content_type_stays_415(self) -> None:
+        """파서가 빈 부분 메시지를 만드는 message 내용 형식도 계약대로 415다."""
+        raw = _customer_body()
+        for value in ("message/rfc822", "message/delivery-status", "message/partial"):
+            with self.subTest(value=value):
+                self.assert_raw_rejected(
+                    (415, {"error": "요청 본문은 application/json이어야 합니다"}),
+                    self.raw_request("POST", "/api/customers", raw,
+                                     (f"Content-Type: {value}", f"Content-Length: {len(raw)}")))
+
+    def test_message_and_multipart_types_do_not_hide_headers(self) -> None:
+        """본문을 나눠 읽는 내용 형식에서도 숨은 헤더가 있으면 GET까지 400이다."""
+        for value in ("message/rfc822", "multipart/form-data; boundary=x"):
+            with self.subTest(value=value):
+                self.assert_raw_rejected((400, {"error": _BAD_HEADER}), self.raw_request(
+                    "GET", "/api/stats", b"",
+                    (f"Content-Type: {value}", "X-Test: ok\r", "Origin: http://evil.example")))
+
+    def test_browser_style_headers_pass(self) -> None:
+        """브라우저 형식 헤더가 붙은 정상 POST·GET은 그대로 통과한다."""
+        origin = f"http://127.0.0.1:{self.address[1]}"
+        browser = (("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+                                  "(KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36"),
+                   ("sec-ch-ua", '"Chromium";v="157", "Not-A.Brand";v="24"'), ("sec-ch-ua-mobile", "?0"),
+                   ("Accept", "*/*"), ("Accept-Encoding", "gzip, deflate, br, zstd"),
+                   ("Accept-Language", "ko-KR,ko;q=0.9,en-US;q=0.8"), ("Connection", "keep-alive"),
+                   ("Referer", f"{origin}/"), ("Sec-Fetch-Dest", "empty"), ("Sec-Fetch-Mode", "cors"),
+                   ("Sec-Fetch-Site", "same-origin"))
+        status, body = self.send("POST", "/api/customers", _customer_body(), (("Origin", origin), *browser))
+        self.assertEqual((status, body["customer"]["id"]), (201, "C07"))
+        self.assertEqual(self.send("GET", "/api/stats", b"", browser)[0], 200)
+        self.assertEqual(self.harness.graph.check_integrity(), [])
+
+    def reply_status(self, request: bytes) -> int | None:
+        """요청 바이트를 보내고 상태 코드를 돌려준다.
+
+        인자: request는 요청 전체 바이트. 반환: 상태 코드, 응답 없이 닫히면 None.
+        예외: OSError는 연결이나 전송 실패, ValueError는 상태 코드가 숫자가 아닐 때.
+        """
+        chunks = []
+        with socket.create_connection(self.address, timeout=5) as connection:
+            connection.sendall(request)
+            try:
+                while chunk := connection.recv(65536):
+                    chunks.append(chunk)
+            except ConnectionResetError:
+                pass  # 응답 없이 닫혀도 된다. 호출자가 상태 불변을 확인한다
+        status_line = b"".join(chunks).split(b"\r\n", 1)[0].split()
+        return int(status_line[1]) if len(status_line) > 1 else None
+
+    def test_random_header_noise_never_succeeds(self) -> None:
+        """헤더 줄에 CR·LF·NUL·공백·콜론을 넣고 뒤에 금지 헤더를 두면 2xx가 한 번도 없다."""
+        rng = random.Random(20261107)
+        raw = _customer_body()
+        before = snapshot(self.harness.graph)
+        for number in range(600):
+            lines = [f"Host: {self.host}", "Content-Type: application/json",
+                     f"Content-Length: {len(raw)}", "X-Test: ok-value"]
+            index = int(rng.random() * len(lines))
+            position = int(rng.random() * (len(lines[index]) + 1))
+            noise = "".join("\r\n\0 :"[int(rng.random() * 5)] for _ in range(1 + int(rng.random() * 3)))
+            lines[index] = lines[index][:position] + noise + lines[index][position:]
+            lines.append(_HIDDEN_HEADERS[number % len(_HIDDEN_HEADERS)])
+            head = "\r\n".join(["POST /api/customers HTTP/1.1", *lines])
+            request = head.encode("iso-8859-1") + b"\r\n\r\n" + raw
+            status = self.reply_status(request)
+            self.assertFalse(status is not None and 200 <= status < 300, msg=repr(request))
+            self.assertEqual(snapshot(self.harness.graph), before, msg=repr(request))
 
 
 if __name__ == "__main__":

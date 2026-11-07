@@ -131,7 +131,7 @@ try {
     await evaluate(`(()=>{const n=document.querySelector('main form input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(n,'1.5');n.dispatchEvent(new Event('input',{bubbles:true}));})()`);
     await click('색상별 재고 전체 저장'); await delay(200);
     assert.equal(posts.length, sent, '재고 요청 전송');
-    assert.ok((await evaluate(`document.querySelector('.error-box')?.textContent ?? ''`)).startsWith('재고('));
+    assert.ok((await evaluate(`document.querySelector('.error-box')?.textContent ?? ''`)).startsWith('P01 저장 실패: 재고('));
   });
 
   await check('5번 S1 세 수치', async () => {
@@ -178,10 +178,37 @@ try {
     assert.ok(Object.values((await get('/api/products/P01')).product.stock).includes(17), 'P01 저장');
   });
 
+  await check('2번 늦은 재고 실패 응답은 다른 상품에 오류 없음', async () => {
+    const selectProduct = id => evaluate(`(()=>{const n=document.querySelector('main > section .section-heading select');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(n,'${id}');n.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+    await selectProduct('P01');
+    await until(`document.querySelector('.detail-grid h3')?.textContent.includes('P01') && document.querySelector('main form input')`);
+    await delay(200);
+    const before = JSON.stringify((await get('/api/products/P01')).product.stock);
+    const held = hold('PUT', '/api/products/P01/stock');
+    // 정수 표기는 맞고 서버가 거절하는 10자리 값으로 실패를 만든다.
+    await evaluate(`(()=>{const n=document.querySelector('main form input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(n,'1000000000');n.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+    await click('색상별 재고 전체 저장'); await held.reached;
+    await selectProduct('P02');
+    await until(`document.querySelector('.detail-grid h3')?.textContent.includes('P02')`);
+    await release(held);
+    assert.equal(await evaluate(`document.querySelector('.error-box')?.textContent ?? ''`), '');
+    assert.equal(JSON.stringify((await get('/api/products/P01')).product.stock), before, 'P01 불변');
+  });
+
+  await check('2번 머문 상품 저장 실패는 ID 포함 오류', async () => {
+    await evaluate(`(()=>{const n=document.querySelector('main > section .section-heading select');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(n,'P01');n.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+    await until(`document.querySelector('.detail-grid h3')?.textContent.includes('P01') && document.querySelector('main form input')`);
+    await delay(200);
+    await evaluate(`(()=>{const n=document.querySelector('main form input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(n,'1000000000');n.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+    await click('색상별 재고 전체 저장'); await until(`document.querySelector('.error-box')`);
+    assert.ok((await evaluate(`document.querySelector('.error-box').textContent`)).startsWith('P01 저장 실패: '));
+  });
+
   await check('2번 머문 상품 저장은 ID 포함 문구', async () => {
     await evaluate(`(()=>{const n=document.querySelector('main > section .section-heading select');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(n,'P01');n.dispatchEvent(new Event('change',{bubbles:true}));})()`);
     await until(`document.querySelector('.detail-grid h3')?.textContent.includes('P01') && document.querySelector('main form input')`);
     await delay(200);
+    await evaluate(`(()=>{const n=document.querySelector('main form input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(n,'5');n.dispatchEvent(new Event('input',{bubbles:true}));})()`);
     await click('색상별 재고 전체 저장');
     await until(`document.querySelector('.success-box')`);
     assert.ok((await evaluate(`document.querySelector('.success-box').textContent`)).startsWith('P01 재고를 수정했습니다.'));

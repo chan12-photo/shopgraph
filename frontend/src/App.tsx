@@ -421,7 +421,9 @@ function ProductScreen({ productId, products, refreshKey, onChanged, onProduct, 
         `/api/products/${encodeURIComponent(submittedId)}/stock`, jsonRequest("PUT", { stock }));
       if (currentId.current === submittedId) setSavedId(submittedId);
       onChanged(); // S2를 포함한 전체 상품 상세는 GET으로 다시 읽는다.
-    } catch (reason: unknown) { setError(errorMessage(reason)); } finally { setBusy(false); }
+    } catch (reason: unknown) {
+      if (currentId.current === submittedId) setError(`${submittedId} 저장 실패: ${errorMessage(reason)}`);
+    } finally { setBusy(false); }
   }
   return <section><div className="section-heading"><div><h2>상품 상세</h2><p>S2 구매 고객 · 재고와 구매 가능 색상</p></div>
     <NodeSelect label="상품" nodes={products} value={productId} onChange={onProduct} /></div>

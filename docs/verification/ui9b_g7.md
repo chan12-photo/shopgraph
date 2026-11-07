@@ -6,7 +6,7 @@
 
 - 화면(App.tsx·styles.css, dist 재빌드)
   - #2 `spreadGroups`: 소속 고객이 있는 그룹 칩을 y 순으로 훑어 최소 간격 40을 확보하고, 아래 끝(740 − 16)을 넘으면 위로 되민다. 그 뒤 빈 그룹 배치·간선 좌표를 만든다. 노드 배열 순서는 그대로다.
-  - #3 재고 저장: 제출한 상품 ID와 응답 도착 시 현재 상품 ID가 같을 때만 `P01 재고를 수정했습니다.`를 띄운다. 전역 갱신은 그대로 한다.
+  - #3 재고 저장: 제출한 상품 ID와 응답 도착 시 현재 상품 ID가 같을 때만 `P01 재고를 수정했습니다.`를 띄운다. 전역 갱신은 그대로 한다. (보완) 실패 문구도 같은 비교를 거쳐 현재 상품이 같을 때만 `P01 저장 실패: …`로 띄운다.
   - #4 고객 등록: 응답이 왔을 때 등록 화면이 그대로 떠 있을 때만 고객 상세로 이동한다. 떠났으면 마지막 등록 ID 기록과 전역 갱신만 한다.
   - #5 `integerText`: 수량·나이·재고는 앞뒤 공백 제거 후 `^[0-9]+$`만 허용하고, 아니면 요청 없이 `수량: 숫자만 입력하세요 (입력: …)`를 보인다. 범위는 서버가 판단한다. `type=number`에서는 `" 2 "`가 브라우저에서 지워지므로 세 입력칸을 `inputMode="numeric"` 텍스트 칸으로 바꿨다.
   - #12 S1 행에 `기록 N건 · 총수량 N개 · 최근 구매일 …`, S2 행에 `그룹 G-…`, 무결성 화면에 "다시 검사"(stats·integrity GET만 다시 부름). 고객별 K 입력은 만들지 않았다(A49).
@@ -22,7 +22,8 @@ Claude Code 자체 확인, Python 3.13.12: `python3 -B -m unittest`
 | 시점 | 원문 | 분류 |
 |---|---|---|
 | 시작 전 45edcb5 | `Ran 256 tests` / `OK` | 통과 256 / 미도래 0 / 실패 0 |
-| 커밋 직전 | `Ran 260 tests in 50.601s` / `OK` | 통과 260 / 미도래 0 / 실패 0 |
+| 커밋 직전 a642d26 | `Ran 260 tests in 50.601s` / `OK` | 통과 260 / 미도래 0 / 실패 0 |
+| 보완 커밋 직전 | `Ran 260 tests in 50.505s` / `OK` | 통과 260 / 미도래 0 / 실패 0 |
 
 Python 3.11은 이번에 실행하지 않았다(검증 안 함). `npm run typecheck`·`npm run build` 성공.
 
@@ -30,22 +31,22 @@ Python 3.11은 이번에 실행하지 않았다(검증 안 함). `npm run typech
 
 | 파일 | SHA-256 |
 |---|---|
-| frontend/dist/index.html | 6716b0318f2e14338bdcc71af026d583e4142dfda96cc859987b919582220492 |
-| frontend/dist/assets/index-BBuXoc6K.js | 21a20c60c8b6f12152ca50b81e0312a6d32fc745b89a51edf68e717e06d2b29d |
+| frontend/dist/index.html | 600433612aa20a367c314cc38fd86641adfc483453fb4616745c469f02ba704f |
+| frontend/dist/assets/index-CJ9lJTEV.js | a969b397438453f8fecf887faafa5d548f8b26fb4552b8f3b38863daaab31264 |
 | frontend/dist/assets/index-BCVPWi3G.css | 18cef8e93ae272c2d5c0dec36d00d80fb110d317e292e6734da7c6d6e10611d4 |
 
-이전 파일 index-CmKnIgzh.js·index-R21ijBvg.css는 삭제됐다.
+보완 커밋 기준이다. 45edcb5의 index-CmKnIgzh.js·index-R21ijBvg.css와 a642d26의 index-BBuXoc6K.js는 삭제됐다.
 
 ## 브라우저 확인 (Chrome headless, 1440×900, 실제 `python3 -B main.py --web --port 0`)
 
-- `node docs/verification/ui9b_browser_check.mjs`: 11개 항목 PASS, 종료 코드 0.
+- `node docs/verification/ui9b_browser_check.mjs`: 13개 항목 PASS(보완에서 2개 추가), 종료 코드 0.
   - 4번: `1.0000000000000001`·`1e0` → 요청 0건·구매 수 불변·한국어 오류. `" 2 "`·`"2"` → POST qty=2, C01–P01 총수량 +2. 나이 `2e1`·재고 `1.5`도 요청 0건.
   - 5번: S1 세 수치·S2 그룹이 API 값과 같음, "다시 검사"는 `/api/integrity` GET만 부르고 변경 요청 0.
-  - 2번: P01 PUT 응답을 CDP Fetch로 붙잡고 P02로 옮긴 뒤 놓음 → P02에 성공 문구 없음, P01 재고 17 저장. P01에 머문 저장은 `P01 재고를 수정했습니다.`.
+  - 2번: P01 PUT 응답을 CDP Fetch로 붙잡고 P02로 옮긴 뒤 놓음 → P02에 성공 문구 없음, P01 재고 17 저장. P01에 머문 저장은 `P01 재고를 수정했습니다.`. (보완) 10자리 재고로 P01 저장을 실패시키고 응답을 붙잡은 뒤 P02로 옮겨 놓음 → P02에 오류 없음, P01 불변. P01에 머문 실패는 `P01 저장 실패: …`.
   - 3번: POST /api/customers 응답을 붙잡고 무결성 탭으로 옮긴 뒤 놓음 → 탭은 무결성 유지, 고객 수 +1, 화면 수치 갱신. 머문 등록은 고객 상세로 이동.
   - 1번: 여성 40세 등록 뒤 그룹 칩 8개 세로 겹침 0, 8개 모두 중앙 실제 클릭이 그 칩을 선택.
   - 외부 네트워크 0·브라우저 예외 0.
-- ui5_browser_check.mjs: 임시 사본(같은 dist)에서 실행해 `PASS 장면 1~8 전체 대조 / 외부 네트워크 0 / 브라우저 예외 0`. 저장소의 ui5_screens·ui5_browser_results.json은 덮어쓰지 않았다.
+- ui5_browser_check.mjs: 보완 빌드에서도 임시 사본(같은 dist)에서 실행해 `PASS 장면 1~8 전체 대조 / 외부 네트워크 0 / 브라우저 예외 0`. 저장소의 ui5_screens·ui5_browser_results.json은 덮어쓰지 않았다.
 - 그룹 칩 좌표: 45edcb5 빌드와 비교해 기본 상태·하람(여 25) 등록 뒤·새싹(남 15) 등록 뒤의 그룹 8개 y가 모두 같다.
 
 ## 고장 주입 (임시 사본, 한 번에 하나, 각 사본 typecheck·build 성공 뒤 그 dist로 실행)
@@ -61,12 +62,12 @@ Python 3.11은 이번에 실행하지 않았다(검증 안 함). `npm run typech
 | M5b | S2 그룹 제거 (#12) | 실패 | 5번 S2 |
 | M5c | 다시 검사 버튼 제거 (#12) | 실패 | 5번 다시 검사 |
 | A3 | 정수 검사 뒤 qty를 항상 1로 보냄 | 실패 | 4번 `" 2 "` 전송 qty 1 ≠ 2 |
+| M6 (보완) | 실패 문구의 상품 ID 비교 제거 | 실패 | 2번 늦은 재고 실패 응답 |
 
 M1은 최종 빌드에서 다시 실행했다. M2~A3은 아래 끝 제한을 바꾸기 전 빌드(그룹 배치만 다름)에서 실행했다. 정상 사본은 전체 통과였다.
 
 ## 남은 점
 
-- 늦은 재고 저장이 **실패**한 경우의 오류 문구는 여전히 현재 상품 화면에 뜬다(지시 범위는 성공 문구).
 - 숫자로만 된 색상명 순서(A48)는 이번 세션에서 재현하지 않았다.
 
 ## 이해 질문 (기록만)

@@ -329,9 +329,9 @@ class TestUI9Transport(_WireCase):
                              "POST", "/api/customers", _customer_body(),
                              (("Transfer-Encoding", "chunked"),))
 
-    def test_huge_content_length_is_413_without_runtime_text(self) -> None:
-        """int 자릿수 제한을 넘는 길이도 영어 오류 없이 413이다."""
-        self.assert_rejected((413, {"error": "요청 본문이 너무 큽니다 (64KiB 이하)"}),
+    def test_huge_content_length_is_400_without_runtime_text(self) -> None:
+        """10자리를 넘는 길이 표기는 값을 읽지 않고 영어 오류 없이 400이다."""
+        self.assert_rejected((400, {"error": _BAD_LENGTH}),
                              "POST", "/api/customers", b"", (("Content-Length", "9" * 5000),), length=False)
 
     def test_host_must_be_exactly_one(self) -> None:

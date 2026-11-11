@@ -721,6 +721,26 @@ class TestUI9ClosedServer(_WireCase):
 class TestUI9MalformedHeaders(_WireCase):
     """Codex 확인 1차: 헤더 줄 결함 뒤에 숨은 헤더와 길이·Content-Type 경계."""
 
+    def test_raw_header_lines_reject_embedded_cr(self) -> None:
+        """해석 결과가 정상이더라도 원시 헤더 줄의 여분 CR·중간 CR은 400이다."""
+        handler = web._RequestHandler.__new__(web._RequestHandler)
+        handler.headers = web.Message()
+        for line in (b"X-Test: ok\r\r\n", b"X-Test: o\rk\r\n"):
+            with self.subTest(line=line):
+                handler._raw_header_lines = [line]
+                with self.assertRaises(web._RequestError) as caught:
+                    web._check_header_lines(handler)
+                self.assertEqual((caught.exception.status, str(caught.exception)), (400, _BAD_HEADER))
+
+    def test_raw_header_lines_accept_normal_endings_and_folding(self) -> None:
+        """CRLF·LF 줄 끝과 접힌 헤더 줄은 원시 줄 검사에서도 통과한다."""
+        handler = web._RequestHandler.__new__(web._RequestHandler)
+        handler.headers = web.Message()
+        for line in (b"X-Test: ok\r\n", b"X-Test: ok\n", b" b\r\n"):
+            with self.subTest(line=line):
+                handler._raw_header_lines = [line]
+                web._check_header_lines(handler)
+
     def raw_request(self, method: str, path: str, body: bytes, lines: tuple[str, ...]) -> bytes:
         """Host 뒤에 주어진 헤더 줄을 그대로 넣은 요청 바이트를 만든다.
 
@@ -826,6 +846,30 @@ class TestUI9MalformedHeaders(_WireCase):
         self.assert_raw_rejected((400, {"error": _BAD_HEADER}), self.raw_request(
             "POST", "/api/customers", raw,
             ("Content-Type: application/json", f"Content-Length: {len(raw)}", "X-Test: ok\r")))
+
+    def test_extra_cr_on_first_header_is_rejected_before_change(self) -> None:
+        """첫 Host 줄 끝에 여분 CR이 있고 정상 헤더가 이어져도 400이고 고객 수가 같다."""
+        raw = _customer_body()
+        before_count = self.harness.graph.stats()["customers"]
+        head = ("POST /api/customers HTTP/1.1\r\n"
+                f"Host: {self.host}\r\r\n"
+                "Content-Type: application/json\r\n"
+                f"Content-Length: {len(raw)}\r\n\r\n").encode("ascii")
+        self.assert_raw_rejected((400, {"error": _BAD_HEADER}), head + raw)
+        self.assertEqual(self.harness.graph.stats()["customers"], before_count)
+
+    def test_lf_only_header_endings_still_allow_post(self) -> None:
+        """요청 줄은 CRLF, 헤더 줄은 LF인 정상 POST가 본문을 읽고 고객을 등록한다."""
+        raw = _customer_body()
+        before_count = self.harness.graph.stats()["customers"]
+        head = ("POST /api/customers HTTP/1.1\r\n"
+                f"Host: {self.host}\n"
+                "Content-Type: application/json\n"
+                f"Content-Length: {len(raw)}\n\n").encode("ascii")
+        status, _, body = self.wire(head + raw)
+        self.assertEqual((status, json.loads(body.decode("utf-8"))["customer"]["id"]), (201, "C07"))
+        self.assertEqual(self.harness.graph.stats()["customers"], before_count + 1)
+        self.assertEqual(self.harness.graph.check_integrity(), [])
 
     def test_message_content_type_stays_415(self) -> None:
         """파서가 빈 부분 메시지를 만드는 message 내용 형식도 계약대로 415다."""

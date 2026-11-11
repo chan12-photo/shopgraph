@@ -18,6 +18,7 @@ from email.errors import (CloseBoundaryNotFoundDefect, InvalidMultipartContentTr
 from email.message import Message
 from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from pathlib import Path
+from typing import BinaryIO
 from urllib.parse import SplitResult, parse_qs, unquote, urlsplit
 
 from graph import AGE_BANDS, GENDER_LABELS, GENDERS, GROUP_IDS, GROUP_IDS_BY_GENDER, GROUP_LABELS, K_DEFAULT, K_MAX, ShopGraph
@@ -56,6 +57,21 @@ class _RequestError(ValueError):
 
 class _ResponseBuildError(Exception):
     """응답 생성·직렬화 실패. ValueError여도 입력 오류 400으로 바뀌지 않게 감싼다."""
+
+
+class _HeaderLineReader:
+    """원래 스트림의 readline만 위임하고 읽은 헤더 줄을 기록한다."""
+
+    def __init__(self, stream: BinaryIO, lines: list[bytes]) -> None:
+        """기록기를 만든다. 인자: 원래 스트림·기록 목록. 반환: 없음. 예외: 없음."""
+        self._stream = stream
+        self._lines = lines
+
+    def readline(self, size: int = -1) -> bytes:
+        """줄을 읽고 기록한다. 인자: 최대 바이트 수. 반환: 읽은 줄. 예외: 원래 읽기 오류."""
+        line = self._stream.readline(size)
+        self._lines.append(line)
+        return line
 
 
 def _json_bytes(payload: dict) -> bytes:
@@ -278,10 +294,12 @@ def _has_leftover(message: Message) -> bool:
 def _check_header_lines(handler: BaseHTTPRequestHandler) -> None:
     """헤더 줄이 모두 헤더로 읽혔는지 확인한다.
 
-    파서가 헤더 블록 중간에서 읽기를 멈추면 그 뒤의 헤더는 headers에 없다. 콜론 없는 줄은 defects에
-    남고, 줄 끝의 CR 하나가 빈 줄로 읽히면 defects 없이 본문으로 남는다. 숨은 헤더는 Host·Origin·길이
-    검사가 볼 수 없으므로 먼저 거절한다. multipart 내용 형식은 헤더 줄이 정상이어도 본문이 없다는
-    결함을 남기므로 제외한다. 그 요청은 내용 형식 검사에서 415가 된다.
+    파서가 헤더 블록 중간에서 해석을 멈추면 그 뒤의 헤더는 headers에 없다. 콜론 없는 줄은 defects에
+    남지만, 마지막 헤더 줄의 여분 CR은 Python 3.11·3.13에서 남던 본문이 3.15에서는 사라질 수 있다.
+    해석 결과 검사와 함께 원시 헤더 줄에서 LF 하나와 바로 앞 CR 하나만 뗀 뒤 남은 CR을 거절한다.
+    요청 줄은 기록하지 않는다. 숨은 헤더는 Host·Origin·길이 검사가 볼 수 없으므로 먼저 거절한다.
+    multipart 내용 형식은 헤더 줄이 정상이어도 본문이 없다는 결함을 남기므로 제외한다.
+    그 요청은 내용 형식 검사에서 415가 된다.
 
     인자:
         handler: 헤더를 읽은 요청 핸들러.
@@ -290,11 +308,18 @@ def _check_header_lines(handler: BaseHTTPRequestHandler) -> None:
         없음.
 
     예외:
-        _RequestError: multipart 본문 결함이 아닌 결함이 있거나 본문이 남았을 때 (400).
+        _RequestError: multipart 본문 결함 외의 결함·남은 본문·원시 줄의 여분 CR이 있을 때 (400).
     """
     line_defect = any(not isinstance(defect, _MULTIPART_BODY_DEFECTS) for defect in handler.headers.defects)
     if line_defect or _has_leftover(handler.headers):
         raise _RequestError(400, "요청 헤더 형식이 올바르지 않습니다")
+    for line in handler._raw_header_lines:
+        if line.endswith(b"\n"):
+            line = line[:-1]
+            if line.endswith(b"\r"):
+                line = line[:-1]
+        if b"\r" in line:
+            raise _RequestError(400, "요청 헤더 형식이 올바르지 않습니다")
 
 
 def _valid_host(handler: BaseHTTPRequestHandler) -> bool:
@@ -757,6 +782,21 @@ class _RequestHandler(BaseHTTPRequestHandler):
     server_version = "ShopGraphHTTP/1.0"
     protocol_version = "HTTP/1.0"
     timeout = 2
+
+    def parse_request(self) -> bool:
+        """표준 해석 중에만 원시 헤더 줄을 기록하고 본문용 스트림을 되돌린다.
+
+        인자: 없음. 요청 줄은 이미 읽은 상태다.
+        반환: 표준 parse_request의 성공 여부.
+        예외: 표준 해석 중 오류를 전달하며 rfile은 항상 원래 스트림으로 돌린다.
+        """
+        self._raw_header_lines: list[bytes] = []
+        original_rfile = self.rfile
+        self.rfile = _HeaderLineReader(original_rfile, self._raw_header_lines)
+        try:
+            return super().parse_request()
+        finally:
+            self.rfile = original_rfile
 
     def log_message(self, format: str, *args: object) -> None:
         """기본 stderr 로그 대신 표준 logging으로 보낸다."""

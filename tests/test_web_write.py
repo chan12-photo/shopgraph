@@ -240,7 +240,7 @@ class TestUI2WebWriteAPI(unittest.TestCase):
         self.assertEqual(self.harness.graph.check_integrity(), [])
 
     def test_customer_id_limit_over_http(self) -> None:
-        """공개 등록으로 C98까지 만든 뒤 HTTP C99 성공·다음 등록 거절과 불변을 확인한다."""
+        """X1·v3 5.2: 공개 등록으로 C98까지 만든 뒤 HTTP C99·C100 발급을 확인한다."""
         g = self.harness.graph
         for number in range(7, 99):
             self.assertEqual(g.add_customer("한도 준비", "여", 25), f"C{number:02}")
@@ -248,11 +248,13 @@ class TestUI2WebWriteAPI(unittest.TestCase):
         status, body = self.request_json("/api/customers", {"name": "마지막 고객", "gender": "여", "age": 25})
         self.assertEqual((status, body["customer"]["id"]), (201, "C99"))
         self.assertEqual(g.check_integrity(), [])
-        raw = '{"name":"한도 초과","gender":"여","age":25}'.encode("utf-8")
-        self._assert_raw_rejected("/api/customers", raw, 400, "ID 한도 초과: C 번호는 99까지입니다")
+        status, body = self.request_json("/api/customers", {"name": "한도 초과", "gender": "여", "age": 25})
+        self.assertEqual(status, 201)
+        self.assertEqual(body["customer"]["id"], "C100")
+        self.assertEqual(g.check_integrity(), [])
 
     def test_purchase_id_limit_over_http(self) -> None:
-        """공개 등록으로 T998까지 만든 뒤 HTTP T999 성공·다음 등록 거절과 불변을 확인한다."""
+        """X1·v3 5.2: 공개 등록으로 T998까지 만든 뒤 HTTP T999·T1000 발급을 확인한다."""
         g = self.harness.graph
         for number in range(14, 999):
             self.assertEqual(g.add_purchase("C01", "P03", "네이비", 1, "2026-10-03"), f"T{number:03}")
@@ -262,8 +264,10 @@ class TestUI2WebWriteAPI(unittest.TestCase):
         status, body = self.request_json("/api/purchases", payload)
         self.assertEqual((status, body["purchase_id"]), (201, "T999"))
         self.assertEqual(g.check_integrity(), [])
-        self._assert_raw_rejected("/api/purchases", json.dumps(payload).encode("utf-8"),
-                                  400, "ID 한도 초과: T 번호는 999까지입니다")
+        status, body = self.request_json("/api/purchases", payload)
+        self.assertEqual(status, 201)
+        self.assertEqual(body["purchase_id"], "T1000")
+        self.assertEqual(g.check_integrity(), [])
 
     def test_stock_exception_after_mutation_returns_uncertain_500(self) -> None:
         """재고 반영 뒤 예외는 불확실성 500이며, 다음 GET으로 반영된 재고를 확인한다."""

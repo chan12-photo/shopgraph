@@ -306,14 +306,14 @@ class TestW4CustomerProduct(unittest.TestCase):
         self.assertEqual(g.check_integrity(), [])  # 5.3.5·B.5: W5에서 무결성 확인 추가
 
     def test_id_limit(self) -> None:
-        """6.4 ID 한도: 초기 고객에 C99가 있으면 add_customer → ValueError("ID 한도 초과"), 상태 불변."""
+        """X1·v3 5.2: 초기 고객에 C99가 있어도 다음 등록은 C100을 발급한다."""
         cs = customers()
         cs.append({"id": "C99", "name": "고객99", "gender": "남", "age": 30})
         g = ShopGraph(cs, products(), purchases())
-        before = snapshot(g)
-        with self.assertRaisesRegex(ValueError, "ID 한도 초과"):
-            g.add_customer("고객100", "여", 22)
-        self.assertEqual(snapshot(g), before)
+        self.assertEqual(g.add_customer("고객100", "여", 22), "C100")
+        self.assertEqual(g.get_customer("C100"),
+                         {"id": "C100", "name": "고객100", "gender": "여", "age": 22})
+        self.assertEqual(g.check_integrity(), [])
 
     def test_delete_customer_cascade(self) -> None:
         """6.4 C02 삭제: 반환 3, 구매 기록 10, 구매 간선 7, 노드 18, G-F-20 = [C01, C03]."""

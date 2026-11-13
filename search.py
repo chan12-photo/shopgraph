@@ -1,7 +1,7 @@
 """읽기 전용 조회·검색·추천 함수.
 
 모든 함수는 첫 인자로 ShopGraph를 받고 데이터를 바꾸지 않는다. ShopGraph의 공개 메서드와
-graph.py의 대문자 공개 상수(읽기 전용)만 쓴다. 반환 형식은 부록 B.2이며 W1에서 가고정,
+graph.py의 대문자 공개 상수(읽기 전용)와 공개 ID 정렬 함수만 쓴다. 반환 형식은 부록 B.2이며 W1에서 가고정,
 W8b에서 최종 고정한다.
 
 - find_products(조건 조회)는 상품 목록(product_ids)을 하나씩 걸러 내는 조회다 (계획서 5.3.1).
@@ -10,7 +10,10 @@ W8b에서 최종 고정한다.
 - 정수 인자(가격·k)는 int만 인정하고 bool·숫자 문자열은 거부한다 (부록 B.3 정수 공통).
 """
 
-from graph import GROUP_IDS, GROUP_IDS_BY_GENDER, K_DEFAULT, K_MAX, KINDS, STYLES, WEIGHT_CAP, ShopGraph
+from graph import (
+    GROUP_IDS, GROUP_IDS_BY_GENDER, K_DEFAULT, K_MAX, KINDS, STYLES, WEIGHT_CAP,
+    ShopGraph, id_sort_key,
+)
 
 
 def _value_error(label: str, rule: str, value: object) -> ValueError:
@@ -89,7 +92,7 @@ def _collect_scores(g: ShopGraph, peer_ids: list[str]) -> dict[str, dict]:
     return scores
 
 
-def _rank_key(item: dict) -> tuple[int, int, str]:
+def _rank_key(item: dict) -> tuple[int, int, tuple[str, int, str]]:
     """S4·추천 항목의 정렬 키를 만든다 (계획서 5.3.3 정렬 규칙).
 
     점수 내림차순 → 구매자 수 내림차순 → 상품 ID 오름차순. S4와 추천이 같은 키를 쓰도록 한곳에 둔다.
@@ -98,12 +101,12 @@ def _rank_key(item: dict) -> tuple[int, int, str]:
         item: "score"·"buyers"·"product_id" 키가 있는 결과 항목.
 
     반환:
-        sort()의 key로 쓸 튜플 (-점수, -구매자 수, 상품 ID).
+        sort()의 key로 쓸 튜플 (-점수, -구매자 수, 상품 ID의 숫자 정렬 키).
 
     예외:
         KeyError: 항목에 위 키가 없을 때.
     """
-    return (-item["score"], -item["buyers"], item["product_id"])
+    return (-item["score"], -item["buyers"], id_sort_key(item["product_id"]))
 
 
 def _check_conditions(kind: object, style: object, color: object,
@@ -331,7 +334,7 @@ def _peers(g: ShopGraph, group_ids: tuple[str, ...], customer_id: str) -> list[s
     for group_id in group_ids:
         peer_ids.update(g.members(group_id))
     peer_ids.discard(customer_id)
-    return sorted(peer_ids)
+    return sorted(peer_ids, key=id_sort_key)
 
 
 def _scope_candidates(g: ShopGraph, scope: str, peer_ids: list[str], chosen: set[str]) -> list[dict]:

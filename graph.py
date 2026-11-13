@@ -65,19 +65,40 @@ WEIGHT_CAP: Final[int] = 3
 K_DEFAULT: Final[int] = 3
 K_MAX: Final[int] = 10
 
+
+def id_sort_key(node_id: str) -> tuple[str, int, str]:
+    """ID를 종류 C < G < P < T, 같은 종류의 번호는 정수 순으로 정렬한다 (X1).
+
+    인자:
+        node_id: 고객·그룹·상품·구매 ID 문자열.
+
+    반환:
+        (종류 글자, 번호, 문자열) 정렬 키. 그룹은 번호 0과 ID 문자열을 쓴다.
+        무결성 진단에서 발견한 비정상 문자열은 번호 0과 원문으로 정렬한다.
+        ID 형식의 허용·거부는 이 함수가 아니라 생성자 검증에서 처리한다.
+
+    예외:
+        ValueError: 숫자 부분이 Python의 정수 변환 한도를 넘을 때.
+    """
+    prefix, number = node_id[:1], node_id[1:]
+    if prefix in ("C", "P", "T") and number.isascii() and number.isdecimal():
+        return (prefix, int(number), "")
+    return (prefix, 0, node_id)
+
+
 # 아래는 이 모듈 안에서만 쓰는 내부 상수·함수다 (다른 모듈은 쓰지 않는다)
 
 # 구매일 형식: 정확히 YYYY-MM-DD 10자 (부록 B.3). \d는 다른 문자 체계의 숫자도 받으므로 [0-9]만 쓴다
 _DATE_PATTERN: Final[re.Pattern[str]] = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 
-# 레코드 ID 형식 (부록 B.1): 종류 글자 → 형식
+# 레코드 ID 형식 (X1·v3 5.2): 최소 자릿수보다 앞의 0은 허용하지 않는다.
 _ID_PATTERNS: Final[MappingProxyType[str, re.Pattern[str]]] = MappingProxyType({
-    "C": re.compile(r"C[0-9]{2}"),
-    "P": re.compile(r"P[0-9]{2}"),
-    "T": re.compile(r"T[0-9]{3}"),
+    "C": re.compile(r"C(0[1-9]|[1-9][0-9]+)"),
+    "P": re.compile(r"P(0[1-9]|[1-9][0-9]+)"),
+    "T": re.compile(r"T(00[1-9]|0[1-9][0-9]|[1-9][0-9]{2,})"),
 })
 
-# 발급 ID의 번호 자릿수 (부록 B.1): 고객·상품 두 자리(최대 99), 구매 세 자리(최대 999)
+# 발급 ID의 최소 번호 자릿수: 고객·상품 두 자리, 구매 세 자리. 넘으면 늘어난다 (X1).
 _ID_DIGITS: Final[MappingProxyType[str, int]] = MappingProxyType({"C": 2, "P": 2, "T": 3})
 
 # 초기 레코드의 키 (부록 B.1 내부 딕셔너리 모양)
@@ -228,7 +249,7 @@ def _clean_stock(stock: object) -> dict[str, int]:
 
 
 def _check_record_id(value: object, prefix: str) -> str:
-    """초기 레코드 ID의 형식·범위를 확인한다 (부록 B.1 생성자 계약 2: C01~C99, P01~P99, T001~T999).
+    """초기 레코드의 최소 자릿수·가변 ID 형식을 확인한다 (X1·v3 5.2).
 
     인자:
         value: 검사할 ID.
@@ -588,7 +609,7 @@ class ShopGraph:
             새로 발급한 고객 ID (예: "C07").
 
         예외:
-            ValueError: 입력이 부록 B.3 규칙을 어기거나 ID 한도(C99)를 넘을 때.
+            ValueError: 입력이 부록 B.3 규칙을 어길 때.
                 실패하면 아무것도 바꾸지 않고 ID도 발급하지 않는다.
         """
         record = {
@@ -678,7 +699,7 @@ class ShopGraph:
             새로 발급한 상품 ID (예: "P06").
 
         예외:
-            ValueError: 입력이 부록 B.3 규칙을 어기거나 ID 한도(P99)를 넘을 때.
+            ValueError: 입력이 부록 B.3 규칙을 어길 때.
                 실패하면 아무것도 바꾸지 않고 ID도 발급하지 않는다.
         """
         record = {
@@ -784,7 +805,7 @@ class ShopGraph:
             새로 발급한 구매 ID (예: "T014").
 
         예외:
-            ValueError: 없는 고객·상품 ID, 입력이 부록 B.3 규칙을 어기거나 ID 한도(T999)를 넘을 때.
+            ValueError: 없는 고객·상품 ID이거나 입력이 부록 B.3 규칙을 어길 때.
                 실패하면 아무것도 바꾸지 않고 ID도 발급하지 않는다.
         """
         _lookup(self._customers, customer_id, "고객")
@@ -911,7 +932,7 @@ class ShopGraph:
         예외:
             없음.
         """
-        return sorted(self._customers)
+        return sorted(self._customers, key=id_sort_key)
 
     def product_ids(self) -> list[str]:
         """모든 상품 ID를 돌려준다.
@@ -925,7 +946,7 @@ class ShopGraph:
         예외:
             없음.
         """
-        return sorted(self._products)
+        return sorted(self._products, key=id_sort_key)
 
     def find_customers_by_name(self, name: str) -> list[str]:
         """이름이 완전히 일치하는 고객을 찾는다. 앞뒤 공백을 지운 뒤 비교하고 부분 일치는 하지 않는다.
@@ -940,7 +961,8 @@ class ShopGraph:
             ValueError: 공백뿐인 이름 (문자열이 아닌 값 포함).
         """
         target = _clean_query(name)
-        return sorted(cid for cid, rec in self._customers.items() if rec["name"] == target)
+        return sorted((cid for cid, rec in self._customers.items() if rec["name"] == target),
+                      key=id_sort_key)
 
     def find_products_by_name(self, name: str) -> list[str]:
         """상품명이 완전히 일치하는 상품을 찾는다. 앞뒤 공백을 지운 뒤 비교하고 부분 일치는 하지 않는다.
@@ -955,7 +977,8 @@ class ShopGraph:
             ValueError: 공백뿐인 이름 (문자열이 아닌 값 포함).
         """
         target = _clean_query(name)
-        return sorted(pid for pid, rec in self._products.items() if rec["name"] == target)
+        return sorted((pid for pid, rec in self._products.items() if rec["name"] == target),
+                      key=id_sort_key)
 
     def neighbors(self, node_id: str) -> list[str]:
         """노드(그룹·고객·상품)의 이웃 ID를 돌려준다.
@@ -971,7 +994,7 @@ class ShopGraph:
         """
         if not isinstance(node_id, str) or node_id not in self._adj:
             raise _value_error(None, "존재하지 않는 노드 ID입니다", repr(node_id))
-        return sorted(self._adj[node_id])
+        return sorted(self._adj[node_id], key=id_sort_key)
 
     def edge(self, customer_id: str, product_id: str) -> dict | None:
         """고객–상품 구매 간선의 집계값을 복사본으로 돌려준다.
@@ -1051,7 +1074,8 @@ class ShopGraph:
             ValueError: 없는 그룹 ID.
         """
         _lookup(self._groups, group_id, "그룹")
-        return sorted(node for node in self._adj[group_id] if node in self._customers)
+        return sorted((node for node in self._adj[group_id] if node in self._customers),
+                      key=id_sort_key)
 
     def is_sold_out(self, product_id: str) -> bool:
         """상품의 모든 색상이 품절(재고 0)인지 알려준다.
@@ -1159,8 +1183,8 @@ class ShopGraph:
     def _next_id(self, prefix: str) -> str:
         """다음에 발급할 ID를 만든다. 카운터는 바꾸지 않는다 (올리는 것은 원본을 바꾸는 쪽이 한다).
 
-        검증 단계에서 불러 한도를 먼저 확인하고, 모든 검증을 통과한 뒤에만 카운터를 올리게 하려고
-        "미리 보기"와 "올리기"를 나눴다 (부록 B.1 ID 발급).
+        모든 검증을 통과한 뒤에만 카운터를 올리도록 "미리 보기"와 "올리기"를 나눴다.
+        최소 자릿수까지 0을 채우고, C99·P99·T999를 넘으면 자릿수가 늘어난다 (X1).
 
         인자:
             prefix: 종류 글자 "C" | "P" | "T".
@@ -1169,12 +1193,10 @@ class ShopGraph:
             다음 ID (예: 처음 상태에서 "C" → "C07", "T" → "T014").
 
         예외:
-            ValueError: 한도(C99·P99·T999)를 넘을 때 ("ID 한도 초과").
+            없음 (내부에서 관리하는 유효한 종류·카운터인 경우).
         """
         number = self._next_ids[prefix]
         digits = _ID_DIGITS[prefix]
-        if number >= 10 ** digits:
-            raise ValueError(f"ID 한도 초과: {prefix} 번호는 {10 ** digits - 1}까지입니다")
         return f"{prefix}{number:0{digits}d}"
 
     def _check_color_removal(self, product_id: str, new_stock: dict[str, int]) -> None:
@@ -1267,7 +1289,7 @@ class ShopGraph:
         """
         problems: list[str] = []
         missing_ref = False
-        for tid in sorted(self._purchases):
+        for tid in sorted(self._purchases, key=id_sort_key):
             rec = self._purchases[tid]
             if rec["customer_id"] not in self._customers:
                 problems.append(f"구매 기록 {tid}: 존재하지 않는 고객 {rec['customer_id']}을(를) 참조합니다")
@@ -1295,17 +1317,17 @@ class ShopGraph:
         problems: list[str] = []
         expected_nodes = {*self._groups, *self._customers, *self._products}
         if set(self._adj) != expected_nodes:
-            extra = sorted(set(self._adj) - expected_nodes)
-            missing = sorted(expected_nodes - set(self._adj))
+            extra = sorted(set(self._adj) - expected_nodes, key=id_sort_key)
+            missing = sorted(expected_nodes - set(self._adj), key=id_sort_key)
             problems.append(f"노드 집합이 맞지 않습니다: 남는 노드 {extra}, 빠진 노드 {missing}")
-        for node in sorted(self._adj):
-            for other in sorted(self._adj[node]):
+        for node in sorted(self._adj, key=id_sort_key):
+            for other in sorted(self._adj[node], key=id_sort_key):
                 if node not in self._adj.get(other, set()):
                     problems.append(f"인접 리스트가 한쪽만 있습니다: {node} → {other}")
-        for cid, pid in sorted(self._edges):
+        for cid, pid in sorted(self._edges, key=lambda pair: (id_sort_key(pair[0]), id_sort_key(pair[1]))):
             if pid not in self._adj.get(cid, set()) or cid not in self._adj.get(pid, set()):
                 problems.append(f"구매 간선 ({cid},{pid})이 양쪽 인접 리스트에 다 있지 않습니다")
-        for cid in sorted(self._customers):
+        for cid in sorted(self._customers, key=id_sort_key):
             rec = self._customers[cid]
             group_ids = sorted(n for n in self._adj.get(cid, set()) if n in self._groups)
             expected = _group_id_for(rec["gender"], rec["age"])
@@ -1330,7 +1352,8 @@ class ShopGraph:
         """
         problems: list[str] = []
         temp_adj, temp_edges = self._build_graph()
-        for key in sorted(set(self._edges) | set(temp_edges)):
+        for key in sorted(set(self._edges) | set(temp_edges),
+                          key=lambda pair: (id_sort_key(pair[0]), id_sort_key(pair[1]))):
             pair = f"({key[0]},{key[1]})"
             if key not in temp_edges:
                 problems.append(f"구매 기록이 없는 간선이 있습니다: {pair}")
@@ -1338,7 +1361,7 @@ class ShopGraph:
                 problems.append(f"구매 기록이 있는데 간선이 없습니다: {pair}")
             elif self._edges[key] != temp_edges[key]:
                 problems.append(f"간선 {pair}의 집계가 구매 기록과 다릅니다")
-        for node in sorted(set(self._adj) | set(temp_adj)):
+        for node in sorted(set(self._adj) | set(temp_adj), key=id_sort_key):
             if self._adj.get(node) != temp_adj.get(node):
                 problems.append(f"{node}의 인접 리스트가 원본에서 다시 만든 결과와 다릅니다")
         return problems

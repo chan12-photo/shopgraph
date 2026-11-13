@@ -103,3 +103,36 @@ def make_graph() -> ShopGraph:
         ShopGraph 생성자가 내는 예외를 그대로 전달한다 (W3 전에는 NotImplementedError).
     """
     return ShopGraph(customers(), products(), purchases())
+
+
+def x1_boundary_records(customer_id: str = "C99", product_id: str = "P99",
+                        purchase_id: str = "T999") -> tuple[list[dict], list[dict], list[dict]]:
+    """X1 경계 픽스처. 인자: 세 ID. 반환: 각 한 건의 새 원본 리스트. 예외: 없음."""
+    return (
+        [{"id": customer_id, "name": "경계 고객", "gender": "여", "age": 25}],
+        [{"id": product_id, "name": "경계 상품", "kind": "상의", "style": "캐주얼",
+          "price": 1000, "stock": {"블랙": 2, "화이트": 1}}],
+        [{"id": purchase_id, "customer_id": customer_id, "product_id": product_id,
+          "color": "블랙", "qty": 1, "date": "2026-11-01"}],
+    )
+
+
+def x1_sort_records() -> tuple[list[dict], list[dict], list[dict]]:
+    """X1 정렬 픽스처. 인자: 없음. 반환: 고객 5·상품 4·구매 8건. 예외: 없음.
+
+    C09·C10·C99·C100이 P99·P100을 각 한 색씩 구매: 두 상품은 점수 4, 구매자 4로 동점.
+    C01은 구매가 없어 두 상품을 같은 그룹에서 추천받는다. 삽입 순서는 숫자 순과 다르다.
+    """
+    cs = [{"id": cid, "name": "동명 고객", "gender": "여", "age": 25}
+          for cid in ("C100", "C99", "C10", "C09", "C01")]
+    ps = [{"id": pid, "name": "동명 상품", "kind": "상의", "style": "캐주얼",
+           "price": 1000, "stock": {"화이트": 1, "블랙": 2}}
+          for pid in ("P100", "P99", "P10", "P09")]
+    rows = [("T1000", "C100", "P100", "블랙"), ("T999", "C100", "P99", "화이트"),
+            ("T998", "C99", "P100", "블랙"), ("T997", "C99", "P99", "화이트"),
+            ("T010", "C10", "P100", "블랙"), ("T009", "C10", "P99", "화이트"),
+            ("T012", "C09", "P100", "블랙"), ("T011", "C09", "P99", "화이트")]
+    ts = [{"id": tid, "customer_id": cid, "product_id": pid,
+           "color": color, "qty": 1, "date": "2026-11-01"}
+          for tid, cid, pid, color in rows]
+    return cs, ps, ts

@@ -49,6 +49,19 @@ class TestX1Ids(unittest.TestCase):
         self.assertEqual(g.add_purchase("C99", "P99", "블랙", 1, "2026-11-02"), "T1001")
         self.assertEqual(g.check_integrity(), [])
 
+    def test_mixed_width_initial_max_ids(self) -> None:
+        """OBS-01: 초기 데이터에 C99·C100처럼 자릿수가 다른 ID가 섞여도 다음 번호는 숫자 최댓값+1이다."""
+        cs, ps, ts = x1_boundary_records()
+        cs.append({**cs[0], "id": "C100"})
+        ps.append({**ps[0], "id": "P100"})
+        ts.append({**ts[0], "id": "T1000"})
+        g = ShopGraph(cs, ps, ts)
+        self.assertEqual(g.add_customer("다음 고객", "여", 25), "C101")
+        self.assertEqual(g.add_product("다음 상품", "상의", "캐주얼", 1000, {"블랙": 1}), "P101")
+        self.assertEqual(g.add_purchase("C99", "P99", "블랙", 1, "2026-11-02"), "T1001")
+        self.assertEqual(g.get_customer("C100")["name"], "경계 고객")
+        self.assertEqual(g.check_integrity(), [])
+
     def test_six_digit_numbers_with_small_records(self) -> None:
         """각 한 건만으로 100000 다음 번호를 확인한다. 대량 성능 검사는 아니다."""
         g = ShopGraph(*x1_boundary_records("C100000", "P100000", "T100000"))

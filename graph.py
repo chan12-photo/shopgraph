@@ -5,6 +5,8 @@ ID 발급 카운터와 모든 변경 메서드를 한 객체에 둔다. 데이�
 (계획서 5.5). 다른 모듈은 ShopGraph의 공개 메서드와 이 모듈의 대문자 공개 상수
 (읽기 전용)만 쓴다. 그룹 ID 문자열을 만들거나 해석하는 코드는 이 모듈에만 둔다.
 
+입력 검증 함수와 검증용 상수는 validation.py에 있다 (X2). 이 모듈이 그것을 가져와 쓴다.
+
 공통 입력 규칙 (부록 B.3):
     정수 인자(나이·가격·재고·수량)는 int만 인정한다. bool(True/False)과
     숫자 문자열("3")은 거부한다.
@@ -12,31 +14,40 @@ ID 발급 카운터와 모든 변경 메서드를 한 객체에 둔다. 데이�
     지운 값으로 저장한다.
 """
 
-import datetime
-import re
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 from types import MappingProxyType
 from typing import Final
 
-# 상품 종류 (부록 B.3)
-KINDS: Final[tuple[str, ...]] = ("상의", "하의", "아우터")
+# 입력 검증은 validation.py가 맡는다 (X2). 이 모듈 안에서는 예전 이름(_로 시작)으로 받아 쓴다.
+# KINDS·STYLES·GENDERS·AGE_BANDS는 다른 모듈이 graph에서 가져가도록 여기서 다시 내보낸다.
+from validation import AGE_BANDS as AGE_BANDS
+from validation import GENDERS as GENDERS
+from validation import KINDS as KINDS
+from validation import STYLES as STYLES
+from validation import GENDER_VALUES as _GENDER_VALUES
+from validation import NAME_MAX as _NAME_MAX
+from validation import QTY_MAX as _QTY_MAX
+from validation import QTY_MIN as _QTY_MIN
+from validation import check_choice as _check_choice
+from validation import check_date as _check_date
+from validation import check_int as _check_int
+from validation import check_purchase_refs as _check_purchase_refs
+from validation import clean_customer as _clean_customer
+from validation import clean_product as _clean_product
+from validation import clean_purchase as _clean_purchase
+from validation import clean_purchase_color as _clean_purchase_color
+from validation import clean_query as _clean_query
+from validation import clean_records as _clean_records
+from validation import clean_stock as _clean_stock
+from validation import clean_text as _clean_text
+from validation import value_error as _value_error
 
-# 상품 스타일 (부록 B.3)
-STYLES: Final[tuple[str, ...]] = ("캐주얼", "미니멀", "스트릿", "포멀")
-
-# 성별: (입력·저장 값, 그룹 ID에 쓰는 코드). 이 순서가 그룹 ID 오름차순이 된다 (계획서 5.2)
-GENDERS: Final[tuple[tuple[str, str], ...]] = (("여", "F"), ("남", "M"))
+# 레코드 ID 형식은 validation.py가 검사하므로 이 모듈의 코드는 아래 이름을 쓰지 않는다. X0 측정 진단 스크립트와
+# 그 테스트(tests/test_bench.py)가 측정 뒤 원래 값으로 돌아왔는지 확인할 때만 읽는다.
+from validation import ID_PATTERNS as _ID_PATTERNS  # noqa: F401
 
 # 성별 → 화면 표시 이름. "[남성 전체]" 같은 꾸밈은 view.py가 맡는다
 GENDER_LABELS: Final[MappingProxyType[str, str]] = MappingProxyType({"여": "여성", "남": "남성"})
-
-# 연령대: (그룹 ID에 쓰는 코드, 표시 이름, 최소 나이, 최대 나이) (계획서 5.2, 부록 B.3 나이 10~99)
-AGE_BANDS: Final[tuple[tuple[str, str, int, int], ...]] = (
-    ("10", "10대", 10, 19),
-    ("20", "20대", 20, 29),
-    ("30", "30대", 30, 39),
-    ("40+", "40대 이상", 40, 99),
-)
 
 # 아래 그룹 상수 3개는 GENDERS·GENDER_LABELS·AGE_BANDS에서 만들어 낸다 (부록 B.1 그룹 ID 형식)
 
@@ -88,344 +99,8 @@ def id_sort_key(node_id: str) -> tuple[str, int, str]:
 
 # 아래는 이 모듈 안에서만 쓰는 내부 상수·함수다 (다른 모듈은 쓰지 않는다)
 
-# 구매일 형식: 정확히 YYYY-MM-DD 10자 (부록 B.3). \d는 다른 문자 체계의 숫자도 받으므로 [0-9]만 쓴다
-_DATE_PATTERN: Final[re.Pattern[str]] = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
-
-# 레코드 ID 형식 (X1·v3 5.2): 최소 자릿수보다 앞의 0은 허용하지 않는다.
-_ID_PATTERNS: Final[MappingProxyType[str, re.Pattern[str]]] = MappingProxyType({
-    "C": re.compile(r"C(0[1-9]|[1-9][0-9]+)"),
-    "P": re.compile(r"P(0[1-9]|[1-9][0-9]+)"),
-    "T": re.compile(r"T(00[1-9]|0[1-9][0-9]|[1-9][0-9]{2,})"),
-})
-
 # 발급 ID의 최소 번호 자릿수: 고객·상품 두 자리, 구매 세 자리. 넘으면 늘어난다 (X1).
 _ID_DIGITS: Final[MappingProxyType[str, int]] = MappingProxyType({"C": 2, "P": 2, "T": 3})
-
-# 초기 레코드의 키 (부록 B.1 내부 딕셔너리 모양)
-_CUSTOMER_KEYS: Final[frozenset[str]] = frozenset({"id", "name", "gender", "age"})
-_PRODUCT_KEYS: Final[frozenset[str]] = frozenset({"id", "name", "kind", "style", "price", "stock"})
-_PURCHASE_KEYS: Final[frozenset[str]] = frozenset({"id", "customer_id", "product_id", "color", "qty", "date"})
-
-# 이름·상품명 최대 길이, 색상명 최대 길이, 구매 수량 범위 (부록 B.3)
-_NAME_MAX: Final[int] = 20
-_COLOR_MAX: Final[int] = 10
-_QTY_MIN: Final[int] = 1
-_QTY_MAX: Final[int] = 99
-
-# 성별 입력값 ("여", "남")
-_GENDER_VALUES: Final[tuple[str, ...]] = tuple(gender for gender, _ in GENDERS)
-
-
-def _value_error(label: str | None, rule: str, value: object) -> ValueError:
-    """검증 오류를 "항목: 규칙 (입력: 값)" 형식의 ValueError로 만든다 (A04, W10a).
-
-    항목이 None이면 "규칙 (입력: 값)"이다 ("존재하지 않는 … ID입니다"처럼 문장에 항목이 들어 있을 때).
-    search.py에도 같은 형식의 내부 함수가 따로 있다 (search.py는 graph.py의 내부 함수를 쓰지 않는다, 5.5).
-
-    인자:
-        label: 항목 이름 (예: "나이"). None이면 앞에 붙이지 않는다.
-        rule: 어긴 규칙 문장.
-        value: 화면에 보일 입력 값 (repr로 보일지는 부르는 쪽이 정한다).
-
-    반환:
-        만든 ValueError (raise는 부르는 쪽이 한다).
-
-    예외:
-        없음.
-    """
-    return ValueError(f"{rule} (입력: {value})" if label is None else f"{label}: {rule} (입력: {value})")
-
-
-def _check_date(value: object) -> str:
-    """구매일이 부록 B.3 날짜 규칙을 지키는지 확인한다 (생성자와 W5 구매 등록·수정이 함께 쓴다).
-
-    ① 정확히 "YYYY-MM-DD" 10자(숫자는 0~9만)인지 먼저 확인하고 ② 실제 있는 날짜인지 확인한다.
-    ②만 쓰면 Python 3.11부터 "20261023"·"2026-W43-5"도 날짜로 변환돼 통과하므로 ①을 먼저 한다.
-
-    인자:
-        value: 검사할 값.
-
-    반환:
-        검사를 통과한 날짜 문자열 (입력 그대로).
-
-    예외:
-        ValueError: 문자열이 아니거나 형식이 다르거나 없는 날짜(예: 2026-02-30)일 때.
-    """
-    if not isinstance(value, str) or _DATE_PATTERN.fullmatch(value) is None:
-        raise _value_error("구매일", "YYYY-MM-DD 형식이어야 합니다", repr(value))
-    try:
-        datetime.date.fromisoformat(value)
-    except ValueError:
-        raise _value_error("구매일", "존재하지 않는 날짜입니다", value) from None
-    return value
-
-
-def _check_int(value: object, low: int, high: int | None, label: str) -> int:
-    """정수 값이 범위 안에 있는지 확인한다. bool과 숫자 문자열은 거부한다 (부록 B.3 정수 공통).
-
-    인자:
-        value: 검사할 값.
-        low: 허용하는 최솟값.
-        high: 허용하는 최댓값. None이면 위쪽 제한이 없다.
-        label: 오류 메시지에 쓸 항목 이름 (예: "나이").
-
-    반환:
-        검사를 통과한 정수.
-
-    예외:
-        ValueError: int가 아니거나(bool 포함) 범위 밖일 때.
-    """
-    if isinstance(value, bool) or not isinstance(value, int):
-        raise _value_error(label, "정수여야 합니다", repr(value))
-    if value < low or (high is not None and value > high):
-        limit = f"{low} 이상" if high is None else f"{low}~{high}"
-        raise _value_error(label, f"{limit}이어야 합니다", value)
-    return value
-
-
-def _clean_text(value: object, max_len: int, label: str) -> str:
-    """이름·상품명·색상명의 앞뒤 공백을 지우고 길이를 확인한다 (부록 B.3 공백 제거 값 저장).
-
-    인자:
-        value: 검사할 값.
-        max_len: 공백을 지운 뒤 허용하는 최대 글자 수.
-        label: 오류 메시지에 쓸 항목 이름 (예: "이름").
-
-    반환:
-        앞뒤 공백을 지운 문자열 (저장할 값).
-
-    예외:
-        ValueError: 문자열이 아니거나, 공백을 지운 뒤 1~max_len자가 아닐 때.
-    """
-    if not isinstance(value, str):
-        raise _value_error(label, "문자열이어야 합니다", repr(value))
-    text = value.strip()
-    if not 1 <= len(text) <= max_len:
-        raise _value_error(label, f"앞뒤 공백을 지운 뒤 1~{max_len}자여야 합니다", repr(value))
-    return text
-
-
-def _check_choice(value: object, choices: tuple[str, ...], label: str) -> str:
-    """값이 정해진 목록(성별·종류·스타일) 안에 있는지 확인한다.
-
-    인자:
-        value: 검사할 값.
-        choices: 허용하는 값의 튜플.
-        label: 오류 메시지에 쓸 항목 이름.
-
-    반환:
-        검사를 통과한 값.
-
-    예외:
-        ValueError: 목록에 없는 값일 때.
-    """
-    if not isinstance(value, str) or value not in choices:
-        raise _value_error(label, f"{'/'.join(choices)} 중 하나여야 합니다", repr(value))
-    return value
-
-
-def _clean_stock(stock: object) -> dict[str, int]:
-    """색상별 재고 딕셔너리를 검사하고 색상명의 공백을 지운 새 딕셔너리를 만든다 (부록 B.3).
-
-    인자:
-        stock: 색상 → 재고 딕셔너리.
-
-    반환:
-        색상명 공백을 지운 새 딕셔너리 (입력과 공유하지 않음).
-
-    예외:
-        ValueError: 딕셔너리가 아니거나 비었을 때, 색상명이 1~10자가 아닐 때,
-            재고가 0 이상 정수가 아닐 때, 공백을 지운 뒤 같은 색상명이 두 번 나올 때.
-    """
-    if not isinstance(stock, dict) or not stock:
-        raise ValueError("색상별 재고는 색상이 1개 이상인 딕셔너리여야 합니다")
-    cleaned: dict[str, int] = {}
-    for color, count in stock.items():
-        name = _clean_text(color, _COLOR_MAX, "색상명")
-        if name in cleaned:
-            raise _value_error("색상명", "겹칩니다", name)
-        cleaned[name] = _check_int(count, 0, None, "재고")
-    return cleaned
-
-
-def _check_record_id(value: object, prefix: str) -> str:
-    """초기 레코드의 최소 자릿수·가변 ID 형식을 확인한다 (X1·v3 5.2).
-
-    인자:
-        value: 검사할 ID.
-        prefix: 종류 글자 "C" | "P" | "T".
-
-    반환:
-        검사를 통과한 ID.
-
-    예외:
-        ValueError: 문자열이 아니거나 형식이 다르거나 번호가 0일 때.
-    """
-    if (not isinstance(value, str) or _ID_PATTERNS[prefix].fullmatch(value) is None
-            or int(value[1:]) == 0):
-        raise _value_error("ID", "형식이 올바르지 않습니다", repr(value))
-    return value
-
-
-def _check_record_shape(record: object, keys: frozenset[str], label: str) -> dict:
-    """초기 레코드가 딕셔너리이고 키가 부록 B.1 모양과 정확히 같은지 확인한다.
-
-    인자:
-        record: 검사할 레코드.
-        keys: 있어야 하는 키 집합 (빠져도, 남아도 안 됨).
-        label: 오류 메시지에 쓸 종류 이름 (예: "고객").
-
-    반환:
-        검사를 통과한 레코드 (입력 그대로, 복사는 호출한 쪽이 한다).
-
-    예외:
-        ValueError: 딕셔너리가 아니거나 키가 다를 때.
-    """
-    if not isinstance(record, dict) or set(record) != keys:
-        raise _value_error(f"{label} 레코드", "모양이 올바르지 않습니다", repr(record))
-    return record
-
-
-def _clean_customer(record: object) -> dict:
-    """초기 고객 레코드를 검사하고 공백을 지운 새 딕셔너리로 만든다.
-
-    인자:
-        record: {"id", "name", "gender", "age"} 딕셔너리.
-
-    반환:
-        새 고객 딕셔너리.
-
-    예외:
-        ValueError: 모양·ID·이름·성별·나이가 부록 B.1·B.3 규칙을 어길 때.
-    """
-    rec = _check_record_shape(record, _CUSTOMER_KEYS, "고객")
-    return {
-        "id": _check_record_id(rec["id"], "C"),
-        "name": _clean_text(rec["name"], _NAME_MAX, "이름"),
-        "gender": _check_choice(rec["gender"], _GENDER_VALUES, "성별"),
-        "age": _check_int(rec["age"], AGE_BANDS[0][2], AGE_BANDS[-1][3], "나이"),
-    }
-
-
-def _clean_product(record: object) -> dict:
-    """초기 상품 레코드를 검사하고 공백을 지운 새 딕셔너리로 만든다 (stock도 새 딕셔너리).
-
-    인자:
-        record: {"id", "name", "kind", "style", "price", "stock"} 딕셔너리.
-
-    반환:
-        새 상품 딕셔너리.
-
-    예외:
-        ValueError: 모양·ID·상품명·종류·스타일·가격·재고가 부록 B.1·B.3 규칙을 어길 때.
-    """
-    rec = _check_record_shape(record, _PRODUCT_KEYS, "상품")
-    return {
-        "id": _check_record_id(rec["id"], "P"),
-        "name": _clean_text(rec["name"], _NAME_MAX, "상품명"),
-        "kind": _check_choice(rec["kind"], KINDS, "종류"),
-        "style": _check_choice(rec["style"], STYLES, "스타일"),
-        "price": _check_int(rec["price"], 0, None, "가격"),
-        "stock": _clean_stock(rec["stock"]),
-    }
-
-
-def _clean_purchase(record: object) -> dict:
-    """초기 구매 레코드를 검사하고 색상 공백을 지운 새 딕셔너리로 만든다.
-
-    고객·상품 참조와 색상 목록 확인은 고객·상품을 모두 읽은 뒤 _check_purchase_refs가 한다.
-
-    인자:
-        record: {"id", "customer_id", "product_id", "color", "qty", "date"} 딕셔너리.
-
-    반환:
-        새 구매 딕셔너리.
-
-    예외:
-        ValueError: 모양·ID·색상명·수량·구매일이 부록 B.1·B.3 규칙을 어길 때.
-    """
-    rec = _check_record_shape(record, _PURCHASE_KEYS, "구매")
-    return {
-        "id": _check_record_id(rec["id"], "T"),
-        "customer_id": rec["customer_id"],
-        "product_id": rec["product_id"],
-        "color": _clean_text(rec["color"], _COLOR_MAX, "색상명"),
-        "qty": _check_int(rec["qty"], _QTY_MIN, _QTY_MAX, "수량"),
-        "date": _check_date(rec["date"]),
-    }
-
-
-def _clean_purchase_color(color: object, product: dict) -> str:
-    """구매 등록·수정의 색상을 공백을 지운 값으로 만들고, 그 상품의 색상 목록에 있는지 확인한다 (부록 B.3).
-
-    재고와는 연동하지 않으므로 재고 0인 색상도 허용한다.
-
-    인자:
-        color: 구매 색상.
-        product: 구매 대상 상품의 내부 레코드 (stock 키를 색상 목록으로 쓴다).
-
-    반환:
-        공백을 지운 색상명 (저장할 값).
-
-    예외:
-        ValueError: 색상명이 1~10자가 아니거나 그 상품의 색상 목록에 없을 때.
-    """
-    name = _clean_text(color, _COLOR_MAX, "색상명")
-    if name not in product["stock"]:
-        raise _value_error("색상", f"{product['id']}에 없는 색상입니다", name)
-    return name
-
-
-def _clean_records(records: object, cleaner: Callable[[object], dict], label: str) -> dict[str, dict]:
-    """초기 레코드 리스트를 레코드마다 검사해 ID → 새 레코드 딕셔너리로 만든다 (생성자 계약 1·2).
-
-    인자:
-        records: 레코드 딕셔너리의 리스트 또는 None(빈 리스트로 봄).
-        cleaner: 레코드 하나를 검사하고 새 딕셔너리를 돌려주는 함수.
-        label: 오류 메시지에 쓸 종류 이름.
-
-    반환:
-        ID → 새 레코드 딕셔너리. 입력 순서를 유지한다.
-
-    예외:
-        ValueError: 리스트도 None도 아닐 때, 레코드가 규칙을 어길 때, 같은 ID가 두 번 나올 때.
-    """
-    if records is None:
-        return {}
-    if not isinstance(records, list):
-        raise ValueError(f"{label} 데이터는 리스트 또는 None이어야 합니다")
-    result: dict[str, dict] = {}
-    for record in records:
-        cleaned = cleaner(record)
-        if cleaned["id"] in result:
-            raise _value_error(f"{label} ID", "중복됩니다", cleaned['id'])
-        result[cleaned["id"]] = cleaned
-    return result
-
-
-def _check_purchase_refs(purchases: dict[str, dict], customers: dict[str, dict],
-                         products: dict[str, dict]) -> None:
-    """초기 구매 기록이 함께 받은 고객·상품을 참조하고, 색상이 그 상품의 색상 목록에 있는지 확인한다.
-
-    인자:
-        purchases: 검사를 마친 구매 ID → 구매 딕셔너리.
-        customers: 검사를 마친 고객 ID → 고객 딕셔너리.
-        products: 검사를 마친 상품 ID → 상품 딕셔너리.
-
-    반환:
-        없음.
-
-    예외:
-        ValueError: 없는 고객·상품을 참조하거나, 색상이 그 상품의 색상 목록에 없을 때.
-    """
-    for rec in purchases.values():
-        cid, pid = rec["customer_id"], rec["product_id"]
-        if not isinstance(cid, str) or cid not in customers:
-            raise _value_error(rec['id'], "존재하지 않는 고객 ID입니다", repr(cid))
-        if not isinstance(pid, str) or pid not in products:
-            raise _value_error(rec['id'], "존재하지 않는 상품 ID입니다", repr(pid))
-        if rec["color"] not in products[pid]["stock"]:
-            raise _value_error(rec['id'], f"{pid}에 없는 색상입니다", rec['color'])
 
 
 def _next_number(records: dict[str, dict]) -> int:
@@ -509,23 +184,6 @@ def _lookup(table: dict[str, dict], record_id: object, label: str) -> dict:
     if not isinstance(record_id, str) or record_id not in table:
         raise _value_error(None, f"존재하지 않는 {label} ID입니다", repr(record_id))
     return table[record_id]
-
-
-def _clean_query(name: object) -> str:
-    """이름 조회어의 앞뒤 공백을 지운다 (부록 B.2 이름 조회).
-
-    인자:
-        name: 조회할 이름.
-
-    반환:
-        공백을 지운 조회어.
-
-    예외:
-        ValueError: 문자열이 아니거나 공백뿐일 때.
-    """
-    if not isinstance(name, str) or not name.strip():
-        raise ValueError("찾을 이름을 입력하세요 (공백뿐인 이름은 안 됩니다)")
-    return name.strip()
 
 
 class ShopGraph:

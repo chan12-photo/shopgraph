@@ -369,3 +369,32 @@ doc-pending 브랜치(99cac86, draft PR #2)에 문안이 이미 들어가 있다
 지금: X0~X2까지의 확장 범위와 X0 기준 측정 기록이 있고, X1 변경 결과 행은 없다.
 
 바꿀: 2026-11-13 | X1 가변 ID와 공개 숫자 정렬 함수. 한도 기대값 3곳을 [SPEC]으로 분리하고 새 검사 22개 추가. X0 측정 스크립트·추천 점수 공식·색상 정렬·그룹 상수·화면 코드는 유지. 실행 결과와 미완료 확인은 x1_g7.md 참조 | 인계 2판 작업 A·확장성 변경안 v3 5.2 | Codex 자체 확인, 사람 확인 대기.
+
+
+## X2 반영 문안 (11/16)
+
+아래는 확장성 변경안 v3 5.5(검증 책임 분리)에 따른 문안이다. 계획서·CLAUDE.md·README.md 본문은 바꾸지 않았다. 사람 확인 전이며 Claude 구현·자체 확인 자료다. 기준은 x1-guri 830ae78(291개)이고 X2에서 테스트 파일은 바꾸지 않았다.
+
+### 5.5 모듈 그림과 부록 A·CLAUDE.md "구조"의 모듈 목록
+
+지금: graph.py: ShopGraph 클래스. 원본 데이터, 그래프(_adj, _edges, 그룹), ID 발급 카운터, 모든 변경 메서드. 데이터를 바꾸는 유일한 통로
+
+바꿀: graph.py 줄은 그대로 두고 그 아래에 한 줄을 추가한다. validation.py: 입력 검증 함수와 검증용 상수(부록 B.1·B.3 규칙). 그래프 상태를 읽거나 바꾸지 않는다. graph.py만 이 모듈을 가져오며, validation.py는 graph.py를 가져오지 않는다(순환 import 금지)
+
+### 5.5 내부 속성 문단과 CLAUDE.md "구조"의 내부 속성 줄
+
+지금: 운영 모듈(main·view·search·tools)은 ShopGraph의 공개 메서드와 graph.py의 대문자 공개 상수(읽기 전용)만 쓴다.
+
+바꿀: 문장은 그대로 두고 뒤에 덧붙인다. KINDS·STYLES·GENDERS·AGE_BANDS는 validation.py에 정의하고 graph.py가 다시 내보낸다. 다른 운영 모듈은 지금처럼 graph에서 가져오고 validation.py를 직접 가져오지 않는다.
+
+### 부록 B.1 상수 문단
+
+지금: 상수 (graph.py의 대문자 공개 상수, 모두 읽기 전용: 튜플·MappingProxyType): 종류 KINDS …
+
+바꿀: 상수 (graph.py에서 가져다 쓰는 대문자 공개 상수, 모두 읽기 전용: 튜플·MappingProxyType. KINDS·STYLES·GENDERS·AGE_BANDS의 정의 위치는 validation.py): 종류 KINDS … (이하 같음)
+
+### 19장 변경 이력 행 문안
+
+지금: X2 결과 행은 없다.
+
+바꿀: 11/16 | X2 검증 책임 분리. graph.py의 입력 검증 함수 15개와 검증용 상수를 validation.py로 옮기고 graph.py가 가져온다(역방향 import 없음). 공개 이름·오류 문구·ShopGraph 메서드 본문은 그대로이며 테스트 파일 변경 0줄. X0 측정 진단 스크립트는 형식 상수의 새 위치도 함께 바꿔 끼우도록 고침. 원본 저장 분리(X3a)는 하지 않음 | 확장성 변경안 v3 5.5·E1·E9 | Claude 구현, 사람 확인 대기.

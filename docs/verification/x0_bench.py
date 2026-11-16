@@ -7,10 +7,10 @@ X0 기준 측정(v3 부록 A bench2.py 기반), 표준 라이브러리 전용 �
 프로세스로 실행한다. time/RSS에는 tracemalloc을 켜지 않으며 mem의 RSS는 재지 않는다.
 생성 시간은 입력 생성이 아닌 ShopGraph 생성자(검증·복사·그래프 구성) 시간이다.
 
-현재 운영 ID는 C99·P99·T999까지다. 이 도구의 측정 프로세스 안에서만
-graph._ID_PATTERNS·graph._ID_DIGITS를 6/6/7자리로 바꿔 끼우고 finally로 복구한다.
-운영 코드는 바꾸지 않는다. X2에서 검증이 분리되면 이 방식이 바뀔 수 있다(v3 5.5).
-X1 이후 정식 ID 규칙을 쓰도록 도구를 갱신해야 하며 지금 수치는 ID 패치 기준이다.
+X0 측정 때 운영 ID는 C99·P99·T999까지였다. 이 도구는 측정 프로세스 안에서만
+ID 형식·자릿수 상수를 6/6/7자리로 바꿔 끼우고 finally로 복구한다. X2에서 형식 검사가
+validation.py로 옮겨 가 validation.ID_PATTERNS도 함께 바꾼다(v3 5.5). 운영 코드는 바꾸지 않는다.
+X0와 같은 기준으로 다시 재기 위해 고정 자릿수 ID를 유지한다. 정식 ID 규칙을 쓰는 도구는 따로 만든다.
 ID 상수 외에 운영 객체의 내부 속성에는 접근하지 않는다. main.py 경로에 포함되지 않는다.
 
 모든 출력은 Codex 자체 확인이며 판정·승인은 찬일이 한다. 전부 품절은 스트레스
@@ -42,6 +42,7 @@ from types import MappingProxyType
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 import graph
 import search
+import validation
 
 PALETTE = ("블랙", "화이트", "그레이", "네이비", "베이지", "카키", "아이보리", "브라운")
 ID_NOTE = ("측정 프로세스 안에서만 graph의 ID 패턴·자릿수를 6/6/7로 바꿔 끼움. "
@@ -68,8 +69,10 @@ LABELS = MappingProxyType({
 def measurement_ids() -> Iterator[None]:
     """목적: 측정 중에만 ID 확장. 인자: 없음. 반환: 문맥. 예외: 본문 예외를 전파."""
     patterns, digits = graph._ID_PATTERNS, graph._ID_DIGITS
+    checked = validation.ID_PATTERNS
     try:
-        graph._ID_PATTERNS = MappingProxyType({
+        # X2부터 형식 검사는 validation.ID_PATTERNS를 읽는다. graph 쪽 이름도 같은 값으로 맞춘다.
+        validation.ID_PATTERNS = graph._ID_PATTERNS = MappingProxyType({
             prefix: re.compile(prefix + r"[0-9]{" + str(width) + "}")
             for prefix, width in (("C", 6), ("P", 6), ("T", 7))
         })
@@ -77,6 +80,7 @@ def measurement_ids() -> Iterator[None]:
         yield
     finally:
         graph._ID_PATTERNS, graph._ID_DIGITS = patterns, digits
+        validation.ID_PATTERNS = checked
 
 
 def make_records(c: int, p: int, t: int, seed: int = 1) -> tuple[list[dict], ...]:
@@ -313,14 +317,15 @@ def run_mode(mode: str, c: int, p: int, t: int, seed: int = 1, repeat: int | Non
         raise ValueError("모드는 time/mem/rss, --repeat은 1~10이어야 합니다")
     if tracemalloc.is_tracing():
         raise RuntimeError("이미 메모리 추적 중입니다. 모드마다 새 프로세스로 실행하세요")
-    patterns, digits = graph._ID_PATTERNS, graph._ID_DIGITS
+    patterns, digits, checked = graph._ID_PATTERNS, graph._ID_DIGITS, validation.ID_PATTERNS
     with measurement_ids():
         result = (time_mode(c, p, t, seed, repeat) if mode == "time"
                   else memory_mode(mode, c, p, t, seed))
     return {"mode": mode, "size": {"customers": c, "products": p, "purchases": t},
             "seed": seed, "pid": os.getpid(), "verification": "Codex 자체 확인",
             "id_note": ID_NOTE, "tracing_enabled": mode == "mem",
-            "id_constants_restored": graph._ID_PATTERNS is patterns and graph._ID_DIGITS is digits,
+            "id_constants_restored": (graph._ID_PATTERNS is patterns and graph._ID_DIGITS is digits
+                                      and validation.ID_PATTERNS is checked),
             **result}
 
 

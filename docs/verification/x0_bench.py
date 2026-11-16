@@ -45,8 +45,8 @@ import search
 import validation
 
 PALETTE = ("블랙", "화이트", "그레이", "네이비", "베이지", "카키", "아이보리", "브라운")
-ID_NOTE = ("측정 프로세스 안에서만 graph의 ID 패턴·자릿수를 6/6/7로 바꿔 끼움. "
-           "운영 코드 불변. X2에서 검증이 분리되면 이 방식이 바뀔 수 있다(v3 5.5).")
+ID_NOTE = ("측정 프로세스 안에서만 ID 패턴(validation·graph)·자릿수(graph)를 6/6/7로 바꿔 끼움. "
+           "운영 코드 불변. X0와 같은 기준으로 재기 위한 고정 자릿수 ID다(v3 5.5).")
 LABELS = MappingProxyType({
     "initialize": "생성(ShopGraph)", "add_customer": "고객 등록",
     "add_purchase": "구매 등록", "update_purchase": "구매 수정",

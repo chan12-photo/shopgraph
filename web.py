@@ -50,6 +50,7 @@ class _RequestError(ValueError):
     """요청 본문 자체의 HTTP 상태와 응답 헤더를 보존하는 입력 오류."""
 
     def __init__(self, status: int, message: str, headers: dict[str, str] | None = None) -> None:
+        """오류를 만든다. 인자: HTTP 상태, 응답 문구, 덧붙일 응답 헤더(없으면 None). 반환: 없음."""
         super().__init__(message)
         self.status = status
         self.headers = headers
@@ -718,8 +719,6 @@ def _route_get(g: ShopGraph, raw_path: str) -> dict | object:
         return _customer(g, parts[2].strip())
     if len(parts) == 4 and parts[:2] == ["api", "customers"] and parts[3] == "recommendations":
         k = _query_k(parsed.query, K_DEFAULT)
-        if k is None:
-            k = K_DEFAULT
         return _recommendations(g, parts[2].strip(), k)
     if len(parts) == 3 and parts[:2] == ["api", "products"]:
         _query_k(parsed.query, None, allow_k=False)
@@ -728,11 +727,6 @@ def _route_get(g: ShopGraph, raw_path: str) -> dict | object:
         k = _query_k(parsed.query, None)
         return _popular(g, parts[2].strip(), k)
     return _NOT_FOUND
-
-
-def _known_path(raw_path: str) -> bool:
-    """UI1 읽기 경로와 UI2 예약 변경 경로인지 판정한다."""
-    return bool(_allowed_methods(raw_path))
 
 
 def _checked_url(raw_path: str, method: str) -> SplitResult:

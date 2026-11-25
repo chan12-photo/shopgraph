@@ -268,12 +268,6 @@ def _item_lines(g: ShopGraph, rank: int, item: dict, scope_label: str) -> list[s
     return [first, reason, third]
 
 
-def _print_item(g: ShopGraph, rank: int, item: dict, scope_label: str) -> None:
-    """추천 항목의 세 줄을 출력한다 (기존 내부 호환용)."""
-    for line in _item_lines(g, rank, item, scope_label):
-        print(line)
-
-
 def _widen_note(g: ShopGraph, customer_id: str, group_label: str, gender_label: str,
                 widest: int, k: int) -> str:
     """범위를 넓혀 찾았다는 안내 줄을 5.3.3 출력 예시와 같은 틀로 만든다.

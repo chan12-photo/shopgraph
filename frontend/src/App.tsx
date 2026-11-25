@@ -1,6 +1,10 @@
+// ShopGraph 웹 화면 (React·TypeScript, Vite로 frontend/dist에 빌드).
+// 계산은 모두 Python 서버(web.py → graph·search·view)가 한다. 이 파일은 /api/* 응답을 받아 그리기만 하고,
+// 점수·순위·품절·안내 문구를 다시 계산하지 않는다. 변경(등록·구매·재고)도 서버 API로만 보낸다.
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
+// 아래 타입은 web.py가 돌려주는 JSON 모양 그대로다 (docs/verification/ui0_design.md의 API 표).
 type Screen = "graph" | "customer" | "mutations" | "popular" | "product" | "integrity";
 type Customer = { id: string; name: string; gender: string; age: number };
 type Group = { id: string; label: string };
@@ -24,8 +28,12 @@ type PopularItem = { product_id: string; product_name: string; score: number; bu
 type PopularResponse = { group: Group; k: number | null; items: PopularItem[] };
 type Integrity = { violation_count: number; lines: string[] };
 type Stats = { groups: number; customers: number; products: number; membership_edges: number; purchase_edges: number; purchases: number };
+// k_default는 서버가 함께 보내지만 화면은 쓰지 않는다. k를 비우면 서버가 기본값을 정한다.
 type Meta = { k_default: number; k_max: number };
 
+/** 서버 API를 부르고 JSON을 돌려준다.
+ *  fetch 자체가 실패하면(서버 꺼짐) 연결 안내 문구로 바꾸고, 취소(AbortError)는 그대로 다시 던진다.
+ *  HTTP 400·500 응답은 fetch가 실패로 보지 않으므로 try 밖에서 response.ok를 보고 서버의 error 문구를 던진다. */
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
@@ -39,6 +47,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return payload;
 }
 
+/** JSON 본문을 보내는 요청 옵션을 만든다. 서버는 Content-Type이 application/json이 아니면 415로 거절한다. */
 function jsonRequest(method: string, body: object): RequestInit {
   return { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
 }
@@ -50,6 +59,7 @@ function integerText(text: string, label: string): number {
   return Number(trimmed);
 }
 
+/** 화면에 보여 줄 오류 문구. Error면 그 문구(대개 서버의 한국어 오류)를, 아니면 일반 문구를 쓴다. */
 function errorMessage(reason: unknown): string {
   return reason instanceof Error ? reason.message : "요청을 처리할 수 없습니다";
 }
@@ -73,10 +83,12 @@ function useApi<T>(path: string, refreshKey: number, retainDuringRefresh = false
   return { data, error, loading };
 }
 
+/** 오류가 있을 때만 경고 상자를 그린다. */
 function ErrorBox({ error }: { error: string | null }) {
   return error ? <p className="error-box" role="alert">{error}</p> : null;
 }
 
+/** 그래프 노드 목록(서버 순서 그대로)으로 고객·상품 선택 상자를 만든다. */
 function NodeSelect({ label, nodes, value, onChange }: {
   label: string; nodes: GraphNode[]; value: string; onChange: (id: string) => void;
 }) {
@@ -87,6 +99,7 @@ function NodeSelect({ label, nodes, value, onChange }: {
   </label>;
 }
 
+// 그래프 SVG 크기와 열 배치(왼쪽부터 그룹·고객·상품). nameLength는 칩 안에 보일 이름 글자 수다.
 const GRAPH_WIDTH = 1180;
 const GRAPH_HEIGHT = 740;
 const GRAPH_TOP = 44;
@@ -164,11 +177,14 @@ function NodeShape({ kind, box }: { kind: GraphNode["kind"]; box: NodeBox }) {
   return <rect className="chip" x={box.x} y={top} width={box.width} height={box.height} rx={kind === "customer" ? box.height / 2 : 5} />;
 }
 
+/** 칩 안에 다 들어가지 않는 이름을 length 글자에서 자르고 말줄임표를 붙인다. 전체 이름은 <title>에 있다. */
 function shortLabel(label: string, length: number): string {
   return label.length > length ? `${label.slice(0, length)}…` : label;
 }
 
-/** 칩 크기 조절은 SVG 좌표뿐이며 서버 배열의 순서를 유지한다. */
+/** 그래프 화면: 서버의 노드·간선(/api/graph)을 SVG로 그린다.
+ *  칩을 누르면 그 노드와 이웃만 진하게 남기고 나머지를 흐리게 한다. 간선 굵기는 서버의 구매 가중치(색상 종류 수)다.
+ *  칩 크기 조절은 SVG 좌표뿐이며 서버 배열의 순서를 유지한다. */
 function GraphScreen({ data, groups, onCustomer, onProduct }: {
   data: GraphData | null; groups: GroupCount[]; onCustomer: (id: string) => void; onProduct: (id: string) => void;
 }) {
@@ -242,6 +258,8 @@ function GraphScreen({ data, groups, onCustomer, onProduct }: {
   </section>;
 }
 
+/** 고객 상세: S1 구매 목록(/api/customers/{id})과 추천(/api/customers/{id}/recommendations)을 함께 보여 준다.
+ *  추천 카드의 문장(근거·구매 가능 색상)과 안내 줄은 서버가 콘솔과 같은 함수(view.recommendation_view)로 만든 것이다. */
 function CustomerScreen({ customerId, customers, refreshKey, onCustomer, onProduct }: {
   customerId: string; customers: GraphNode[]; refreshKey: number;
   onCustomer: (id: string) => void; onProduct: (id: string) => void;
@@ -285,6 +303,10 @@ function CustomerScreen({ customerId, customers, refreshKey, onCustomer, onProdu
   </section>;
 }
 
+/** 등록·구매 화면: 고객 등록(POST /api/customers)과 구매 등록(POST /api/purchases) 폼.
+ *  숫자 칸은 integerText로 숫자 표기만 확인하고 범위는 서버가 판단한다.
+ *  mounted는 응답이 오기 전에 사용자가 다른 탭으로 떠났는지 기록한다. 떠났으면 고객 상세로 화면을 옮기지 않는다(UI9b).
+ *  성공하면 onChanged로 전역 refreshKey를 올려 다른 화면이 서버에서 다시 읽게 한다. */
 function MutationScreen({ customers, products, lastRegisteredId, onCustomerCreated, onChanged }: {
   customers: GraphNode[]; products: GraphNode[]; lastRegisteredId: string | null;
   onCustomerCreated: (id: string, stayed: boolean) => void; onChanged: () => void;
@@ -361,6 +383,8 @@ function PopularChart({ response, label, other, otherLabel }: {
   </article>;
 }
 
+/** 그룹 인기 S4 화면(/api/groups/{id}/popular). 「전」으로 고정한 응답과 현재 응답을 나란히 비교한다.
+ *  탭을 옮겨도 고정한 「전」을 잃지 않도록 App이 이 화면을 숨김 상태로 남겨 두고, 보일 때만 조회한다. */
 function PopularScreen({ groups, refreshKey, visible, meta }: { groups: Group[]; refreshKey: number; visible: boolean; meta: Meta | null }) {
   const [groupId, setGroupId] = useState("G-F-20");
   const [k, setK] = useState("");
@@ -398,6 +422,9 @@ function PopularScreen({ groups, refreshKey, visible, meta }: { groups: Group[];
   </section>;
 }
 
+/** 상품 상세: S2 구매 고객, 재고·구매 가능 색상, 재고 전체 교체(PUT /api/products/{id}/stock).
+ *  재고는 색상별 값을 모두 보내 통째로 바꾼다(빠진 색상은 서버가 삭제로 본다).
+ *  currentId는 저장 응답이 늦게 올 때 그사이 다른 상품을 골랐는지 확인해, 성공·실패 문구를 엉뚱한 상품에 붙이지 않게 한다. */
 function ProductScreen({ productId, products, refreshKey, onChanged, onProduct, lastCustomer, onRecommendations }: {
   productId: string; products: GraphNode[]; refreshKey: number; onChanged: () => void;
   onProduct: (id: string) => void; lastCustomer: GraphNode | undefined; onRecommendations: () => void;
@@ -442,11 +469,13 @@ function ProductScreen({ productId, products, refreshKey, onChanged, onProduct, 
   </section>;
 }
 
+// 무결성 화면의 통계 카드 순서와 이름 (/api/stats의 키).
 const STAT_LABELS: [keyof Stats, string][] = [
   ["groups", "그룹 노드"], ["customers", "고객 노드"], ["products", "상품 노드"],
   ["membership_edges", "소속 간선"], ["purchase_edges", "구매 간선"], ["purchases", "구매 기록"],
 ];
 
+/** 무결성 화면: 노드·간선·기록 수(/api/stats)와 check_integrity 결과(/api/integrity). 「다시 검사」는 같은 GET을 다시 보낸다. */
 function IntegrityScreen({ refreshKey }: { refreshKey: number }) {
   const [recheck, setRecheck] = useState(0);
   const stats = useApi<{ stats: Stats }>("/api/stats", refreshKey + recheck);
@@ -471,6 +500,9 @@ function BrandMark() {
   </svg>;
 }
 
+/** 앱 전체: 여섯 화면 탭과 공유 상태.
+ *  refreshKey는 변경이 성공할 때마다 1씩 올라가며, 이 값을 쓰는 화면들이 서버에서 다시 읽는다(화면이 직접 고치지 않음).
+ *  lastRegisteredId는 마지막으로 등록한 고객(구매 폼의 기본 고객), lastViewedCustomerId는 재고 수정 뒤 「추천 다시 보기」 대상이다. */
 export default function App() {
   const [screen, setScreen] = useState<Screen>("graph");
   const [customerId, setCustomerId] = useState("C01");

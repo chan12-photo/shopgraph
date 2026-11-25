@@ -109,7 +109,19 @@ def _web_port(text: str) -> int:
 
 
 def main(argv: list[str] | None = None) -> None:
-    """인자 없이 콘솔을, ``--web``로 로컬 웹 화면을 시작한다."""
+    """인자 없이 콘솔을, ``--web``로 로컬 웹 화면을 시작한다.
+
+    인자:
+        argv: 명령줄 인자 목록(프로그램 이름 제외). None이면 sys.argv[1:]를 쓴다.
+            허용 형식은 [], ["--web"], ["--web", "--port", PORT] 세 가지다.
+
+    반환:
+        없음. 콘솔은 메뉴의 종료·입력 끝(EOF)·Ctrl+C에서, 웹은 Ctrl+C로 서버를 멈출 때 돌아온다.
+
+    예외:
+        SystemExit: 인자 형식이 틀리거나 PORT가 0~65535 정수가 아닐 때 사용법·오류 문구로 끝낸다.
+            웹 서버를 열 수 없을 때도 _run_web이 SystemExit로 끝낸다.
+    """
     args = list(sys.argv[1:] if argv is None else argv)
     if not args:
         run()

@@ -980,8 +980,9 @@ def create_server(g: ShopGraph, port: int = 8000) -> HTTPServer:
         아직 serve_forever를 시작하지 않은 HTTPServer. 연결은 동시에 받고 그래프 처리는 잠금으로 하나씩 한다.
 
     예외:
-        OSError: 포트를 열 수 없을 때.
-        TypeError: g가 ShopGraph가 아니거나 port 형식이 잘못될 때.
+        OSError: 포트를 열 수 없을 때 (이미 쓰는 포트 등).
+        OverflowError: port가 0~65535 밖일 때 (소켓 bind가 냄. 콘솔 실행은 main._web_port가 먼저 거른다).
+        TypeError: g가 ShopGraph가 아니거나 port가 bool이거나 정수가 아닐 때.
     """
     if not isinstance(g, ShopGraph):
         raise TypeError("g는 ShopGraph여야 합니다")

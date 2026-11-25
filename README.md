@@ -9,14 +9,22 @@
 ## 실행
 
 ```bash
-python main.py
+python3 main.py          # 콘솔 메뉴
+python3 main.py --web    # 웹 화면 (http://127.0.0.1:8000, 포함된 frontend/dist 사용, Node 불필요)
+python3 main.py --web --port 8080   # 8000번이 쓰이고 있을 때
 ```
+
+데이터는 메모리에만 있다. 서버나 프로그램을 다시 켜면 data.py의 시연 데이터로 돌아간다.
 
 ## 테스트
 
 ```bash
-python -m unittest -v
+python3 -B -m unittest            # 전체 (웹 테스트는 127.0.0.1 소켓을 연다)
+python3 -B tools/check_data.py    # 시연 데이터 점검 (개발용)
+python3 -B tools/bench.py time    # 측정 (개발용, 기본 고객 1만·상품 1천·구매 30만)
 ```
+
+프런트 소스(frontend/src)를 고칠 때만 `frontend/`에서 `npm ci`, `npm run typecheck`, `npm run build`로 dist를 다시 만든다. 화면을 바꾼 뒤에는 `node docs/verification/ui5_browser_check.mjs`와 `node docs/verification/ui9b_browser_check.mjs`를 함께 실행한다.
 
 ## 폴더 구조 (계획서 5.5)
 
@@ -24,8 +32,13 @@ python -m unittest -v
 main.py                  유일한 진입점. 메뉴, 입력 변환, 오류 메시지 표시 (W1에서 생성)
 view.py                  화면 출력 전용 (W1에서 생성)
 search.py                읽기 전용: 조회, 검색 S1~S4, 추천 (W1에서 생성)
-graph.py                 ShopGraph: 원본 데이터 + 그래프 + 변경 메서드 (W1에서 생성)
+graph.py                 ShopGraph: 원본 데이터 + 그래프 + 변경 메서드, 공개 정렬 함수 id_sort_key (W1에서 생성, X1에서 가변 ID)
+validation.py            입력 검증 함수·검증용 상수. graph.py만 가져옴 (X2에서 graph.py에서 분리)
+web.py                   --web 로컬 HTTP 서버: 공개 API 호출·JSON 변환·정적 파일 제공 (UI1에서 생성)
 data.py                  초기 더미 데이터 (W8b에서 생성, W11에서 시연 데이터로 교체)
+frontend/
+  src/                   React·TypeScript 화면 소스 (계산은 Python이 하고 결과만 표시)
+  dist/                  저장소에 포함한 빌드 결과 (실행에 Node 불필요)
 tests/
   __init__.py            python -m unittest가 tests/를 찾게 함
   fixtures.py            6.1 PoC 고정 데이터를 테스트마다 새로 만드는 함수 (W2에서 생성)
@@ -36,7 +49,12 @@ tests/
   test_flow.py           최소 흐름 테스트 (W8b에서 생성)
   test_view.py           화면 테스트 (W9에서 생성)
   test_demo.py           시연 시나리오 테스트 (W12에서 생성)
-tools/                   개발용 데이터 점검 스크립트, 실행 경로 밖 (W11에서 생성)
+  demo_expected_adapter.py  docs/demo_expected.md를 읽어 시연 테스트 기대값으로 쓰는 도구
+  test_web*.py           웹 API·화면 문구·시연 HTTP·안정성·헤더 검사 테스트 (UI1~UI9c)
+  test_x1.py             가변 ID 발급과 ID 순 정렬 테스트 (X1)
+  test_bench.py          X0 측정 진단 스크립트 테스트 (X0)
+  test_bench_tools.py    측정 도구 tools/bench.py 테스트 (X2)
+tools/                   개발용 스크립트, 실행 경로 밖: check_data.py(시연 데이터 점검, W11), bench.py(측정, X2)
 docs/
   project_plan.md        계획서 (기준 문서)
   defects.md             결함 기록 (계획서 11.3.9)

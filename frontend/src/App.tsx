@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
-// 아래 타입은 web.py가 돌려주는 JSON 모양 그대로다 (docs/verification/ui0_design.md의 API 표).
+// 아래 타입은 web.py 응답 중 화면이 쓰는 필드만 적었다(응답에는 더 있을 수 있다. 예: /api/meta의 genders). Screen은 화면 전환용 로컬 상태다. API 표는 docs/verification/ui0_design.md.
 type Screen = "graph" | "customer" | "mutations" | "popular" | "product" | "integrity";
 type Customer = { id: string; name: string; gender: string; age: number };
 type Group = { id: string; label: string };

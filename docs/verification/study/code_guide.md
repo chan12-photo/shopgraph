@@ -109,7 +109,7 @@ view.py   ──> graph.py (공개 메서드와 대문자 상수만)
 | 8 | 이미 고른 상품·이미 산 상품·전부 품절인 상품을 빼고, 점수↓ → 구매자 수↓ → 상품 ID↑로 정렬해요 | search.py:357-368, search.py:92 _rank_key |
 | 9 | K개가 찰 때까지 앞에서부터 담고, 찼으면 더 넓히지 않아요 | search.py:408-414 |
 | 10 | 결과가 비어 있으면 머리 줄 대신 "[추천] 이름(ID, 그룹)님께 추천할 상품이 없습니다" 한 줄만 출력하고 바로 끝나요. 아래 11~13의 항목 줄·넓힘 안내·개수 부족 안내·점수 비교 안내는 결과가 1개 이상일 때만 적용돼요 | view.py:151-153, tests/test_flow.py TestW8bFlow.test_zero_screen |
-| 11 | 결과가 있으면 view.py `print_recommendation`: 머리 줄 → 항목마다 3줄(상품·근거·구매 가능 색상) → 안내 줄 | view.py:147-165, view.py:184 _print_item |
+| 11 | 결과가 있으면 view.py `print_recommendation`: 머리 줄 → 항목마다 3줄(상품·근거·구매 가능 색상) → 안내 줄 | view.py `print_recommendation` → `recommendation_view` → `_item_lines` (UI1부터 화면 줄을 recommendation_view가 만들고, 옛 `_print_item`은 W13에서 삭제) |
 | 12 | 넓힘 안내는 k로 판정해요: 결과 수 < k면 전체 고객까지, 결과 수 == k면 마지막 항목의 범위까지 넓힌 것으로 봐요 | view.py:158-160, view.py:220 _widen_note |
 | 13 | 결과 수 < k면 개수 부족 안내, 범위가 2개 이상 섞였으면 점수 비교 안내를 덧붙여요 | view.py:161-165 |
 

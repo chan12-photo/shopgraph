@@ -255,7 +255,7 @@ tests/test_graph.py TestW5Integrity의 test_fault_reverse_adj, test_fault_edge_c
 | view.py | 350 | 화면 출력. 추천 화면 줄은 recommendation_view가 만들고 콘솔·웹이 같이 씀 | print_table, print_group_tree, print_neighbors, print_recommendation, recommendation_view, recommendation_scope_label | 계산 |
 | main.py | 915 | 콘솔 진입점. 메인 메뉴 6개(CREATE·READ·UPDATE·DELETE·PRINT·RECOMMEND)와 하위 메뉴, 입력 변환·오류 표시. `--web`이면 web.py 서버 실행 | main, run | 검증 규칙(graph·validation이 함) |
 | web.py | 993 | 로컬 HTTP API (127.0.0.1, 표준 http.server, 동시 수신 + graph_lock). GET 9종(meta·graph·groups·stats·integrity·고객·추천·상품·그룹 인기), POST 2종(고객·구매), PUT 1종(재고), frontend/dist 정적 파일 | create_server | 업무 계산(search·view 재사용) |
-| data.py | 252 | 시연 데이터: 고객 30·상품 22·구매 122, 남성·10대 빈 그룹, 미판매 P22 | initial_records | - |
+| data.py | 254 | 시연 데이터: 고객 30·상품 22·구매 122, 남성·10대 빈 그룹, 미판매 P22 | initial_records | - |
 | tools/check_data.py | 209 | data.py가 7장 설계 원칙을 지키는지 점검 | check_* 5개, main | - |
 | tools/bench.py | 371 | 정식 ID 규칙 측정 도구 (X2 뒤) | make_records, measure 등 | 운영 코드 변경 |
 | frontend/src/App.tsx | 546 | 웹 화면 6개(그래프·고객 상세·등록/구매·그룹 인기·상품 재고·통계/무결성). 값은 모두 API 응답을 표시 | - | 업무 계산 (CLAUDE.md "TS에 계산 없음") |

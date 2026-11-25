@@ -8,8 +8,9 @@ W8b에서 넣은 6.1 PoC 데이터를 W11에서 시연 데이터로 바꿨다. �
 - 상품은 남녀 공용으로 볼 수 있는 의류, 고객 이름은 실제 사람 이름이 아닌 순우리말 별칭
 - 아무도 사지 않은 신상품 1개(P22): 상품 쪽 콜드 스타트 한계 설명용 (5.3.3)
 시연 장면의 기대 결과는 이 파일이 아니라 docs/demo_expected.md(사람이 손계산·승인)에 둔다.
-단위 테스트의 고정 데이터는 이 파일이 아니라 tests/fixtures.py다. 이 파일을 읽는 테스트는 시연 장면을
-실행하는 tests/test_demo.py·tests/test_web_demo.py뿐이며, 둘 다 기대값은 docs/demo_expected.md에서 가져온다.
+단위 테스트의 고정 데이터는 이 파일이 아니라 tests/fixtures.py다. 시연 테스트(tests/test_demo.py·
+tests/test_web_demo.py)는 이 파일로 장면을 실행하고 기대값은 docs/demo_expected.md에서 가져온다.
+tests/test_web.py의 웹 진입점 테스트처럼 main._run_web()을 거치는 테스트도 이 파일로 그래프를 만든다.
 모듈 전역 가변 상태를 두지 않으려고, 부를 때마다 새 리스트·딕셔너리를 만들어 돌려준다.
 """
 
